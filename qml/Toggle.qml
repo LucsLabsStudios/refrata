@@ -8,7 +8,7 @@ Item {
     Rectangle {
         anchors.fill: parent; radius: height / 2
         color: root.checked ? theme.accent : theme.surface3
-        Behavior on color { ColorAnimation { duration: 160 } }
+        Behavior on color { ColorAnimation { duration: 160; easing.type: Easing.OutCubic } }
     }
     Rectangle {
         width: 24; height: 24; radius: 12

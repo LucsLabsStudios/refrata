@@ -19,7 +19,9 @@ Item {
         id: blurred
         anchors.fill: parent
         visible: root.backdrop !== null && root.visible && root.opacity > 0
-        layer.enabled: visible
+        // keep the layer (and its GPU textures) alive while hidden: re-creating ~8 of them in
+        // the frame the player slides up was the hitch at the start of the animation
+        layer.enabled: root.backdrop !== null
         layer.effect: MultiEffect {
             maskEnabled: true
             maskSource: mask

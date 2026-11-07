@@ -16,7 +16,7 @@ Item {
         backdrop: root.backdrop
         tint: ma.containsMouse ? Qt.rgba(1, 1, 1, 0.2) : Qt.rgba(0.1, 0.1, 0.12, 0.35)
         scale: ma.pressed ? 0.9 : 1
-        Behavior on scale { NumberAnimation { duration: 120 } }
+        Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
 
         Item {
             anchors.centerIn: parent

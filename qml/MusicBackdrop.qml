@@ -25,7 +25,7 @@ Item {
         id: fields
         anchors.fill: parent
         opacity: front.status === Image.Ready ? 0 : 1
-        Behavior on opacity { NumberAnimation { duration: 700 } }
+        Behavior on opacity { NumberAnimation { duration: 700; easing.type: Easing.OutCubic } }
         layer.enabled: true
         layer.textureSize: Qt.size(160, 100)
         layer.smooth: true
@@ -35,13 +35,13 @@ Item {
             width: parent.width * 0.7; height: width; radius: width / 2
             color: root.c1
             x: parent.width * (0.08 + 0.05 * Math.sin(drift.t)); y: parent.height * (0.05 + 0.06 * Math.cos(drift.t * 0.8))
-            Behavior on color { ColorAnimation { duration: 900 } }
+            Behavior on color { ColorAnimation { duration: 900; easing.type: Easing.OutCubic } }
         }
         Rectangle {
             width: parent.width * 0.55; height: width; radius: width / 2
             color: root.c2
             x: parent.width * (0.48 + 0.05 * Math.cos(drift.t * 1.1)); y: parent.height * (0.30 + 0.05 * Math.sin(drift.t))
-            Behavior on color { ColorAnimation { duration: 900 } }
+            Behavior on color { ColorAnimation { duration: 900; easing.type: Easing.OutCubic } }
         }
         Rectangle {
             width: parent.width * 0.35; height: width; radius: width / 2
@@ -121,7 +121,7 @@ Item {
     Item {
         id: drift
         property real t: 0
-        NumberAnimation on t { from: 0; to: Math.PI * 2; duration: 36000; loops: Animation.Infinite; running: root.visible }
+        NumberAnimation on t { from: 0; to: Math.PI * 2; duration: 36000; loops: Animation.Infinite; running: root.visible && !theme.reduceMotion }
     }
 
     // vignette: keeps white text readable at the top and around the dock

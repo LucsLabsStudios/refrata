@@ -39,21 +39,21 @@ ListView {
         Rectangle {
             anchors.fill: parent; radius: 20
             color: row.current ? theme.accentSoft : (rma.containsMouse ? theme.surface : "transparent")
-            Behavior on color { ColorAnimation { duration: 120 } }
+            Behavior on color { ColorAnimation { duration: 120; easing.type: Easing.OutCubic } }
         }
         readonly property bool hot: rma.containsMouse
         Text {
             x: 18; width: 26; anchors.verticalCenter: parent.verticalCenter
             text: index + 1
             opacity: !row.current && !row.hot ? 1 : 0
-            Behavior on opacity { NumberAnimation { duration: 120 } }
+            Behavior on opacity { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
             color: theme.textFaint; font.pixelSize: 14; horizontalAlignment: Text.AlignRight
         }
         EqualizerBars {
             x: 26; anchors.verticalCenter: parent.verticalCenter
             opacity: row.current && !row.hot ? 1 : 0
             visible: opacity > 0.01
-            Behavior on opacity { NumberAnimation { duration: 120 } }
+            Behavior on opacity { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
             running: player.playing && row.current
         }
         Rectangle {
@@ -63,7 +63,7 @@ ListView {
             opacity: row.hot ? 1 : 0
             scale: row.hot ? (rma.pressed ? 0.88 : 1) : 0.7
             visible: opacity > 0.01
-            Behavior on opacity { NumberAnimation { duration: 140 } }
+            Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
             Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutBack } }
             PlayGlyph {
                 anchors.centerIn: parent
@@ -99,7 +99,7 @@ ListView {
             anchors.verticalCenter: parent.verticalCenter
             spacing: 4
             opacity: hh.hovered ? 1 : 0
-            Behavior on opacity { NumberAnimation { duration: 120 } }
+            Behavior on opacity { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
             IconButton { icon: "up"; size: 36; iconSize: 12; enabled: index > 0; onClicked: player.moveItem(index, index - 1) }
             IconButton { icon: "down"; size: 36; iconSize: 12; enabled: index < player.queue.length - 1; onClicked: player.moveItem(index, index + 1) }
             IconButton { objectName: "queueRemove_" + index; icon: "close"; size: 36; iconSize: 12; onClicked: player.removeAt(index) }

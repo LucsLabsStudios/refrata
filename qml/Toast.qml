@@ -13,7 +13,7 @@ Rectangle {
     y: shown ? parent.height - height - 112 : parent.height + 10
     opacity: shown ? 1 : 0
     Behavior on y { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } }
-    Behavior on opacity { NumberAnimation { duration: 200 } }
+    Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
     Timer { id: hide; interval: 2600; onTriggered: root.shown = false }
     Text {
         id: lbl

@@ -42,7 +42,7 @@ Item {
         transformOrigin: Item.TopLeft
         ParallelAnimation {
             id: appear
-            NumberAnimation { target: card; property: "opacity"; to: 1; duration: 140 }
+            NumberAnimation { target: card; property: "opacity"; to: 1; duration: 140; easing.type: Easing.OutCubic }
             NumberAnimation { target: card; property: "scale"; to: 1; duration: 200; easing.type: Easing.OutCubic }
         }
         Column {

@@ -11,7 +11,7 @@ Item {
     opacity: shown ? 1 : 0
     visible: opacity > 0.01
     transform: Translate { y: root.shown ? 0 : -16; Behavior on y { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } } }
-    Behavior on opacity { NumberAnimation { duration: 240 } }
+    Behavior on opacity { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
 
     readonly property string st: updater.state
     readonly property bool selfUpdate: updater.canSelfUpdate
@@ -37,7 +37,7 @@ Item {
         width: Math.max(height, (parent.width - 2) * updater.progress)
         radius: height / 2
         color: Qt.rgba(theme.accent.r, theme.accent.g, theme.accent.b, 0.16)
-        Behavior on width { NumberAnimation { duration: 200 } }
+        Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
     }
 
     Row {

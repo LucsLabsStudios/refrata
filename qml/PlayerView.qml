@@ -11,6 +11,7 @@ Item {
     property int fillMode: VideoOutput.PreserveAspectFit
     property bool controlsVisible: true
     property int glassTick: 0
+    property bool warm: false          // rendered off-screen once at startup (see Main.qml)
     signal minimize()
     signal toggleFullscreen()
     signal loadSubtitle()
@@ -22,7 +23,7 @@ Item {
     function togglePanel(name) { panel = (panel === name ? "" : name); poke() }
     onWidthChanged: Qt.callLater(function () { pv.glassTick++ })
     onHeightChanged: Qt.callLater(function () { pv.glassTick++ })
-    onVisibleChanged: if (visible) { poke(); Qt.callLater(function () { pv.glassTick++ }) }
+    onVisibleChanged: if (visible && !warm) { poke(); Qt.callLater(function () { pv.glassTick++ }) }
 
     SmoothTime { id: pvClock; active: pv.visible && !player.isAudio }
     Timer {
@@ -56,6 +57,9 @@ Item {
     Item {
         id: backdrop
         anchors.fill: parent
+        // the blurred cover is drawn larger than the view (no dark blur edges): keep it inside,
+        // or it leaks above the player's top edge while the sheet slides
+        clip: true
 
         VideoOutput {
             id: video
@@ -70,7 +74,7 @@ Item {
         MusicBackdrop {
             objectName: "musicBackdrop"
             anchors.fill: parent
-            visible: player.isAudio
+            visible: player.isAudio || pv.warm
             art: { library.revision; return player.artwork || library.thumbFor(player.currentPath) }
             seed: player.title
         }
@@ -83,7 +87,7 @@ Item {
         anchors.centerIn: parent
         width: 64; height: 64
         opacity: player.state === "loading" && !spinDelay.running && !player.isAudio ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: 200 } }
+        Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
         visible: opacity > 0.01
         Rectangle {
             anchors.fill: parent; radius: 32; color: "transparent"
@@ -140,7 +144,7 @@ Item {
     MusicStage {
         id: musicStage
         anchors.fill: parent
-        visible: player.isAudio
+        visible: player.isAudio || pv.warm
         pv: pv
         backdrop: backdrop
         sideInset: pv.queueOpen ? queuePanel.width + 32 : 0
@@ -153,7 +157,7 @@ Item {
         anchors.fill: parent
         opacity: pv.controlsVisible ? 1 : 0
         visible: opacity > 0
-        Behavior on opacity { NumberAnimation { duration: 260 } }
+        Behavior on opacity { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
 
         // ---- top-left
         Row {
@@ -232,7 +236,7 @@ Item {
                 backdrop: backdrop; geometryTick: pv.glassTick
                 tint: pma.containsMouse ? Qt.rgba(1, 1, 1, 0.22) : Qt.rgba(0.1, 0.1, 0.12, 0.35)
                 scale: pma.pressed ? 0.92 : 1
-                Behavior on scale { NumberAnimation { duration: 120 } }
+                Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
                 PlayGlyph { anchors.centerIn: parent; anchors.horizontalCenterOffset: player.playing ? 0 : 3; size: 36; playing: player.playing }
                 MouseArea { id: pma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: { player.togglePlay(); pv.poke() } }
             }
@@ -255,14 +259,14 @@ Item {
             // title block fades out while a popover panel covers it
             Text {
                 opacity: pv.panel === "" ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: 160 } }
+                Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
                 text: player.isAudio ? "OUVINDO AGORA" : "REPRODUZINDO AGORA"
                 color: theme.accent
                 font.pixelSize: 12; font.weight: Font.Bold; font.letterSpacing: 2.4
             }
             Text {
                 opacity: pv.panel === "" ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: 160 } }
+                Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
                 width: parent.width * 0.75
                 text: player.title || "—"
                 color: "white"
@@ -289,7 +293,7 @@ Item {
                 color: Qt.rgba(1, 1, 1, 0.7)
                 font.pixelSize: 15
                 opacity: pv.panel === "" ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: 160 } }
+                Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
             }
             Item { width: 1; height: 2 }
 
@@ -397,7 +401,7 @@ Item {
         objectName: "popover"
         visible: opacity > 0
         opacity: pv.panel !== "" && pv.controlsVisible ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: 180 } }
+        Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
         x: player.isAudio ? Math.max(32, (pv.width - (pv.queueOpen ? queuePanel.width + 32 : 0) - width) / 2) : 48 + 120
         anchors.bottom: parent.bottom
         anchors.bottomMargin: player.isAudio ? musicStage.dockBottom + musicStage.dockH + 16 : 36 + 48 + 16

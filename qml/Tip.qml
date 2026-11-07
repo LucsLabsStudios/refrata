@@ -8,7 +8,7 @@ Rectangle {
     property bool below: false
     visible: opacity > 0
     opacity: shown ? 1 : 0
-    Behavior on opacity { NumberAnimation { duration: 120 } }
+    Behavior on opacity { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
     z: 1000
     color: theme.dark ? "#F2F2F4" : "#232220"
     radius: 8

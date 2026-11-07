@@ -261,7 +261,7 @@ Flickable {
                     radius: 28
                     color: sma.containsMouse ? theme.surface2 : theme.surface
                     border.width: 1; border.color: theme.stroke
-                    Behavior on color { ColorAnimation { duration: 140 } }
+                    Behavior on color { ColorAnimation { duration: 140; easing.type: Easing.OutCubic } }
                     Rectangle {
                         x: 22; y: 22; width: 40; height: 40; radius: 20
                         color: theme.accentSoft
@@ -340,14 +340,14 @@ Flickable {
                     color: theme.surface2
                     border.width: 1; border.color: theme.stroke
                     scale: am.containsMouse ? 1.03 : 1
-                    Behavior on scale { NumberAnimation { duration: 200 } }
+                    Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
                     Icon { anchors.centerIn: parent; name: "music"; size: 40; color: theme.textFaint; visible: ai.status !== Image.Ready }
                     RoundedImage { id: ai; anchors.fill: parent; radius: 24; source: model.thumb; sourceWidth: 400 }
                     Rectangle {
                         anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 12
                         width: 44; height: 44; radius: 22; color: theme.accent
                         opacity: am.containsMouse ? 1 : 0
-                        Behavior on opacity { NumberAnimation { duration: 140 } }
+                        Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
                         PlayGlyph { anchors.centerIn: parent; anchors.horizontalCenterOffset: 1; size: 16; color: theme.onAccent }
                     }
                 }

@@ -75,7 +75,7 @@ Item {
         border.color: theme.strokeStrong
         x: root.vertical ? (root.width - width) / 2 : root.frac * root.len - width / 2
         y: root.vertical ? (1 - root.frac) * root.len - height / 2 : (root.height - height) / 2
-        Behavior on width { NumberAnimation { duration: 100 } }
+        Behavior on width { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
     }
     MouseArea {
         id: ma

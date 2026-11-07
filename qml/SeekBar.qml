@@ -23,7 +23,7 @@ Item {
         height: root.active ? 6 : 4
         radius: height / 2
         color: Qt.rgba(1, 1, 1, 0.22)
-        Behavior on height { NumberAnimation { duration: 120 } }
+        Behavior on height { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
         Rectangle {
             visible: ma.containsMouse && !ma.pressed
             width: Math.max(0, ma.mouseX - 0)
@@ -42,7 +42,7 @@ Item {
         color: "white"
         x: track.width * root.frac - width / 2
         anchors.verticalCenter: parent.verticalCenter
-        Behavior on width { NumberAnimation { duration: 120 } }
+        Behavior on width { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
         layer.enabled: true
     }
     Rectangle {

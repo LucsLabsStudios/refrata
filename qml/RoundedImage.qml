@@ -27,7 +27,7 @@ Item {
         maskThresholdMin: 0.5
         maskSpreadAtMin: 1.0
         opacity: img.status === Image.Ready ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: 260 } }
+        Behavior on opacity { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
     }
     Item {
         id: m

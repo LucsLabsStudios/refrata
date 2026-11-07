@@ -90,7 +90,7 @@ Item {
             color: Qt.rgba(1, 1, 1, 0.92)
             opacity: ma.containsMouse && !root.large ? 1 : 0
             scale: ma.containsMouse ? 1 : 0.7
-            Behavior on opacity { NumberAnimation { duration: 160 } }
+            Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
             Behavior on scale { NumberAnimation { duration: 220; easing.type: Easing.OutBack } }
             PlayGlyph { anchors.centerIn: parent; anchors.horizontalCenterOffset: 2; size: 22; color: "#111" }
         }

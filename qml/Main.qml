@@ -134,9 +134,19 @@ Window {
     }
 
     // ------------------------------------------------------------ library shell
+    // 0 = library, 1 = player fully up; follows the player's animated y, so everything tied to
+    // it moves in lock-step with the sheet, both ways
+    readonly property real sheet: Math.max(0, Math.min(1, 1 - pv.y / Math.max(1, height)))
+
     Item {
         id: shell
         anchors.fill: parent
+        // the library recedes a little under the rising player (depth, not a flat wipe)
+        transform: Scale {
+            origin.x: shell.width / 2; origin.y: shell.height / 2
+            xScale: 1 - 0.035 * win.sheet; yScale: xScale
+        }
+        visible: win.sheet < 0.999
 
         Sidebar {
             id: sidebar
@@ -160,10 +170,10 @@ Window {
                 opacity: win.page === index ? 1 : 0
                 visible: opacity > 0.01
                 // outgoing page vanishes quickly so two pages never visibly overlap
-                Behavior on opacity { NumberAnimation { duration: win.page === index ? 260 : 110; easing.type: Easing.OutCubic } }
+                Behavior on opacity { NumberAnimation { duration: theme.reduceMotion ? 120 : (win.page === index ? 260 : 110); easing.type: Easing.OutCubic } }
                 transform: Translate {
-                    y: win.page === index ? 0 : 18
-                    Behavior on y { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } }
+                    y: win.page === index || theme.reduceMotion ? 0 : 18
+                    Behavior on y { NumberAnimation { duration: 320; easing.type: Easing.OutQuart } }
                 }
             }
 
@@ -224,7 +234,7 @@ Window {
                 anchors.horizontalCenterOffset: -24
                 width: Math.min(parent.width - 96, 980)
                 y: player.hasMedia && !win.playerOpen ? parent.height - height - 24 : parent.height + 40
-                Behavior on y { NumberAnimation { duration: 380; easing.type: Easing.OutCubic } }
+                Behavior on y { NumberAnimation { duration: theme.reduceMotion ? 0 : 380; easing.type: Easing.OutQuart } }
                 visible: y < parent.height
                 onExpand: win.playerOpen = true
             }
@@ -232,14 +242,44 @@ Window {
     }
 
     // ------------------------------------------------------------ player
+    // dims the library as the player covers it
+    Rectangle {
+        anchors.fill: parent
+        color: "black"
+        opacity: 0.5 * win.sheet
+        visible: win.sheet > 0.001 && win.sheet < 0.999
+    }
+    // soft shadow along the player's top edge while it travels
+    Rectangle {
+        x: 0; width: parent.width
+        height: 72
+        y: pv.y - height
+        visible: win.sheet > 0.001 && win.sheet < 0.999
+        gradient: Gradient {
+            GradientStop { position: 0; color: "transparent" }
+            GradientStop { position: 1; color: Qt.rgba(0, 0, 0, 0.45) }
+        }
+    }
+
+    // Pre-warm: render the (off-screen) player once while the app is idle, so the GPU
+    // pipelines of its blur/shadow effects exist before the first real open (no hitch then).
+    property bool pvWarm: false
+    Timer { interval: 1200; running: true; onTriggered: { win.pvWarm = true; warmEnd.start() } }
+    Timer { id: warmEnd; interval: 400; onTriggered: win.pvWarm = false }
+    // a new queue brings new covers: upload them while the player is still closed, after the
+    // mini player has finished sliding in, so the first open has nothing left to load
+    Timer { id: warmQueue; interval: 700; onTriggered: if (!win.playerOpen && player.isAudio) { win.pvWarm = true; warmEnd.restart() } }
+    Connections { target: player; function onQueueChanged() { if (!win.playerOpen) warmQueue.restart() } }
+
     PlayerView {
         id: pv
         objectName: "playerView"
         width: parent.width
         height: parent.height
         y: win.playerOpen ? 0 : parent.height
-        visible: y < parent.height
-        Behavior on y { NumberAnimation { duration: 420; easing.type: Easing.OutCubic } }
+        visible: y < parent.height || win.pvWarm
+        warm: win.pvWarm
+        Behavior on y { NumberAnimation { duration: theme.reduceMotion ? 0 : (win.playerOpen ? 440 : 300); easing.type: win.playerOpen ? Easing.OutQuart : Easing.InOutCubic } }
         fullscreen: win.fullscreen
         onMinimize: { if (win.fullscreen) win.toggleFullscreen(); win.playerOpen = false }
         onToggleFullscreen: win.toggleFullscreen()
@@ -260,7 +300,7 @@ Window {
         radius: 36
         visible: opacity > 0
         opacity: drop.containsDrag ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: 160 } }
+        Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
         color: Qt.rgba(theme.accent.r, theme.accent.g, theme.accent.b, 0.12)
         border.width: 3
         border.color: theme.accent

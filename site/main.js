@@ -34,14 +34,61 @@ async function latest() {
 }
 latest();
 
-// gentle reveal of sections while scrolling
-const io = "IntersectionObserver" in window
-  ? new IntersectionObserver((entries) => entries.forEach((e) => {
-      if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
-    }), { threshold: 0.12 })
-  : null;
-document.querySelectorAll(".section > *, .hero-shot").forEach((el) => {
-  if (!io) return;
-  el.classList.add("reveal");
-  io.observe(el);
+// ------------------------------------------------------------------ motion
+const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+
+// reveal while scrolling: native scroll-driven CSS when available, IntersectionObserver otherwise.
+// Items in the same group get an index so they arrive one after the other.
+document.querySelectorAll(".grid, .steps, .policy, .ticks").forEach((group) => {
+  [...group.children].forEach((el, i) => el.style.setProperty("--i", i));
 });
+const revealables = document.querySelectorAll(
+  ".section > .eyebrow, .section > h2, .grid > *, .steps > *, .policy > *, .music-copy > *, .music-visual, .download, .formats");
+const native = CSS.supports("animation-timeline: view()");
+if (!reduce) {
+  revealables.forEach((el) => el.classList.add("reveal"));
+  if (!native && "IntersectionObserver" in window) {
+    const io = new IntersectionObserver((entries) => entries.forEach((e) => {
+      if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
+    }), { threshold: 0.15, rootMargin: "0px 0px -6% 0px" });
+    revealables.forEach((el) => io.observe(el));
+  } else if (!native) {
+    revealables.forEach((el) => el.classList.add("in"));
+  }
+}
+
+// hero window tilts toward the pointer, smoothed every frame (lerp), idle when settled
+const win = document.querySelector(".hero-shot .window");
+if (win && finePointer && !reduce) {
+  const rest = { x: 4, y: -9 };
+  let target = { ...rest }, cur = { ...rest }, raf = 0;
+  const tick = () => {
+    cur.x += (target.x - cur.x) * 0.08;
+    cur.y += (target.y - cur.y) * 0.08;
+    win.style.setProperty("--rx", cur.x.toFixed(3) + "deg");
+    win.style.setProperty("--ry", cur.y.toFixed(3) + "deg");
+    raf = Math.abs(target.x - cur.x) + Math.abs(target.y - cur.y) > 0.01 ? requestAnimationFrame(tick) : 0;
+  };
+  const kick = () => { if (!raf) raf = requestAnimationFrame(tick); };
+  const hero = document.querySelector(".hero");
+  hero.addEventListener("pointermove", (e) => {
+    const r = win.getBoundingClientRect();
+    const nx = (e.clientX - (r.left + r.width / 2)) / window.innerWidth;
+    const ny = (e.clientY - (r.top + r.height / 2)) / window.innerHeight;
+    target = { x: rest.x - ny * 8, y: rest.y + nx * 14 };
+    kick();
+  });
+  hero.addEventListener("pointerleave", () => { target = { ...rest }; kick(); });
+}
+
+// card spotlight follows the cursor
+if (finePointer) {
+  document.querySelectorAll(".card").forEach((card) => {
+    card.addEventListener("pointermove", (e) => {
+      const r = card.getBoundingClientRect();
+      card.style.setProperty("--mx", `${e.clientX - r.left}px`);
+      card.style.setProperty("--my", `${e.clientY - r.top}px`);
+    });
+  });
+}

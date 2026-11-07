@@ -31,6 +31,22 @@ PALETTES = {
 }
 
 
+def _reduce_motion() -> bool:
+    import os
+    forced = os.environ.get("REFRATA_REDUCE_MOTION")
+    if forced is not None:
+        return forced == "1"
+    try:
+        import ctypes
+        on = ctypes.c_int(1)
+        # SPI_GETCLIENTAREAANIMATION: the "Show animations in Windows" switch
+        if ctypes.windll.user32.SystemParametersInfoW(0x1042, 0, ctypes.byref(on), 0):
+            return not on.value
+    except (AttributeError, OSError):
+        pass
+    return False
+
+
 class Theme(QObject):
     changed = Signal()
 
@@ -68,6 +84,11 @@ class Theme(QObject):
     inverseText = _tok("inverseText")
     scrim = _tok("scrim")
     del _tok
+
+    @Property(bool, constant=True)
+    def reduceMotion(self):
+        """Windows "Mostrar animações" off (Acessibilidade › Efeitos visuais): skip big movements."""
+        return _reduce_motion()
 
     @Property(bool, notify=changed)
     def dark(self):

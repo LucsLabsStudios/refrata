@@ -9,7 +9,7 @@ Rectangle {
     color: theme.surface2
     border.width: input.activeFocus ? 2 : 1
     border.color: input.activeFocus ? theme.accent : theme.stroke
-    Behavior on border.color { ColorAnimation { duration: 140 } }
+    Behavior on border.color { ColorAnimation { duration: 140; easing.type: Easing.OutCubic } }
 
     function focusField() { input.forceActiveFocus(); input.selectAll() }
 

@@ -45,9 +45,9 @@ Item {
         }
         border.width: root.variant === "outline" || root.variant === "glass" ? 1 : 0
         border.color: root.variant === "glass" ? Qt.rgba(1, 1, 1, 0.16) : theme.strokeStrong
-        Behavior on color { ColorAnimation { duration: 140 } }
+        Behavior on color { ColorAnimation { duration: 140; easing.type: Easing.OutCubic } }
         scale: ma.pressed ? 0.96 : 1
-        Behavior on scale { NumberAnimation { duration: 120 } }
+        Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
     }
     Row {
         id: row

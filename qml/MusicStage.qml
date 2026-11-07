@@ -42,9 +42,10 @@ Item {
             color: theme.accent
             font.pixelSize: 12; font.weight: Font.Bold; font.letterSpacing: 2.4
         }
-        Text {
+        SwapText {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: {
+            shift: 0
+            value: {
                 var parts = []
                 if (stage.curAlbum) parts.push(stage.curAlbum)
                 if (player.queue.length > 1) parts.push((player.currentIndex + 1) + " de " + player.queue.length)
@@ -71,7 +72,7 @@ Item {
         Component.onCompleted: pos = Math.max(0, target)
         readonly property int target: player.currentIndex
         onTargetChanged: glide()
-        NumberAnimation { id: posAnim; target: carousel; property: "pos"; duration: 560; easing.type: Easing.OutCubic }
+        NumberAnimation { id: posAnim; target: carousel; property: "pos"; duration: theme.reduceMotion ? 1 : 620; easing.type: Easing.OutQuart }
         function glide() {
             posAnim.stop()
             var t = target
@@ -138,7 +139,9 @@ Item {
                     axis { x: 0; y: 1; z: 0 }
                     angle: Math.max(-1, Math.min(1, card.d)) * 24   // side cards turn to face the centre
                 }
-                layer.enabled: visible
+                // tied to `near`, not `visible`: an item hidden with its parent reports visible=false,
+                // so the shadow layers were rebuilt in the first frame of every player open
+                layer.enabled: near
                 layer.effect: MultiEffect {
                     shadowEnabled: true; shadowBlur: 1.0; shadowOpacity: 0.55
                     shadowVerticalOffset: 22; shadowColor: "black"; autoPaddingEnabled: true
@@ -334,7 +337,8 @@ Item {
                     }
                     PlayGlyph { anchors.centerIn: parent; anchors.horizontalCenterOffset: player.playing ? 0 : 2; size: 20; playing: player.playing; color: "white" }
                 }
-                MouseArea { id: playMa; anchors.fill: parent; anchors.margins: 6; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: player.togglePlay() }
+                Ripple { id: playRipple; width: 54; color: Qt.lighter(theme.accent, 1.3) }
+                MouseArea { id: playMa; anchors.fill: parent; anchors.margins: 6; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: { playRipple.burst(); player.togglePlay() } }
             }
             IconButton { objectName: "mpNext"; anchors.verticalCenter: parent.verticalCenter; icon: "next"; onMedia: true; size: 48; iconSize: 17; tip: "Próximo (N)"; onClicked: player.next() }
         }
@@ -400,8 +404,8 @@ Item {
                 anchors.right: nmeta.left; anchors.rightMargin: 12
                 anchors.verticalCenter: parent.verticalCenter; anchors.verticalCenterOffset: -2
                 spacing: 1
-                Text { objectName: "mpTitle"; width: parent.width; elide: Text.ElideRight; text: stage.curTitle || "—"; color: "white"; font.pixelSize: 14; font.weight: Font.DemiBold }
-                Text { objectName: "mpArtist"; width: parent.width; elide: Text.ElideRight; text: stage.curArtist || "Artista desconhecido"; color: Qt.rgba(1, 1, 1, 0.6); font.pixelSize: 12 }
+                SwapText { objectName: "mpTitle"; width: parent.width; elide: Text.ElideRight; value: stage.curTitle || "—"; color: "white"; font.pixelSize: 14; font.weight: Font.DemiBold }
+                SwapText { objectName: "mpArtist"; width: parent.width; elide: Text.ElideRight; value: stage.curArtist || "Artista desconhecido"; color: Qt.rgba(1, 1, 1, 0.6); font.pixelSize: 12; shift: 4 }
             }
             Row {
                 id: nmeta

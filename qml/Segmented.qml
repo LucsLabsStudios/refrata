@@ -44,7 +44,7 @@ Rectangle {
                     text: modelData.text
                     font.pixelSize: 13; font.weight: Font.DemiBold
                     color: index === root.idx ? (root.onMedia ? "#111" : theme.inverseText) : (root.onMedia ? "white" : theme.textDim)
-                    Behavior on color { ColorAnimation { duration: 160 } }
+                    Behavior on color { ColorAnimation { duration: 160; easing.type: Easing.OutCubic } }
                 }
                 MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.picked(modelData.value) }
             }

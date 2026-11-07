@@ -38,7 +38,7 @@ Item {
         x: 10; y: 10
         height: parent.height - 20
         width: player.isAudio ? height : Math.round(height * 16 / 9)
-        Behavior on width { NumberAnimation { duration: 200 } }
+        Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
         Rectangle { anchors.fill: parent; radius: 18; color: "black" }
         Item {
             anchors.fill: parent
@@ -68,9 +68,9 @@ Item {
         anchors.right: controls.left; anchors.rightMargin: 16
         anchors.verticalCenter: parent.verticalCenter
         spacing: 3
-        Text {
+        SwapText {
             width: parent.width; elide: Text.ElideRight
-            text: root.title || "Nada tocando"
+            value: root.title || "Nada tocando"
             color: theme.text; font.pixelSize: 15; font.weight: Font.DemiBold
         }
         Text {
@@ -90,9 +90,10 @@ Item {
         Item {
             width: 48; height: 48
             anchors.verticalCenter: parent.verticalCenter
-            Rectangle { anchors.fill: parent; radius: 24; color: theme.inverse; scale: pma.pressed ? 0.92 : 1; Behavior on scale { NumberAnimation { duration: 100 } } }
+            Rectangle { anchors.fill: parent; radius: 24; color: theme.inverse; scale: pma.pressed ? 0.92 : 1; Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } } }
             PlayGlyph { anchors.centerIn: parent; anchors.horizontalCenterOffset: player.playing ? 0 : 2; size: 18; playing: player.playing; color: theme.inverseText }
-            MouseArea { id: pma; objectName: "miniPlay"; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: player.togglePlay() }
+            Ripple { id: miniRipple; width: 48; color: theme.accent }
+            MouseArea { id: pma; objectName: "miniPlay"; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: { miniRipple.burst(); player.togglePlay() } }
         }
         IconButton { objectName: "miniNext"; icon: "next"; size: 40; iconSize: 15; onClicked: player.next(); anchors.verticalCenter: parent.verticalCenter }
     }

@@ -21,7 +21,7 @@ Item {
         anchors.fill: parent
         radius: 16
         color: root.current ? theme.accentSoft : (ma.containsMouse ? (theme.dark ? Qt.rgba(1, 1, 1, 0.05) : Qt.rgba(0, 0, 0, 0.04)) : "transparent")
-        Behavior on color { ColorAnimation { duration: 120 } }
+        Behavior on color { ColorAnimation { duration: 120; easing.type: Easing.OutCubic } }
     }
     // leading slot: number → (hover) play; current track: equalizer → (hover) pause/resume
     readonly property bool hot: ma.containsMouse
@@ -31,7 +31,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         text: root.number
         opacity: !root.hot && !root.current ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: 120 } }
+        Behavior on opacity { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
         color: theme.textFaint; font.pixelSize: 14
         horizontalAlignment: Text.AlignRight
         font.features: { "tnum": 1 }
@@ -41,7 +41,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         opacity: root.current && !root.hot ? 1 : 0
         visible: opacity > 0.01
-        Behavior on opacity { NumberAnimation { duration: 120 } }
+        Behavior on opacity { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
         running: root.playing && root.current
     }
     Rectangle {
@@ -53,7 +53,7 @@ Item {
         opacity: root.hot ? 1 : 0
         scale: root.hot ? (ma.pressed ? 0.88 : 1) : 0.7
         visible: opacity > 0.01
-        Behavior on opacity { NumberAnimation { duration: 140 } }
+        Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
         Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutBack } }
         PlayGlyph {
             anchors.centerIn: parent

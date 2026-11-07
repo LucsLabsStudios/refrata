@@ -71,7 +71,7 @@ Item {
                         name: modelData.icon
                         size: 18
                         color: root.current === index ? theme.inverseText : theme.textDim
-                        Behavior on color { ColorAnimation { duration: 200 } }
+                        Behavior on color { ColorAnimation { duration: 200; easing.type: Easing.OutCubic } }
                     }
                     MouseArea { id: ma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.navigate(index) }
                     Tip { text: modelData.tip; shown: ma.containsMouse; anchors.horizontalCenter: undefined; x: parent.width + 14; y: (parent.height - height) / 2 }
@@ -88,7 +88,7 @@ Item {
         Item {
             objectName: "navOpen"
             width: 48; height: 48
-            Rectangle { anchors.fill: parent; radius: 24; color: theme.accent; scale: oma.pressed ? 0.92 : 1; Behavior on scale { NumberAnimation { duration: 100 } } }
+            Rectangle { anchors.fill: parent; radius: 24; color: theme.accent; scale: oma.pressed ? 0.92 : 1; Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } } }
             Icon { anchors.centerIn: parent; name: "add"; size: 18; color: theme.onAccent }
             MouseArea { id: oma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.openFiles() }
             Tip { text: "Abrir arquivos"; shown: oma.containsMouse; anchors.horizontalCenter: undefined; x: parent.width + 14; y: (parent.height - height) / 2 }
