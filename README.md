@@ -175,6 +175,22 @@ python main.py --screenshot out.png --page settings --panel about
 Logs: `%LOCALAPPDATA%\Refrata\crash.log` (falhas fatais), `native.log` (mensagens internas do
 VLC/ffmpeg) e `stdout.log` (versão empacotada).
 
+## Code signing policy
+
+Free code signing provided by [SignPath.io](https://signpath.io), certificate by
+[SignPath Foundation](https://signpath.org) (application under review).
+
+- Committers and reviewers: [LucsLabsStudios](https://github.com/LucsLabsStudios)
+- Approvers: [LucsLabsStudios](https://github.com/LucsLabsStudios)
+
+Signed binaries are built only by the public GitHub Actions workflow in this repository
+(`.github/workflows/build.yml`), and every signing request is approved by hand.
+
+Privacy: this program will not transfer any information to other networked systems unless
+specifically requested by the user or the person installing or operating it. The optional update
+check only reads the public GitHub releases of this repository and can be turned off in
+**Ajustes › Atualizações**.
+
 ## Licença
 
 Refrata © LucsLabs Studios, software livre sob a **GNU GPL 3.0** ([LICENSE](LICENSE)). Inclui o
