@@ -179,6 +179,7 @@ Window {
         }
         Item {
             id: body
+            property bool tipBounds: true   // tooltips stay inside the rounded card
             anchors.fill: parent
             layer.enabled: true
             layer.effect: MultiEffect { maskEnabled: true; maskSource: cardMask; maskThresholdMin: 0.5; maskSpreadAtMin: 1 }

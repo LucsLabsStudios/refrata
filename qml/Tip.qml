@@ -19,19 +19,31 @@ Rectangle {
     x: (parent ? parent.width : 0) / 2 - width / 2
     y: below ? (parent ? parent.height : 0) + 8 : -height - 8
 
+    // the visible area: the window, or the nearest ancestor declaring `tipBounds` (a masked card
+    // inside a transparent window, like the quick player, clips anything past its rounded edge)
+    function area() {
+        for (var it = parent; it; it = it.parent)
+            if (it.tipBounds === true) {
+                var o = it.mapToItem(null, 0, 0)
+                return { x: o.x, y: o.y, w: it.width, h: it.height, m: 10 }
+            }
+        return { x: 0, y: 0, w: Window.window.width, h: Window.window.height, m: 6 }
+    }
     function place() {
         if (!parent || !Window.window) return
         var p = parent.mapToItem(null, 0, 0)
-        var W = Window.window.width, H = Window.window.height, m = 6
+        var a = area(), m = a.m
         var up = !below
-        if (up && p.y - height - 8 < m) up = false
-        else if (!up && p.y + parent.height + 8 + height > H - m) up = true
+        if (up && p.y - height - 8 < a.y + m) up = false
+        else if (!up && p.y + parent.height + 8 + height > a.y + a.h - m) up = true
         y = up ? -height - 8 : parent.height + 8
         var sx = p.x + parent.width / 2 - width / 2
-        sx = Math.max(m, Math.min(W - width - m, sx))
+        sx = Math.max(a.x + m, Math.min(a.x + a.w - width - m, sx))
         x = sx - p.x
     }
     onShownChanged: if (shown) place()
+    // the text can change while shown (e.g. "Sempre no topo" → "…: ligado")
+    onWidthChanged: if (shown) place()
 
     Text {
         id: lbl

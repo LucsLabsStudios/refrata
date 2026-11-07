@@ -90,8 +90,9 @@ python tools/sign.py --verify dist\Refrata-Setup-1.0.0.exe
 
 O certificado de desenvolvimento não tira o alerta do SmartScreen. Para isso é preciso um
 certificado emitido por uma autoridade, ou publicar pela Store, onde a Microsoft assina. Como o
-Refrata é código aberto, ele pode ter a assinatura de graça pela **SignPath Foundation**: o
-passo a passo está em [docs/SIGNING.md](docs/SIGNING.md).
+Refrata é código aberto, ele pode ter a assinatura de graça pela **SignPath Foundation** quando
+for mais conhecido (o primeiro pedido foi recusado por falta de visibilidade pública): o passo a
+passo está em [docs/SIGNING.md](docs/SIGNING.md).
 
 ## Funcionalidades
 
@@ -180,8 +181,9 @@ VLC/ffmpeg) e `stdout.log` (versão empacotada).
 
 ## Code signing policy
 
-Free code signing provided by [SignPath.io](https://signpath.io), certificate by
-[SignPath Foundation](https://signpath.org) (application under review).
+Releases are not code-signed yet (the SignPath Foundation program asks for more public
+adoption first; the project will reapply). Every release ships its SHA-256, which the in-app
+updater also verifies before installing.
 
 - Committers and reviewers: [LucsLabsStudios](https://github.com/LucsLabsStudios)
 - Approvers: [LucsLabsStudios](https://github.com/LucsLabsStudios)

@@ -1845,9 +1845,14 @@ def t48_quick_player_preview_compact_and_background():
     QTest.mouseMove(quick, c)
     tip = next(ch for ch in close_btn.childItems() if ch.property("shown") is not None)
     wait(lambda: tip.property("opacity") > 0.9, 2, "close button shows its tooltip")
+    pump(0.15)
+    # inside the rounded card (the window has a transparent shadow margin that the card mask cuts)
     tl = tip.mapToScene(QPointF(0, 0))
-    check(tl.x() >= 0 and tl.y() >= 0 and tl.x() + tip.width() <= quick.width() and tl.y() + tip.height() <= quick.height(),
-          "tooltip fits inside the quick player", f"{tl.x():.0f},{tl.y():.0f} {tip.width():.0f}x{tip.height():.0f} in {quick.width()}x{quick.height()}")
+    cl = card.mapToScene(QPointF(0, 0))
+    check(tl.x() >= cl.x() + 4 and tl.y() >= cl.y() + 4 and tl.x() + tip.width() <= cl.x() + card.width() - 4
+          and tl.y() + tip.height() <= cl.y() + card.height() - 4,
+          "tooltip fits inside the quick player's card",
+          f"{tl.x():.0f},{tl.y():.0f} {tip.width():.0f}x{tip.height():.0f} in card {cl.x():.0f},{cl.y():.0f} {card.width():.0f}x{card.height():.0f}")
     QTest.mouseMove(quick, QPoint(int(quick.width() / 2), int(quick.height() / 2)))
     pump(0.2)
     wkey(quick, Qt.Key.Key_Space)
