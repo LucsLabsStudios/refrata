@@ -1399,23 +1399,22 @@ def t41_second_launch_hands_files_to_running_instance():
         if child.poll() is None:
             child.kill()
     check(child.returncode == 0, "second launch exit code", str(child.returncode))
-    # one media file from Explorer opens in the quick player of the running instance
+    # the app is open: the file plays right here (no quick player floating over it)
     from PySide6.QtGui import QWindow
     quick = C.parts.qml.rootObjects()[0].findChild(QWindow, "quickPlayer")
-    wait(lambda: quick.isVisible() and Path(quick.property("path")) == C.fx["tone_c"], 10,
-         "handed-over file opens in the quick player")
-    QMetaObject.invokeMethod(quick, "close")
-    wait(lambda: not quick.isVisible(), 2)
-    # with the quick player off it plays in the main window, as before
-    C.parts.settings.setValue("quickOpen", False)
-    try:
+    wait(lambda: e.state == "playing" and e.queue and Path(e.queue[0]["path"]) == C.fx["tone_c"], 10,
+         "handed-over file plays here")
+    check(not quick.isVisible(), "no quick player over the open app")
+    stop_playback()
+    # app off screen: the same hand-over opens the quick player
+    with main_hidden():
         child = subprocess.Popen(_child_cmd(str(C.fx["tone_c"])), env=dict(os.environ),
                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         wait(lambda: child.poll() is not None, 30, "second launch exits after handing over")
-        wait(lambda: e.state == "playing" and e.queue and Path(e.queue[0]["path"]) == C.fx["tone_c"], 10,
-             "handed-over file plays here")
-    finally:
-        C.parts.settings.setValue("quickOpen", True)
+        wait(lambda: quick.isVisible() and Path(quick.property("path")) == C.fx["tone_c"], 10,
+             "with the app hidden, the file opens in the quick player")
+        QMetaObject.invokeMethod(quick, "close")
+        wait(lambda: not quick.isVisible(), 2)
     # a subtitle handed over while a video plays is attached, not queued
     open_player_with([C.fx["video"]])
     n0 = len(e.subtitleTracks)
@@ -1439,15 +1438,15 @@ def t42_command_line_files_route_to_the_ui():
     go_page(0)
     from PySide6.QtGui import QWindow
     quick = C.parts.qml.rootObjects()[0].findChild(QWindow, "quickPlayer")
+    with main_hidden():
+        ctl.handOver([str(C.fx["video"])])
+        wait(lambda: quick.isVisible() and quick.property("mode") == "compact", 5, "video from argv opens the quick player")
+        check(e.state not in ("playing", "loading"), "the main player waits for the expand")
+        QMetaObject.invokeMethod(quick, "close")
+        wait(lambda: not quick.isVisible(), 2)
     ctl.handOver([str(C.fx["video"])])
-    wait(lambda: quick.isVisible() and quick.property("mode") == "compact", 5, "video from argv opens the quick player")
-    check(e.state not in ("playing", "loading"), "the main player waits for the expand")
-    QMetaObject.invokeMethod(quick, "close")
-    wait(lambda: not quick.isVisible(), 2)
-    C.parts.settings.setValue("quickOpen", False)
-    ctl.handOver([str(C.fx["video"])])
-    wait(lambda: e.state == "playing" and win().property("playerOpen") is True, 10, "video from argv opens the player")
-    C.parts.settings.setValue("quickOpen", True)
+    wait(lambda: e.state == "playing" and win().property("playerOpen") is True, 10, "with the app open, the video plays in it")
+    check(not quick.isVisible(), "no quick player over the open app")
     n0 = len(e.subtitleTracks)
     ctl.handOver([str(C.fx["srt"])])
     wait(lambda: len(e.subtitleTracks) > n0, 8, "subtitle from argv attaches")
@@ -1730,6 +1729,22 @@ def t47_in_app_update_check_download_verify_install():
         win().setProperty("page", 0)
 
 
+class main_hidden:
+    """The main window off screen (as when Refrata was started for a file from Explorer); the
+    tray mode keeps the app alive meanwhile so closing the quick player does not quit the run."""
+    def __enter__(self):
+        self.bg = C.parts.tray.background
+        C.parts.tray.background = True
+        C.parts.win.hide()
+        pump(0.2)
+
+    def __exit__(self, *exc):
+        QMetaObject.invokeMethod(C.parts.qml.rootObjects()[0], "showMain")
+        wait(lambda: C.parts.win.isVisible(), 3)
+        C.parts.tray.background = self.bg
+        pump(0.2)
+
+
 def wkey(window, k):
     """Key press+release delivered to a specific window (the quick player)."""
     from PySide6.QtCore import QEvent
@@ -1798,6 +1813,9 @@ def t48_quick_player_preview_compact_and_background():
     wait(lambda: not quick.isVisible(), 2, "Esc closes")
 
     # files from Explorer → compact quick player; Space pauses there; expand hands over to Refrata
+    tray.background = True       # keeps the app alive while its window is hidden
+    C.parts.win.hide()
+    pump(0.2)
     ok = QMetaObject.invokeMethod(root, "openFromExplorer", Q_RETURN_ARG("QVariant"), Q_ARG("QVariant", [video]))
     check(ok is True, "a single file from Explorer opens in the quick player")
     wait(lambda: quick.isVisible() and quick.property("mode") == "compact", 3, "compact quick player")
@@ -1816,12 +1834,20 @@ def t48_quick_player_preview_compact_and_background():
     check(e.time >= paused_at - 1500, "Refrata continues where the quick player was", f"{e.time} vs {paused_at}")
     wait(lambda: not quick.isVisible(), 2, "quick player leaves after expanding")
     check(win().property("playerOpen") is True and C.parts.win.isVisible(), "full player is shown")
+    tray.background = False
+    # the reported bug: with the app open on a video, a second file from Explorer must play in
+    # the app (replacing the old one), not in a quick player floating over it
+    ok = QMetaObject.invokeMethod(root, "openFromExplorer", Q_RETURN_ARG("QVariant"), Q_ARG("QVariant", [video2]))
+    check(ok is False and not quick.isVisible(), "with the app open, Explorer files go to the app")
+    QMetaObject.invokeMethod(root, "playPaths", Q_ARG("QVariant", [video2]), Q_ARG("QVariant", 0))
+    wait(lambda: e.currentPath == video2 and e.state == "playing", 8, "the new file replaces the old one in the app")
     win().setProperty("playerOpen", False)
     stop_playback()
     settings_off = C.parts.settings
     settings_off.setValue("quickOpen", False)
-    ok = QMetaObject.invokeMethod(root, "openFromExplorer", Q_RETURN_ARG("QVariant"), Q_ARG("QVariant", [video]))
-    check(ok is False and not quick.isVisible(), "the quick player can be turned off")
+    with main_hidden():
+        ok = QMetaObject.invokeMethod(root, "openFromExplorer", Q_RETURN_ARG("QVariant"), Q_ARG("QVariant", [video]))
+        check(ok is False and not quick.isVisible(), "the quick player can be turned off")
     settings_off.setValue("quickOpen", True)
 
     # background mode: closing the window keeps the app (and the preview) alive in the tray
@@ -1835,7 +1861,7 @@ def t48_quick_player_preview_compact_and_background():
     wait(lambda: C.parts.win.isVisible(), 2, "tray brings the window back")
     tray.background = False
     check(QApplication.instance().quitOnLastWindowClosed() is True, "background mode off restores normal quitting")
-    check(not tray.autostart or tray.canAutostart, "autostart only where it can be set")
+    check(tray.autostart is False, "the battery never sees or touches the real start-with-Windows entry")
 
 
 @test

@@ -45,8 +45,11 @@ Window {
         if (win.visibility === Window.Hidden) win.show()
         appctl.activateWindow(win)
     }
-    // a single media file from Explorer goes to the quick player (when that option is on)
+    // A single media file from Explorer goes to the quick player (when that option is on) — but
+    // only while the app itself is not on screen. With the full app open, the file plays there,
+    // replacing what was playing, instead of a second player floating over the first.
     function openFromExplorer(paths) {
+        if (win.visible) return false
         if (paths.length === 1 && settings.value("quickOpen") && appctl.isMedia(paths[0]) && !appctl.isPlaylist(paths[0])) {
             quick.open(paths[0], quicklook.siblings(paths[0]), "compact")
             return true
@@ -345,7 +348,12 @@ Window {
             close.accepted = false
             if (player.playing && !player.isAudio) player.pause()
             win.hide()
+            return
         }
+        // closing the main window closes Refrata, quick player included (no window left behind
+        // holding the app open)
+        if (quick.visible) quick.close()
+        Qt.callLater(Qt.quit)
     }
 
     // ------------------------------------------------------------ quick player / Space preview

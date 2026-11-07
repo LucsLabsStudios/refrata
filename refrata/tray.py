@@ -18,6 +18,13 @@ def _exe() -> str | None:
     return sys.executable if getattr(sys, "frozen", False) else None
 
 
+def _testing() -> bool:
+    """The E2E battery (also --selftest inside an installed copy) must never touch the user's
+    real "start with Windows" entry."""
+    import os
+    return bool(os.environ.get("REFRATA_E2E_TMP"))
+
+
 class Tray(QObject):
     changed = Signal()
     showRequested = Signal()
@@ -83,7 +90,7 @@ class Tray(QObject):
         return _exe() is not None and sys.platform == "win32"
 
     def _read_run(self):
-        if sys.platform != "win32":
+        if sys.platform != "win32" or _testing():
             return None
         import winreg
         try:
@@ -94,7 +101,7 @@ class Tray(QObject):
 
     def _set_autostart(self, on):
         exe = _exe()
-        if sys.platform == "win32" and exe:
+        if sys.platform == "win32" and exe and not _testing():
             import winreg
             with winreg.CreateKey(winreg.HKEY_CURRENT_USER, RUN_KEY) as k:
                 if on:
