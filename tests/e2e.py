@@ -31,6 +31,7 @@ ROOT = Path(__file__).resolve().parents[1]
 TMP = Path(os.environ.get("REFRATA_E2E_TMP") or tempfile.mkdtemp(prefix="refrata_e2e_"))
 os.environ["REFRATA_E2E_TMP"] = str(TMP)
 os.environ["REFRATA_DATA"] = str(TMP / "data")
+os.environ["REFRATA_NO_HOOK"] = "1"   # no system-wide keyboard hook while the battery types
 (TMP / "data").mkdir(parents=True, exist_ok=True)
 FROZEN = bool(getattr(sys, "frozen", False))
 if not FROZEN:
@@ -1398,8 +1399,23 @@ def t41_second_launch_hands_files_to_running_instance():
         if child.poll() is None:
             child.kill()
     check(child.returncode == 0, "second launch exit code", str(child.returncode))
-    wait(lambda: e.state == "playing" and e.queue and Path(e.queue[0]["path"]) == C.fx["tone_c"], 10,
-         "handed-over file plays here")
+    # one media file from Explorer opens in the quick player of the running instance
+    from PySide6.QtGui import QWindow
+    quick = C.parts.qml.rootObjects()[0].findChild(QWindow, "quickPlayer")
+    wait(lambda: quick.isVisible() and Path(quick.property("path")) == C.fx["tone_c"], 10,
+         "handed-over file opens in the quick player")
+    QMetaObject.invokeMethod(quick, "close")
+    wait(lambda: not quick.isVisible(), 2)
+    # with the quick player off it plays in the main window, as before
+    C.parts.settings.setValue("quickOpen", False)
+    try:
+        child = subprocess.Popen(_child_cmd(str(C.fx["tone_c"])), env=dict(os.environ),
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        wait(lambda: child.poll() is not None, 30, "second launch exits after handing over")
+        wait(lambda: e.state == "playing" and e.queue and Path(e.queue[0]["path"]) == C.fx["tone_c"], 10,
+             "handed-over file plays here")
+    finally:
+        C.parts.settings.setValue("quickOpen", True)
     # a subtitle handed over while a video plays is attached, not queued
     open_player_with([C.fx["video"]])
     n0 = len(e.subtitleTracks)
@@ -1421,8 +1437,17 @@ def t42_command_line_files_route_to_the_ui():
     e, ctl = eng(), C.parts.ctl
     stop_playback()
     go_page(0)
+    from PySide6.QtGui import QWindow
+    quick = C.parts.qml.rootObjects()[0].findChild(QWindow, "quickPlayer")
+    ctl.handOver([str(C.fx["video"])])
+    wait(lambda: quick.isVisible() and quick.property("mode") == "compact", 5, "video from argv opens the quick player")
+    check(e.state not in ("playing", "loading"), "the main player waits for the expand")
+    QMetaObject.invokeMethod(quick, "close")
+    wait(lambda: not quick.isVisible(), 2)
+    C.parts.settings.setValue("quickOpen", False)
     ctl.handOver([str(C.fx["video"])])
     wait(lambda: e.state == "playing" and win().property("playerOpen") is True, 10, "video from argv opens the player")
+    C.parts.settings.setValue("quickOpen", True)
     n0 = len(e.subtitleTracks)
     ctl.handOver([str(C.fx["srt"])])
     wait(lambda: len(e.subtitleTracks) > n0, 8, "subtitle from argv attaches")
@@ -1705,6 +1730,157 @@ def t47_in_app_update_check_download_verify_install():
         win().setProperty("page", 0)
 
 
+def wkey(window, k):
+    """Key press+release delivered to a specific window (the quick player)."""
+    from PySide6.QtCore import QEvent
+    from PySide6.QtGui import QKeyEvent
+    if not window.isActive():   # keys go to the focused item of the *active* window
+        QMetaObject.invokeMethod(C.parts.ctl, "activateWindow", Q_ARG(QObject, window))
+        wait(lambda: window.isActive(), 3, "quick player has the keyboard focus")
+    for typ in (QEvent.Type.KeyPress, QEvent.Type.KeyRelease):
+        QGuiApplication.sendEvent(window, QKeyEvent(typ, k, Qt.KeyboardModifier.NoModifier))
+    pump(0.05)
+
+
+def wclick(window, item):
+    """Real mouse click at the centre of `item`, on its own window (not the main one)."""
+    c = item.mapToScene(QPointF(item.width() / 2, item.height() / 2)).toPoint()
+    QTest.mouseMove(window, c)
+    pump(0.05)
+    QTest.mouseClick(window, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, c)
+    pump(0.08)
+
+
+@test
+def t48_quick_player_preview_compact_and_background():
+    """Space preview / quick player window and background (tray) mode."""
+    from PySide6.QtGui import QWindow
+    from refrata import quicklook as Q
+    e, ql, tray = eng(), C.parts.quicklook, C.parts.tray
+    root = C.parts.qml.rootObjects()[0]
+    quick = root.findChild(QWindow, "quickPlayer")
+    video, video2 = str(C.fx["video"]), str(C.fx["video2"])
+
+    # the hook's decision: only Explorer / desktop file lists, never while typing
+    check(Q.should_preview("explorer", "DirectUIHWND", 5) and Q.should_preview("desktop", "SysListView32", 5),
+          "Space previews from Explorer and the desktop")
+    check(not Q.should_preview("explorer", "DirectUIHWND", 0.2), "Space while typing a name does nothing")
+    check(not Q.should_preview("explorer", "Edit", 5) and not Q.should_preview("other", "DirectUIHWND", 5),
+          "search box, rename box and other apps are left alone")
+    sib = Q.media_siblings(video)
+    check(video in sib and video2 in sib, "folder siblings for ← →", str(len(sib)))
+
+    # preview: opens, plays, browses, closes with Space
+    QMetaObject.invokeMethod(quick, "open", Q_ARG("QVariant", video), Q_ARG("QVariant", sib), Q_ARG("QVariant", "preview"))
+    wait(lambda: quick.isVisible(), 3, "preview window shows")
+    card = C.parts.find("quickCard")
+    wait(lambda: card.property("opacity") > 0.99 and abs(card.property("scale") - 1) < 0.01, 2, "preview grows in")
+    check(quick.property("path") == video, "previews the selected file")
+    wait(lambda: quick.findChild(QObject, "quickSeek").property("value") > 300, 8, "preview plays")
+    check(e.state in ("idle", "stopped", "ended") or not e.playing, "the main player is left alone")
+    pump(0.35)   # past the guard for the Space that opened it
+    wait(lambda: quick.isActive(), 2, "preview has the keyboard focus")
+    i0 = quick.property("index")
+    wkey(quick, Qt.Key.Key_Right)
+    wait(lambda: quick.property("index") == (i0 + 1) % len(sib), 2, "→ goes to the next file in the folder")
+    wkey(quick, Qt.Key.Key_Left)
+    wait(lambda: quick.property("index") == i0, 2, "← goes back")
+    wkey(quick, Qt.Key.Key_Space)
+    wait(lambda: not quick.isVisible(), 2, "Space closes the preview")
+
+    # an immediate Space right after opening (the key that triggered it) must not close it
+    QMetaObject.invokeMethod(quick, "open", Q_ARG("QVariant", video), Q_ARG("QVariant", sib), Q_ARG("QVariant", "preview"))
+    wait(lambda: quick.isVisible(), 3)
+    wkey(quick, Qt.Key.Key_Space)
+    pump(0.3)
+    check(quick.isVisible(), "the Space that opened the preview does not close it")
+    wkey(quick, Qt.Key.Key_Escape)
+    wait(lambda: not quick.isVisible(), 2, "Esc closes")
+
+    # files from Explorer → compact quick player; Space pauses there; expand hands over to Refrata
+    ok = QMetaObject.invokeMethod(root, "openFromExplorer", Q_RETURN_ARG("QVariant"), Q_ARG("QVariant", [video]))
+    check(ok is True, "a single file from Explorer opens in the quick player")
+    wait(lambda: quick.isVisible() and quick.property("mode") == "compact", 3, "compact quick player")
+    wait(lambda: quick.findChild(QObject, "quickSeek").property("value") > 1200, 8, "compact plays")
+    pump(0.35)
+    QMetaObject.invokeMethod(C.parts.ctl, "activateWindow", Q_ARG(QObject, quick))
+    wait(lambda: quick.isActive(), 3, "compact player has the keyboard focus")
+    wkey(quick, Qt.Key.Key_Space)
+    pump(0.3)
+    paused_at = quick.findChild(QObject, "quickSeek").property("value")
+    pump(0.6)
+    check(abs(quick.findChild(QObject, "quickSeek").property("value") - paused_at) < 150, "Space pauses in compact mode")
+    wclick(quick, C.parts.find("quickExpand"))
+    wait(lambda: e.state == "playing" and e.currentPath == video, 8, "expand plays it in Refrata")
+    wait(lambda: e.time > 0, 5)
+    check(e.time >= paused_at - 1500, "Refrata continues where the quick player was", f"{e.time} vs {paused_at}")
+    wait(lambda: not quick.isVisible(), 2, "quick player leaves after expanding")
+    check(win().property("playerOpen") is True and C.parts.win.isVisible(), "full player is shown")
+    win().setProperty("playerOpen", False)
+    stop_playback()
+    settings_off = C.parts.settings
+    settings_off.setValue("quickOpen", False)
+    ok = QMetaObject.invokeMethod(root, "openFromExplorer", Q_RETURN_ARG("QVariant"), Q_ARG("QVariant", [video]))
+    check(ok is False and not quick.isVisible(), "the quick player can be turned off")
+    settings_off.setValue("quickOpen", True)
+
+    # background mode: closing the window keeps the app (and the preview) alive in the tray
+    from PySide6.QtWidgets import QApplication
+    tray.background = True
+    check(QApplication.instance().quitOnLastWindowClosed() is False, "background mode keeps the app running")
+    C.parts.win.close()
+    pump(0.4)
+    check(not C.parts.win.isVisible(), "closing the window hides it to the tray")
+    QMetaObject.invokeMethod(root, "showMain")
+    wait(lambda: C.parts.win.isVisible(), 2, "tray brings the window back")
+    tray.background = False
+    check(QApplication.instance().quitOnLastWindowClosed() is True, "background mode off restores normal quitting")
+    check(not tray.autostart or tray.canAutostart, "autostart only where it can be set")
+
+
+@test
+def t49_ab_repeat_and_always_on_top():
+    e = eng()
+    pv = open_player_with([C.fx["tone_long"], C.fx["tone_alt"]])
+    wait(lambda: e.state == "playing" and e.length > 0, 8)
+    if not e.muted:
+        e.toggleMute()
+    e.seek(5000)
+    wait(lambda: e.time >= 5000, 3)
+    key(C.parts, Qt.Key.Key_L)
+    check(e.loopA >= 4500 and e.loopB < 0, "L marks the start of the stretch", str(e.loopA))
+    wait(lambda: e.time >= e.loopA + 2200, 5, "plays past the start")
+    ui_click("mpLoop")   # music mode: the dock button
+    a, b = e.loopA, e.loopB
+    check(b > a + 1500, "second press marks the end", f"{a}-{b}")
+    check(C.parts.find("loopRange").property("visible") is True or e.isAudio, "the stretch shows on the seek bar")
+    t_end = time.time() + 4.5
+    seen_max = 0
+    while time.time() < t_end:
+        pump(0.1)
+        seen_max = max(seen_max, e.time)
+        check(e.time <= b + 700, "never plays past the end of the stretch", f"{e.time} > {b}")
+    check(e.time >= a - 300, "jumps back to the start", f"{e.time} vs {a}")
+    key(C.parts, Qt.Key.Key_L)
+    check(e.loopA < 0 and e.loopB < 0, "third press turns it off")
+    key(C.parts, Qt.Key.Key_L)
+    e.next()
+    wait(lambda: e.currentIndex == 1, 4)
+    check(e.loopA < 0, "a new track clears the stretch")
+
+    # always on top: T toggles the window flag
+    from PySide6.QtCore import Qt as _Qt
+    key(C.parts, Qt.Key.Key_T)
+    pump(0.3)
+    check(bool(C.parts.win.flags() & _Qt.WindowType.WindowStaysOnTopHint), "T keeps the window on top")
+    check(C.parts.find("pvOnTop").property("checked") is True or e.isAudio, "the pin shows it")
+    key(C.parts, Qt.Key.Key_T)
+    pump(0.3)
+    check(not (C.parts.win.flags() & _Qt.WindowType.WindowStaysOnTopHint), "T again releases it")
+    win().setProperty("playerOpen", False)
+    stop_playback()
+
+
 @test
 def t99_shutdown_persists_state():
     e, s = eng(), C.parts.settings
@@ -1728,7 +1904,8 @@ def t99_shutdown_persists_state():
 # ====================================================================== run
 def run(filter_text="", report=None):
     print(f"Refrata E2E — temp dir: {TMP} — {'frozen build' if FROZEN else 'source tree'} — libVLC: {main.VLC_DIR}")
-    app = QGuiApplication.instance() or QGuiApplication(sys.argv)
+    from PySide6.QtWidgets import QApplication
+    app = QGuiApplication.instance() or QApplication(sys.argv)
     t = time.time()
     C.fx = make_all(TMP / "fx")
     print(f"fixtures ready in {time.time() - t:.1f}s")

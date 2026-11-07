@@ -89,6 +89,8 @@ Root: HKA; Subkey: "{#CapKey}"; ValueType: string; ValueName: "ApplicationName";
 Root: HKA; Subkey: "{#CapKey}"; ValueType: string; ValueName: "ApplicationDescription"; ValueData: "Player moderno sobre o motor do VLC, da {#Studio}"; Tasks: assoc
 Root: HKA; Subkey: "{#CapKey}"; ValueType: string; ValueName: "ApplicationIcon"; ValueData: """{app}\{#AppExe}"",0"; Tasks: assoc
 Root: HKA; Subkey: "Software\RegisteredApplications"; ValueType: string; ValueName: "{#AppName}"; ValueData: "{#CapKey}"; Flags: uninsdeletevalue; Tasks: assoc
+; "Iniciar com o Windows" is written by the app itself; never leave it behind after uninstalling
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "Refrata"; Flags: uninsdeletevalue
 ; per-extension entries (generated from refrata/media.py)
 #include AddBackslash(Root) + "build\assoc.iss"
 

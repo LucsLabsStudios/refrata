@@ -34,6 +34,8 @@ os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
 import shiboken6  # noqa: E402
 from PySide6.QtCore import QObject, QTimer, QUrl, qInstallMessageHandler  # noqa: E402
 from PySide6.QtGui import QFont, QGuiApplication, QIcon  # noqa: E402
+# QApplication (widgets): the tray icon and Explorer's COM automation (QuickLook-style preview) need it
+from PySide6.QtWidgets import QApplication  # noqa: E402
 from PySide6.QtQml import QQmlApplicationEngine  # noqa: E402
 from PySide6.QtQuick import QQuickWindow  # noqa: E402
 
@@ -45,6 +47,9 @@ from refrata.settings import DATA_DIR, Settings  # noqa: E402
 from refrata.single import InstanceServer, send_to_running, server_name  # noqa: E402
 from refrata.theme import Theme  # noqa: E402
 from refrata.updater import Updater  # noqa: E402
+from refrata.quicklook import QuickLook  # noqa: E402
+from refrata.tray import Tray  # noqa: E402
+from refrata.media import is_media_path  # noqa: E402
 
 ROOT = app_root()
 
@@ -55,6 +60,8 @@ _IGNORED = (
     # Qt's clipboard watcher, when another app holds the Windows clipboard at that instant
     # (the user copying something while the app runs); Qt retries and recovers by itself
     "Retrying to obtain clipboard",
+    # QtMultimedia's FFmpeg (quick player) on MKVs without a stream duration: it falls back by itself
+    "AVStream duration",
 )
 
 
@@ -83,6 +90,8 @@ class AppParts:
     library: Library
     ctl: AppController
     updater: Updater
+    quicklook: QuickLook
+    tray: Tray
     instance: InstanceServer | None = None
 
     def find(self, name: str) -> QObject:
@@ -105,6 +114,8 @@ class AppParts:
         # persist everything first; releasing libVLC is the risky part
         if self.instance:
             self.instance.close()
+        self.quicklook.shutdown()
+        self.tray.shutdown()
         self.engine.save_state()
         self.settings.save()
         self.library.shutdown()
@@ -133,13 +144,13 @@ def _vlc_version() -> str:
         return "?"
 
 
-def build(argv=None, page="", panel="", theme_name="", instance_name: str | None = "") -> AppParts:
+def build(argv=None, page="", panel="", theme_name="", instance_name: str | None = "", start_hidden=False) -> AppParts:
     """instance_name: "" = default per-user name, None = no single-instance server."""
     redirect_native_stderr(DATA_DIR / "native.log")
     QGuiApplication.setApplicationName("Refrata")
     QGuiApplication.setOrganizationName("LucsLabs Studios")
     QGuiApplication.setApplicationVersion(__version__)
-    app = QGuiApplication.instance() or QGuiApplication(argv or sys.argv)
+    app = QGuiApplication.instance() or QApplication(argv or sys.argv)
     app.setWindowIcon(QIcon(str(ROOT / "assets" / "icon.ico")))
 
     settings = Settings()
@@ -154,6 +165,8 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
     ctl = AppController()
     updater = Updater(settings)
     updater.quitRequested.connect(app.quit)
+    quicklook = QuickLook(settings)
+    tray = Tray(settings, quicklook, ROOT / "assets" / "icon.ico")
     ctl.setAbout({
         "version": __version__,
         "vlcVersion": _vlc_version(),
@@ -173,6 +186,9 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
     ctx.setContextProperty("library", library)
     ctx.setContextProperty("appctl", ctl)
     ctx.setContextProperty("updater", updater)
+    ctx.setContextProperty("quicklook", quicklook)
+    ctx.setContextProperty("tray", tray)
+    ctx.setContextProperty("startHidden", bool(start_hidden))
     ctx.setContextProperty("startPage", page)
     ctx.setContextProperty("startPanel", panel)
     ctx.setContextProperty("assetsUrl", QUrl.fromLocalFile(str(ROOT / "assets") + "/").toString())
@@ -188,7 +204,8 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
         instance.listen()
         instance.received.connect(ctl.handOver)
         instance.activateRequested.connect(lambda: ctl.activate(win))
-    return AppParts(app, qml, win, settings, theme, engine, library, ctl, updater, instance)
+    tray.showRequested.connect(lambda: QTimer.singleShot(0, lambda: root.showMain()))
+    return AppParts(app, qml, win, settings, theme, engine, library, ctl, updater, quicklook, tray, instance)
 
 
 def _norm_args(files: list[str]) -> list[str]:
@@ -222,6 +239,7 @@ def main():
     ap.add_argument("--report", default="")
     ap.add_argument("--log", default="")
     ap.add_argument("--new-window", action="store_true")
+    ap.add_argument("--background", action="store_true")
     ap.add_argument("files", nargs="*")
     args, _ = ap.parse_known_args()
 
@@ -238,11 +256,16 @@ def main():
     single = not (args.screenshot or args.new_window)
     if single:
         # hand the files to a running instance and leave (the QGuiApplication is reused by build)
-        QGuiApplication(sys.argv)
+        QApplication(sys.argv)
         if send_to_running(files):
             os._exit(0)
 
-    parts = build(sys.argv, args.page, args.panel, args.theme, instance_name="" if single else None)
+    # a single media file from Explorer opens in the quick player; --background starts in the tray
+    from refrata.settings import Settings as _S  # noqa: PLC0415
+    quick_open = bool(_S().value("quickOpen", True)) if files else False
+    hidden = args.background or (quick_open and len(files) == 1 and is_media_path(files[0]))
+    parts = build(sys.argv, args.page, args.panel, args.theme, instance_name="" if single else None,
+                  start_hidden=hidden and not args.screenshot)
     engine, library, win, app = parts.engine, parts.library, parts.win, parts.app
     if args.screenshot:
         w, h = (int(x) for x in args.size.split("x"))

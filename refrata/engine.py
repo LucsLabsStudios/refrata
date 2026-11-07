@@ -145,6 +145,7 @@ class Engine(QObject):
 
     stateChanged = Signal()
     timeChanged = Signal()
+    loopChanged = Signal()
     mediaChanged = Signal()
     queueChanged = Signal()
     tracksChanged = Signal()
@@ -203,6 +204,8 @@ class Engine(QObject):
         self._sleep_deadline = 0.0
         self._open_deadline = 0.0
         self._expected, self._expected_until = None, 0.0
+        self._start_at = 0
+        self._loop_a, self._loop_b = -1, -1   # A-B repeat (ms), -1 = unset
         self.audio_resume_min = 20 * 60_000   # audio shorter than this never resumes mid-way
         self.lastSnapshot = ""
         self._adjust = {"brightness": 1.0, "contrast": 1.0, "saturation": 1.0, "hue": 0.0, "gamma": 1.0}
@@ -292,6 +295,44 @@ class Engine(QObject):
         self._queue = entries
         self.queueChanged.emit()
         self._play_index(max(0, min(start, len(entries) - 1)))
+
+    # ---------------------------------------------------------------- A-B repeat
+    @staticmethod
+    def _fmt(ms):
+        s = max(0, int(ms)) // 1000
+        return f"{s // 3600}:{s // 60 % 60:02d}:{s % 60:02d}" if s >= 3600 else f"{s // 60}:{s % 60:02d}"
+
+    @Slot()
+    def cycleLoop(self):
+        """L: mark the start, then the end (the stretch repeats), then turn it off."""
+        if self._loop_a < 0:
+            self._loop_a = self._time
+            self.message.emit(f"Início do trecho em {self._fmt(self._time)}. Aperte L de novo no fim.")
+        elif self._loop_b < 0:
+            if self._time <= self._loop_a + 500:
+                self.message.emit("O fim do trecho precisa vir depois do início")
+                return
+            self._loop_b = self._time
+            self.message.emit(f"Repetindo de {self._fmt(self._loop_a)} a {self._fmt(self._loop_b)}")
+            self.seek(self._loop_a)
+        else:
+            self._loop_a = self._loop_b = -1
+            self.message.emit("Repetição do trecho desligada")
+        self.loopChanged.emit()
+
+    @Property(int, notify=loopChanged)
+    def loopA(self):
+        return self._loop_a
+
+    @Property(int, notify=loopChanged)
+    def loopB(self):
+        return self._loop_b
+
+    @Slot(list, int, int)
+    def openFilesAt(self, items, start, ms):
+        """openFiles, starting the first track at `ms` (hand-off from the quick player)."""
+        self._start_at = max(0, int(ms))
+        self.openFiles(items, start)
 
     @Slot(str)
     def openUrl(self, url):
@@ -403,7 +444,10 @@ class Engine(QObject):
             media = self._vlc.media_new_location(e["path"])
         else:
             media = self._vlc.media_new_path(e["path"])
-            if self._settings.value("resume", True):
+            if self._start_at:
+                media.add_option(f":start-time={self._start_at / 1000:.2f}")
+                self._start_at = 0
+            elif self._settings.value("resume", True):
                 pos = self._settings.resume_position(e["path"])
                 # songs always start from the top; only videos and long audio
                 # (podcasts, audiobooks) pick up where they stopped
@@ -425,6 +469,9 @@ class Engine(QObject):
                 pass
         self._open_deadline = time.time() + 8
         self._expected = None
+        if self._loop_a >= 0:
+            self._loop_a = self._loop_b = -1   # a stretch belongs to the track it was marked on
+            self.loopChanged.emit()
         if self._state != "loading":
             self._state = "loading"   # the old track's "playing" must not linger on the new one
             self.stateChanged.emit()
@@ -602,6 +649,8 @@ class Engine(QObject):
             if t != self._time or ln != self._length:
                 self._time, self._length = t, ln
                 self.timeChanged.emit()
+            if self._loop_b > 0 and new_state == "playing" and self._time >= self._loop_b:
+                self.seek(self._loop_a)
             if self._tracks_polled < 25 and new_state == "playing":
                 self._tracks_polled += 1
                 if self._tracks_polled in (3, 10, 25):

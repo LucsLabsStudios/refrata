@@ -104,14 +104,15 @@ passo a passo está em [docs/SIGNING.md](docs/SIGNING.md).
 | Áudio | Volume até 150 %, mudo, equalizador de 10 bandas + pré-amp + 18 presets |
 | Imagem | Brilho, contraste, saturação, gama, matiz; ajustar / preencher / esticar |
 | Fila | A seguir (painel lateral e página), reordenar, remover, tocar em seguida, aleatório, repetir 1/todos |
-| Extras | Velocidade 0,25×–4×, timer de sono, captura de quadro, avanço quadro a quadro, continuar de onde parou |
+| Extras | Velocidade 0,25×–4×, timer de sono, captura de quadro, avanço quadro a quadro, continuar de onde parou, repetir um trecho (A-B), sempre no topo |
+| Abertura rápida | Prévia com Espaço no Explorer e na área de trabalho (estilo QuickLook), player rápido compacto para arquivos abertos pelo Explorer, modo em segundo plano na bandeja e iniciar com o Windows |
 | Rede | HTTP/HLS/RTSP/RTMP/… pela página Streams |
 | Playlists | M3U/M3U8, PLS, XSPF |
 | Windows | Instância única, "Abrir com", Apps padrão, diálogos nativos de arquivo/pasta, barra de título tingida |
 | Robustez | Itens com defeito são pulados automaticamente; aviso se uma mídia não abre |
 
 Atalhos: `Espaço` play/pausa · `F` tela cheia · `←/→` ±10 s · `↑/↓` volume · `M` mudo ·
-`N/P` próximo/anterior · `[ ] =` velocidade · `S` captura · `E` quadro a quadro ·
+`N/P` próximo/anterior · `[ ] =` velocidade · `S` captura · `E` quadro a quadro · `L` trecho A-B · `T` sempre no topo ·
 `Ctrl+O` abrir · `Ctrl+L` streams · `Esc` sair/fechar.
 
 ## Identidade visual
@@ -130,6 +131,8 @@ refrata/settings.py   preferências + histórico/posições (%LOCALAPPDATA%\Refr
 refrata/single.py     instância única (QLocalServer por usuário)
 refrata/app.py        integração com o Windows (DWM, Explorer, abrir arquivos vindos de outra instância)
 refrata/updater.py    atualização pelo GitHub Releases (verificar, baixar, conferir SHA-256, instalar)
+refrata/quicklook.py  prévia com Espaço no Explorer (gancho de teclado + automação do Explorer)
+refrata/tray.py       bandeja, segundo plano e iniciar com o Windows
 qml/                  toda a interface (Qt Quick)
 tests/                fixtures sintéticos, bateria E2E, driver dos diálogos nativos do Windows
 tools/build.py        empacotamento; tools/msix.py gera os pacotes MSIX; tools/sign.py assina
@@ -148,7 +151,7 @@ nativa do VLC tradicional.
 ## Testes
 
 ```powershell
-python tests/e2e.py                          # bateria completa (47 testes, ~4 min)
+python tests/e2e.py                          # bateria completa (49 testes, ~5 min)
 python tests/e2e.py -k t37,t40               # filtro por nome
 dist\Refrata\Refrata.exe --selftest --log r.log --report r.json   # a mesma bateria dentro do pacote
 python tools/test_installer.py               # instala, testa a cópia instalada, abre via registro, desinstala

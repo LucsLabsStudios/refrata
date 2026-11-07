@@ -150,7 +150,8 @@ a = Analysis(
     pathex=[{r(ROOT)}],
     datas=[({r(ROOT / 'qml')}, 'qml'), ({r(ROOT / 'assets')}, 'assets'), ({r(VENDOR)}, 'vlc')],
     hiddenimports=['tests', 'tests.e2e', 'tests.fixtures', 'tests.windialogs', 'PySide6.QtTest',
-                   'PySide6.QtNetwork', 'PySide6.QtMultimedia', 'PySide6.QtQuickControls2'],
+                   'PySide6.QtNetwork', 'PySide6.QtMultimedia', 'PySide6.QtQuickControls2',
+                   'PySide6.QtWidgets', 'PySide6.QtAxContainer'],
     excludes={EXCLUDES!r},
     noarchive=False,
 )

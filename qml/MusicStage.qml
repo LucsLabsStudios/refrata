@@ -350,6 +350,8 @@ Item {
             spacing: 2
             IconButton { objectName: "mpShuffle"; anchors.verticalCenter: parent.verticalCenter; icon: "shuffle"; onMedia: true; size: 44; iconSize: 15; checked: player.shuffle; tip: "Aleatório"; onClicked: player.toggleShuffle() }
             IconButton { objectName: "mpRepeat"; anchors.verticalCenter: parent.verticalCenter; icon: player.repeat === 2 ? "repeat1" : "repeat"; onMedia: true; size: 44; iconSize: 15; checked: player.repeat > 0; tip: ["Repetir: desligado", "Repetir: tudo", "Repetir: um"][player.repeat]; onClicked: player.cycleRepeat() }
+            IconButton { objectName: "mpLoop"; anchors.verticalCenter: parent.verticalCenter; icon: "loop"; onMedia: true; size: 44; iconSize: 15; checked: player.loopA >= 0
+                         tip: player.loopB >= 0 ? "Repetindo o trecho: L desliga" : player.loopA >= 0 ? "Marque o fim do trecho (L)" : "Repetir um trecho, A-B (L)"; onClicked: player.cycleLoop() }
             IconButton { objectName: "mpEq"; anchors.verticalCenter: parent.verticalCenter; icon: "eq"; onMedia: true; size: 44; iconSize: 15; checked: stage.pv && stage.pv.panel === "eq"; tip: "Equalizador"; onClicked: stage.pv.togglePanel("eq") }
             IconButton { objectName: "mpSpeed"; anchors.verticalCenter: parent.verticalCenter; icon: "speed"; onMedia: true; size: 44; iconSize: 15; checked: stage.pv && stage.pv.panel === "speed"; tip: "Velocidade " + player.rate.toFixed(2).replace(/\.?0+$/, "") + "×"; onClicked: stage.pv.togglePanel("speed") }
             IconButton { objectName: "mpSleep"; anchors.verticalCenter: parent.verticalCenter; icon: "timer"; onMedia: true; size: 44; iconSize: 15; checked: (stage.pv && stage.pv.panel === "sleep") || player.sleepMinutes > 0; tip: player.sleepMinutes > 0 ? "Timer: " + player.sleepMinutes + " min" : "Timer de sono"; onClicked: stage.pv.togglePanel("sleep") }
@@ -430,6 +432,14 @@ Item {
                 height: seekMa.containsMouse || seekMa.dragging ? 4 : 3
                 radius: 2
                 color: Qt.rgba(1, 1, 1, 0.18)
+                Rectangle {   // A-B stretch
+                    visible: player.loopA >= 0 && player.length > 0
+                    x: parent.width * player.loopA / Math.max(1, player.length)
+                    width: player.loopB >= 0 ? Math.max(3, parent.width * (player.loopB - player.loopA) / Math.max(1, player.length)) : 3
+                    y: -2; height: parent.height + 4; radius: height / 2
+                    color: Qt.rgba(1, 1, 1, 0.25)
+                    Behavior on width { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
+                }
                 Rectangle {
                     width: parent.width * (player.length > 0 ? Math.min(1, (seekMa.dragging ? seekMa.dragMs : clock.value) / player.length) : 0)
                     height: parent.height; radius: 2

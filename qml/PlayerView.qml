@@ -11,6 +11,8 @@ Item {
     property int fillMode: VideoOutput.PreserveAspectFit
     property bool controlsVisible: true
     property int glassTick: 0
+    property bool alwaysOnTop: false
+    signal toggleOnTop()
     property bool warm: false          // rendered off-screen once at startup (see Main.qml)
     signal minimize()
     signal toggleFullscreen()
@@ -183,6 +185,7 @@ Item {
                             pv.fillMode = modes[(modes.indexOf(pv.fillMode) + 1) % 3]
                         }
                     }
+                    IconButton { objectName: "pvOnTop"; icon: "pin"; motion: "drop"; onMedia: true; size: 44; iconSize: 16; checked: pv.alwaysOnTop; tip: pv.alwaysOnTop ? "Sempre no topo: ligado (T)" : "Sempre no topo (T)"; onClicked: pv.toggleOnTop() }
                     IconButton { objectName: "pvReveal"; icon: "explorer"; onMedia: true; size: 44; iconSize: 16; tip: "Mostrar no Explorer"; enabled: player.currentPath.indexOf("://") < 0; onClicked: appctl.reveal(player.currentPath) }
                 }
             }
@@ -315,6 +318,7 @@ Item {
                     anchors.leftMargin: 8; anchors.rightMargin: 8
                     anchors.verticalCenter: parent.verticalCenter
                     value: pvClock.value; to: Math.max(1, player.length)
+                    loopA: player.loopA; loopB: player.loopB
                     enabled: player.seekable
                     onSeekRequested: (ms) => player.seek(ms)
                 }
@@ -352,6 +356,8 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 6
                     IconButton { objectName: "pvShuffle"; icon: "shuffle"; onMedia: true; size: 44; iconSize: 15; checked: player.shuffle; tip: "Aleatório"; onClicked: player.toggleShuffle() }
+                    IconButton { objectName: "pvLoop"; icon: "loop"; motion: "spin"; onMedia: true; size: 44; iconSize: 15; checked: player.loopA >= 0
+                                 tip: player.loopB >= 0 ? "Repetindo o trecho: L desliga" : player.loopA >= 0 ? "Marque o fim do trecho (L)" : "Repetir um trecho, A-B (L)"; onClicked: player.cycleLoop() }
                     IconButton { objectName: "pvRepeat"; icon: player.repeat === 2 ? "repeat1" : "repeat"; onMedia: true; size: 44; iconSize: 15; checked: player.repeat > 0; tip: ["Repetir: desligado", "Repetir: tudo", "Repetir: um"][player.repeat]; onClicked: player.cycleRepeat() }
                     PillButton { objectName: "pvQueue"; variant: "glass"; icon: "queue"; text: bottom.compact ? "" : "A seguir"; h: 44; checked: pv.queueOpen; onClicked: { pv.queueOpen = !pv.queueOpen; pv.poke() } }
                     IconButton { objectName: "pvFullscreen"; icon: pv.fullscreen ? "exitfull" : "fullscreen"; onMedia: true; size: 44; iconSize: 15; tip: "Tela cheia (F)"; onClicked: pv.toggleFullscreen() }

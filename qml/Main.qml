@@ -9,11 +9,15 @@ Window {
     height: 900
     minimumWidth: 1040
     minimumHeight: 660
-    visible: true
+    // hidden when started for the quick player (file from Explorer) or in the tray (--background)
+    visible: !startHidden
     color: theme.bg
     title: player.title ? player.title + "  —  Refrata" : "Refrata"
 
     property int page: 0
+    property bool alwaysOnTop: false
+    flags: Qt.Window | (alwaysOnTop ? Qt.WindowStaysOnTopHint : 0)
+    onAlwaysOnTopChanged: { toast.show(alwaysOnTop ? "Sempre no topo" : "Sempre no topo desligado"); Qt.callLater(restyle) }
     property bool playerOpen: false
     // text fields must not keep keyboard focus (and swallow Space/arrows) once the player shows
     onPlayerOpenChanged: if (playerOpen) focusSink.forceActiveFocus()
@@ -36,6 +40,22 @@ Window {
         if (!paths || paths.length === 0) return
         player.openFiles(paths, index || 0)
         if (!isAudioPath(paths[index || 0])) playerOpen = true
+    }
+    function showMain() {
+        if (win.visibility === Window.Hidden) win.show()
+        appctl.activateWindow(win)
+    }
+    // a single media file from Explorer goes to the quick player (when that option is on)
+    function openFromExplorer(paths) {
+        if (paths.length === 1 && settings.value("quickOpen") && appctl.isMedia(paths[0]) && !appctl.isPlaylist(paths[0])) {
+            quick.open(paths[0], quicklook.siblings(paths[0]), "compact")
+            return true
+        }
+        return false
+    }
+    // nothing visible and not living in the tray: leave
+    function quitIfIdle() {
+        if (!win.visible && !quick.visible && !tray.background) Qt.quit()
     }
     function handleMenu(key, path) {
         if (key === "play") playPaths([path], 0)
@@ -72,7 +92,7 @@ Window {
         function onOpenRequested(paths) {
             if (!paths.length) return
             if (paths.length === 1 && appctl.isSubtitle(paths[0]) && player.hasMedia) player.addSubtitle(paths[0])
-            else win.playPaths(paths, 0)
+            else if (!win.openFromExplorer(paths)) { win.playPaths(paths, 0); win.showMain() }
         }
     }
 
@@ -116,6 +136,8 @@ Window {
     Shortcut { sequence: "N"; onActivated: player.next() }
     Shortcut { sequence: "P"; onActivated: player.previous() }
     Shortcut { sequence: "S"; onActivated: player.snapshot() }
+    Shortcut { sequence: "L"; onActivated: { player.cycleLoop(); pv.poke() } }
+    Shortcut { sequence: "T"; onActivated: win.alwaysOnTop = !win.alwaysOnTop }
     Shortcut { sequence: "E"; onActivated: player.frameStep() }
     Shortcut { sequence: "]"; onActivated: { player.rate = player.rate + 0.25; toast.show("Velocidade " + player.rate + "×") } }
     Shortcut { sequence: "["; onActivated: { player.rate = player.rate - 0.25; toast.show("Velocidade " + player.rate + "×") } }
@@ -284,6 +306,8 @@ Window {
         onMinimize: { if (win.fullscreen) win.toggleFullscreen(); win.playerOpen = false }
         onToggleFullscreen: win.toggleFullscreen()
         onLoadSubtitle: subDialog.open()
+        alwaysOnTop: win.alwaysOnTop
+        onToggleOnTop: win.alwaysOnTop = !win.alwaysOnTop
     }
 
     // ------------------------------------------------------------ drop
@@ -314,5 +338,29 @@ Window {
     }
 
     MediaMenu { id: menu; objectName: "mediaMenu"; onTriggered: (k, p) => win.handleMenu(k, p) }
+
+    // closing the window in background mode keeps Refrata in the tray (music keeps playing)
+    onClosing: (close) => {
+        if (tray.background) {
+            close.accepted = false
+            if (player.playing && !player.isAudio) player.pause()
+            win.hide()
+        }
+    }
+
+    // ------------------------------------------------------------ quick player / Space preview
+    QuickPlayer {
+        id: quick
+        onExpandRequested: (files, index, ms) => {
+            player.openFilesAt(files, index, ms)
+            if (!win.isAudioPath(files[index])) win.playerOpen = true
+            win.showMain()
+        }
+        onClosed: Qt.callLater(win.quitIfIdle)
+    }
+    Connections {
+        target: quicklook
+        function onPreviewRequested(path, list) { quick.open(path, list, "preview") }
+    }
     Toast { id: toast; objectName: "toast" }
 }

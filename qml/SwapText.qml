@@ -22,7 +22,9 @@ Text {
             NumberAnimation { target: root; property: "opacity"; to: 0; duration: 110; easing.type: Easing.InCubic }
             NumberAnimation { target: root; property: "dx"; to: -root.shift; duration: 110; easing.type: Easing.InCubic }
         }
-        PropertyAction { target: root; property: "text"; value: root.value }
+        // read the value when the swap happens (a PropertyAction could keep a stale one when the
+        // value changes twice in a row, e.g. fast track skips or a list set before its index)
+        ScriptAction { script: root.text = root.value }
         PropertyAction { target: root; property: "dx"; value: root.shift }
         ParallelAnimation {
             NumberAnimation { target: root; property: "opacity"; to: 1; duration: 260; easing.type: Easing.OutCubic }

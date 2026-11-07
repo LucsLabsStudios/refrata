@@ -7,6 +7,8 @@ Item {
     property real value: 0      // ms
     property real to: 1         // ms
     property color accent: theme.accent
+    property real loopA: -1     // ms; the A-B stretch is shown on the track
+    property real loopB: -1
     property bool dragging: ma.pressed
     signal seekRequested(real ms)
     signal scrub(real ms)
@@ -34,6 +36,17 @@ Item {
             width: parent.width * root.frac
             height: parent.height; radius: parent.radius
             color: root.accent
+        }
+        Rectangle {
+            objectName: "loopRange"
+            visible: root.loopA >= 0 && root.to > 0
+            x: parent.width * Math.min(1, root.loopA / root.to) - 1
+            width: root.loopB >= 0 ? Math.max(3, parent.width * (root.loopB - root.loopA) / root.to + 2) : 3
+            y: -3; height: parent.height + 6; radius: height / 2
+            color: Qt.rgba(1, 1, 1, 0.18)
+            border.width: 1; border.color: Qt.rgba(1, 1, 1, 0.55)
+            opacity: visible ? 1 : 0
+            Behavior on width { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
         }
     }
     Rectangle {

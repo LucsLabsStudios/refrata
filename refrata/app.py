@@ -11,6 +11,22 @@ from .media import SUB_EXT, is_media_path
 from .playlists import is_playlist, read_playlist
 
 
+def force_foreground(hwnd: int):
+    """SetForegroundWindow from a background app: Windows only honours it for the thread that owns
+    the current foreground input, so attach to that thread's input queue for the call."""
+    u, k = ctypes.windll.user32, ctypes.windll.kernel32
+    fg = u.GetForegroundWindow()
+    fg_tid = u.GetWindowThreadProcessId(fg, None) if fg else 0
+    me = k.GetCurrentThreadId()
+    attached = bool(fg_tid and fg_tid != me and u.AttachThreadInput(me, fg_tid, True))
+    try:
+        u.BringWindowToTop(hwnd)
+        u.SetForegroundWindow(hwnd)
+    finally:
+        if attached:
+            u.AttachThreadInput(me, fg_tid, False)
+
+
 class AppController(QObject):
     aboutChanged = Signal()
     # media handed over by a second launch (Explorer double-click, "Abrir com")
@@ -50,9 +66,21 @@ class AppController(QObject):
                 hwnd = int(window.winId())
                 u = ctypes.windll.user32
                 u.ShowWindow(hwnd, 9 if u.IsIconic(hwnd) else 5)  # SW_RESTORE / SW_SHOW
-                u.SetForegroundWindow(hwnd)
+                force_foreground(hwnd)
             except Exception:
                 pass
+
+    @Slot(QObject)
+    def activateWindow(self, window):
+        """QML: bring one of our windows (e.g. the quick player) to the front with the focus."""
+        if isinstance(window, QWindow):
+            window.raise_()
+            window.requestActivate()
+            if sys.platform == "win32":
+                try:
+                    force_foreground(int(window.winId()))
+                except Exception:
+                    pass
 
     @Slot(QObject, bool, QColor)
     def styleWindow(self, window, dark, caption):
@@ -88,6 +116,11 @@ class AppController(QObject):
     def isSubtitle(self, url):
         p = QUrl(url).toLocalFile() if url.startswith("file:") else url
         return os.path.splitext(p)[1].lower() in SUB_EXT
+
+    @Slot(str, result=bool)
+    def isPlaylist(self, url):
+        p = QUrl(url).toLocalFile() if url.startswith("file:") else url
+        return is_playlist(p)
 
     @Slot(str, result=bool)
     def isMedia(self, url):

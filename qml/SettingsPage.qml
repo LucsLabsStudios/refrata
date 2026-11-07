@@ -115,6 +115,31 @@ Flickable {
         }
 
         Card {
+            title: "Abertura rápida"
+            SettingRow {
+                title: "Prévia com Espaço no Explorer"
+                desc: "Selecione um vídeo ou música no Explorer ou na área de trabalho e aperte Espaço. Espaço ou Esc fecha; ← → passa pelos arquivos da pasta."
+                Toggle { objectName: "toggleQuickLook"; checked: quicklook.enabled; onToggled: (on) => quicklook.enabled = on }
+            }
+            SettingRow {
+                title: "Abrir arquivos no player rápido"
+                desc: "Um vídeo ou música aberto pelo Explorer começa numa janela compacta e flutuante; ⤢ leva para o app completo."
+                Toggle { objectName: "toggleQuickOpen"; checked: settings.value("quickOpen"); onToggled: (on) => settings.setValue("quickOpen", on) }
+            }
+            SettingRow {
+                title: "Manter em segundo plano"
+                desc: "Ao fechar a janela, o Refrata fica na bandeja do Windows, e a prévia e os arquivos abrem na hora."
+                Toggle { objectName: "toggleBackground"; checked: tray.background; onToggled: (on) => tray.background = on }
+            }
+            SettingRow {
+                visible: tray.canAutostart
+                title: "Iniciar com o Windows"
+                desc: "Começa discretamente na bandeja ao ligar o computador."
+                Toggle { objectName: "toggleAutostart"; checked: tray.autostart; onToggled: (on) => tray.autostart = on }
+            }
+        }
+
+        Card {
             title: "Atualizações"
             SettingRow {
                 title: "Procurar atualizações automaticamente"
@@ -169,7 +194,8 @@ Flickable {
                         ["← / →", "Voltar / avançar 10 s"], ["↑ / ↓", "Volume"],
                         ["M", "Silenciar"], ["N / P", "Próximo / anterior"],
                         ["[  /  ]", "Velocidade − / +"], ["S", "Capturar quadro"],
-                        ["E", "Avançar um quadro"], ["Ctrl + O", "Abrir arquivos"],
+                        ["E", "Avançar um quadro"], ["L", "Repetir um trecho (A-B)"],
+                        ["T", "Sempre no topo"], ["Ctrl + O", "Abrir arquivos"],
                         ["Ctrl + L", "Abrir stream de rede"], ["Esc", "Sair da tela cheia / fechar"],
                     ]
                     Row {
