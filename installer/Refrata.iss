@@ -43,6 +43,10 @@ Compression=lzma2/max
 SolidCompression=yes
 ChangesAssociations=yes
 CloseApplications=yes
+; Only ask Restart Manager about executables: by default it registers every .exe/.dll that will be
+; replaced (536 files with libVLC's plugins), and RmGetList took ~3.5 s on "Preparando para
+; instalar". A running Refrata.exe is what holds those DLLs, so it is still found and closed.
+CloseApplicationsFilter=*.exe
 #ifdef Sign
 ; defined by tools/build.py (ISCC /DSign /Sbvsign=...): signs the setup and the uninstaller
 SignTool=bvsign
