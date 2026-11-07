@@ -44,7 +44,7 @@ document.querySelectorAll(".grid, .steps, .policy, .ticks, .duo, .split-copy").f
   [...group.children].forEach((el, i) => el.style.setProperty("--i", i));
 });
 const revealables = document.querySelectorAll(
-  ".section > .eyebrow, .section > h2, .grid > *, .steps > *, .policy > *, .music-copy > *, .music-visual, .split-copy > *, .split-shot, .duo > *, .download, .formats");
+  ".section > .eyebrow, .section > h2, .grid > *, .steps > *, .policy > *, .music-copy > *, .music-visual, .split-copy > *, .split-shot, .duo > *, .download, .formats, .faq > *, .section-lead");
 const native = CSS.supports("animation-timeline: view()");
 if (!reduce) {
   revealables.forEach((el) => el.classList.add("reveal"));

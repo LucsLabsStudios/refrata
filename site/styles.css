@@ -381,3 +381,29 @@ h2 .keycap { font-size: 0.62em; padding: 0.1em 0.6em; vertical-align: 0.18em; co
   .btn-orb, .pill.big { justify-content: flex-start; }
   .card { padding: 24px; }
 }
+
+/* ------------------------------------------------------------------ section lead + faq */
+.section-lead { max-width: 640px; }
+.faq { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 48px; align-items: start; }
+.faq details { padding: 0; transition: border-color var(--t-base) var(--ease-out); }
+.faq details[open] { border-color: rgba(255, 140, 70, 0.22); }
+.faq summary {
+  list-style: none; cursor: pointer; padding: 22px 56px 22px 26px; position: relative;
+  font-family: var(--display); font-weight: 600; font-size: 17px; color: var(--text);
+  border-radius: var(--radius);
+}
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after {
+  content: ""; position: absolute; right: 26px; top: 50%; width: 10px; height: 10px; margin-top: -7px;
+  border-right: 2px solid var(--accent2); border-bottom: 2px solid var(--accent2);
+  transform: rotate(45deg); transition: transform var(--t-base) var(--ease-out), margin var(--t-base) var(--ease-out);
+}
+.faq details[open] summary::after { transform: rotate(-135deg); margin-top: -2px; }
+.faq summary:focus-visible { outline: 2px solid var(--accent2); outline-offset: 2px; }
+.faq details p { margin: 0; padding: 0 26px 24px; }
+.faq details[open] p { animation: faq-in var(--t-base) var(--ease-out); }
+.faq a { color: var(--accent2); }
+@keyframes faq-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+#code-signing-policy { scroll-margin-top: 110px; }
+@media (max-width: 760px) { .faq { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { .faq details[open] p { animation: none; } }
