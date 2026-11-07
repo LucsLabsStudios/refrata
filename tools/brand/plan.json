@@ -1,0 +1,22 @@
+[
+  {
+    "id": "c1_prism",
+    "background": "transparent",
+    "prompt": "Premium app icon for a modern media player made by a creative studio called LucsLabs (lux = light, labs = laboratory). A rounded-corner triangular PLAY symbol made of thick polished optical glass, like a scientific prism, floating at the center. A thin beam of pure white light enters its left side and refracts out of its right side as a smooth warm spectrum of amber, vivid orange (#FF7A2F) and soft magenta. Deep near-black graphite rounded-square (squircle) tile background with a subtle warm radial glow. Apple / Samsung One UI icon aesthetic, minimal, centered, crisp edges, soft studio lighting, high contrast so it reads at small sizes. No text, no letters, no watermark."
+  },
+  {
+    "id": "c2_flask",
+    "background": "transparent",
+    "prompt": "Premium minimal app icon: a laboratory erlenmeyer flask silhouette drawn with a single thick rounded line of glowing warm orange light (#FF7A2F), and inside the flask the liquid forms a solid rounded PLAY triangle that emits light. Deep near-black graphite rounded-square (squircle) tile with a soft warm inner glow. Flat-meets-glass style like modern Apple and Samsung One UI icons, very clean geometry, centered, high contrast, readable at 32 pixels. No text, no letters."
+  },
+  {
+    "id": "c3_monogram",
+    "background": "transparent",
+    "prompt": "Premium app icon: a bold geometric monogram where the letter L and a rounded PLAY triangle interlock, made of luminous frosted glass with a warm orange-to-amber gradient (#FF7A2F to #FFB36B) and a soft inner light, as if lit from inside (lux). Deep warm-black rounded-square (squircle) tile background with a subtle vignette. Clean, modern, Apple / Google Material You icon aesthetic, centered, sharp edges, high contrast. No other text, no watermark."
+  },
+  {
+    "id": "c4_lens",
+    "background": "transparent",
+    "prompt": "Premium app icon: a glossy glass orb lens, like a camera lens or a drop of light, with a rounded white PLAY triangle inside it; the orb refracts a warm orange (#FF7A2F) and magenta light ring around its edge, evoking light (lux) and a science lab. Deep near-black graphite rounded-square (squircle) background tile. Minimal, modern, Apple and Samsung One UI style, centered, crisp, readable at small size. No text, no letters."
+  }
+]

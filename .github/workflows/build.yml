@@ -1,0 +1,51 @@
+# Reproducible Windows build from the public source (required for SignPath code signing).
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Python dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: VLC 3 (libVLC to bundle) and Inno Setup
+        run: |
+          choco install vlc --no-progress -y
+          choco install innosetup --no-progress -y
+
+      - name: Build app, portable zip and installer
+        run: python tools/build.py --no-msix
+
+      # - name: Assinar com a SignPath (ativar depois da aprovação, veja docs/SIGNING.md)
+      #   uses: signpath/github-action-submit-signing-request@v1
+      #   with:
+      #     api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+      #     organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+      #     project-slug: refrata
+      #     signing-policy-slug: release-signing
+      #     github-artifact-id: ${{ steps.upload.outputs.artifact-id }}
+      #     wait-for-completion: true
+      #     output-artifact-directory: dist/signed
+
+      - name: Upload artifacts
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: refrata-windows
+          path: |
+            dist/Refrata-Setup-*.exe
+            dist/Refrata-*-portable.zip
+          if-no-files-found: error

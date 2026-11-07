@@ -1,0 +1,24 @@
+﻿Refrata — © LucsLabs Studios
+
+O Refrata é software livre: você pode redistribuí-lo e modificá-lo sob os termos da GNU General
+Public License, versão 3 (GPL-3.0). O texto completo está em LICENSE.txt, na pasta de instalação.
+Código-fonte: https://github.com/LucsLabsStudios/refrata
+
+O Refrata é uma interface independente construída sobre o libVLC, o motor de reprodução
+do VLC media player, desenvolvido pela VideoLAN.
+
+Componentes de terceiros incluídos neste instalador, redistribuídos sem modificação:
+
+  • libVLC e módulos do VLC 3 — © VideoLAN e colaboradores.
+    libVLC é distribuído sob a GNU LGPL 2.1 ou posterior; alguns módulos, sob a GNU GPL 2
+    ou posterior. O texto completo está em LICENSES\VLC-COPYING.txt, na pasta de instalação.
+    Código-fonte: https://code.videolan.org/videolan/vlc
+
+  • Qt for Python (PySide6) e Qt 6 — © The Qt Company, sob a GNU LGPL 3.
+    Código-fonte: https://code.qt.io
+
+  • Python — © Python Software Foundation, sob a PSF License.
+
+"VLC" é marca registrada da VideoLAN. O Refrata não é afiliado à VideoLAN nem endossado por ela.
+
+O SOFTWARE É FORNECIDO "NO ESTADO EM QUE SE ENCONTRA", SEM GARANTIAS DE QUALQUER TIPO.

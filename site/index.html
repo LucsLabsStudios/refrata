@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Refrata · player de mídia para Windows</title>
+  <meta name="description" content="Refrata é um player de vídeo e música para Windows, gratuito e de código aberto, construído sobre o motor do VLC. Toca praticamente tudo, com uma interface nova.">
+  <meta name="theme-color" content="#0b0908">
+  <meta property="og:title" content="Refrata · todo o motor do VLC, refratado">
+  <meta property="og:description" content="Player de vídeo e música para Windows, gratuito e de código aberto.">
+  <meta property="og:image" content="/img/og.jpg">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="/img/icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+
+  <header class="nav" id="top">
+    <a class="brand" href="#top" aria-label="Refrata, início">
+      <img src="/img/icon.png" alt="" width="34" height="34">
+      <span>Refrata</span>
+    </a>
+    <nav class="links" aria-label="Seções">
+      <a href="#recursos">Recursos</a>
+      <a href="#musica">Música</a>
+      <a href="#atualizacoes">Atualizações</a>
+      <a href="#seguranca">Segurança</a>
+    </nav>
+    <div class="nav-cta">
+      <a class="pill ghost" href="https://github.com/LucsLabsStudios/refrata" target="_blank" rel="noopener">
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38v-1.33c-2.23.48-2.7-1.07-2.7-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.06-.49.06-.49.8.06 1.23.83 1.23.83.72 1.22 1.88.87 2.34.66.07-.52.28-.87.5-1.07-1.78-.2-3.65-.89-3.65-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.19c0 .21.15.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+        <span>GitHub</span>
+      </a>
+      <a class="pill accent" href="#download">Baixar</a>
+    </div>
+  </header>
+
+  <main>
+    <!-- ======================================================= hero -->
+    <section class="hero">
+      <div class="hero-art" aria-hidden="true"></div>
+      <div class="hero-copy">
+        <p class="eyebrow">LucsLabs Studios · grátis e de código aberto</p>
+        <h1>Todo o motor do VLC, <em>refratado.</em></h1>
+        <p class="lead">Um player de vídeo e música para Windows que toca praticamente qualquer arquivo, com
+          uma interface nova: capas em 3D, vidro fosco sobre o vídeo e controles que respondem na hora.</p>
+        <div class="cta-row">
+          <a class="btn-orb" href="#download" data-download>
+            <span class="orb" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M12 3a1 1 0 0 1 1 1v9.59l3.3-3.3a1 1 0 1 1 1.4 1.42l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.42l3.3 3.3V4a1 1 0 0 1 1-1Zm-7 15a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"/></svg>
+            </span>
+            <span class="btn-text">
+              <strong>Baixar para Windows</strong>
+              <small data-version-line>Windows 10 e 11 · 64 bits</small>
+            </span>
+          </a>
+          <a class="pill ghost big" href="https://github.com/LucsLabsStudios/refrata" target="_blank" rel="noopener">Ver o código</a>
+        </div>
+      </div>
+      <figure class="hero-shot">
+        <div class="window">
+          <div class="window-bar"><i></i><i></i><i></i><span>Refrata</span></div>
+          <img src="/img/music-player.webp" alt="Player de música do Refrata: carrossel de capas em 3D sobre um fundo laranja desfocado e um dock de vidro com os controles" width="1440" height="900" fetchpriority="high">
+        </div>
+      </figure>
+    </section>
+
+    <!-- ======================================================= formats -->
+    <section class="formats" aria-label="Formatos suportados">
+      <div class="marquee">
+        <div class="track">
+          <span>MKV</span><span>MP4</span><span>AVI</span><span>MOV</span><span>WEBM</span><span>FLAC</span><span>MP3</span><span>OPUS</span>
+          <span>M4A</span><span>WAV</span><span>HLS</span><span>RTSP</span><span>M3U</span><span>XSPF</span><span>SRT</span><span>ASS</span>
+          <span>MKV</span><span>MP4</span><span>AVI</span><span>MOV</span><span>WEBM</span><span>FLAC</span><span>MP3</span><span>OPUS</span>
+          <span>M4A</span><span>WAV</span><span>HLS</span><span>RTSP</span><span>M3U</span><span>XSPF</span><span>SRT</span><span>ASS</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================= features -->
+    <section class="section" id="recursos">
+      <p class="eyebrow">Recursos</p>
+      <h2>O motor que você já confia.<br><span class="dim">A experiência que ele merecia.</span></h2>
+      <div class="grid">
+        <article class="card">
+          <div class="knob"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H4z M8 20h8" /></svg></div>
+          <h3>Vídeo com vidro fosco</h3>
+          <p>Controles em vidro de verdade sobre o filme, título grande e barra de busca com prévia de tempo. Somem sozinhos quando você assiste.</p>
+        </article>
+        <article class="card">
+          <div class="knob"><svg viewBox="0 0 24 24"><path d="M5 9v6 M9 6v12 M13 9v6 M17 4v16 M21 10v4" /></svg></div>
+          <h3>Equalizador de 10 bandas</h3>
+          <p>Pré-amplificador, 18 presets e volume até 150% com marca no 100%, para não estourar sem querer.</p>
+        </article>
+        <article class="card">
+          <div class="knob"><svg viewBox="0 0 24 24"><path d="M4 6h16v12H4z M7 14h4 M13 14h4" /></svg></div>
+          <h3>Legendas e faixas</h3>
+          <p>Troque áudio e legenda com um clique, arraste um .srt para a janela e ajuste o atraso de cada um.</p>
+        </article>
+        <article class="card">
+          <div class="knob"><svg viewBox="0 0 24 24"><path d="M4 7h11 M4 12h11 M4 17h7 M18 14v6 M15 17h6" /></svg></div>
+          <h3>Fila e playlists</h3>
+          <p>A seguir, tocar em seguida, aleatório e repetir. Abre M3U, M3U8, PLS e XSPF.</p>
+        </article>
+        <article class="card">
+          <div class="knob"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" /><path d="M4 12h16 M12 4c2.5 2.5 2.5 13.5 0 16 M12 4c-2.5 2.5-2.5 13.5 0 16" /></svg></div>
+          <h3>Streams de rede</h3>
+          <p>Cole um link HTTP, HLS, RTSP ou RTMP e assista. O motor do VLC cuida do resto.</p>
+        </article>
+        <article class="card">
+          <div class="knob"><svg viewBox="0 0 24 24"><path d="M12 4v4 M12 16v4 M4 12h4 M16 12h4 M7 7l2 2 M15 15l2 2 M17 7l-2 2 M9 15l-2 2" /></svg></div>
+          <h3>Continua de onde parou</h3>
+          <p>Filmes, podcasts e audiolivros voltam ao ponto certo. Músicas começam sempre do início.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- ======================================================= music -->
+    <section class="section music" id="musica">
+      <div class="music-copy">
+        <p class="eyebrow">Modo música</p>
+        <h2>Suas capas,<br>em primeiro plano.</h2>
+        <p class="lead">Um clique toca. Outro pausa. As capas giram em 3D, o fundo pega as cores do disco e o
+          progresso corre em volta do botão.</p>
+        <ul class="ticks">
+          <li>Biblioteca com tags, capas e busca</li>
+          <li>Carrossel da fila com capas em 3D</li>
+          <li>Miniplayer que acompanha você pelo app</li>
+        </ul>
+      </div>
+      <div class="music-visual">
+        <div class="ring-demo" aria-hidden="true">
+          <svg viewBox="0 0 200 200">
+            <defs>
+              <linearGradient id="arc" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#ffd2a3"/><stop offset="1" stop-color="#ff6a1f"/>
+              </linearGradient>
+            </defs>
+            <circle class="ring-track" cx="100" cy="100" r="88"/>
+            <circle class="ring-arc" cx="100" cy="100" r="88"/>
+          </svg>
+          <div class="ring-orb"><svg viewBox="0 0 24 24" width="34" height="34"><path fill="currentColor" d="M7 5h3v14H7zm7 0h3v14h-3z"/></svg></div>
+        </div>
+        <img class="lib-shot" src="/img/music-library.webp" alt="Biblioteca de músicas do Refrata com capas, artistas e duração" width="1440" height="900" loading="lazy">
+      </div>
+    </section>
+
+    <!-- ======================================================= updates -->
+    <section class="section" id="atualizacoes">
+      <p class="eyebrow">Atualizações</p>
+      <h2>Instale uma vez.<br><span class="dim">O resto chega sozinho.</span></h2>
+      <ol class="steps">
+        <li class="card">
+          <span class="num">1</span>
+          <h3>Aviso no app</h3>
+          <p>Ao abrir, o Refrata confere se existe versão nova e mostra um aviso discreto. Nada acontece sem o seu clique.</p>
+        </li>
+        <li class="card">
+          <span class="num">2</span>
+          <h3>Download conferido</h3>
+          <p>Em <b>Atualizar</b>, ele baixa o instalador e confere a assinatura SHA-256 publicada no lançamento.</p>
+        </li>
+        <li class="card">
+          <span class="num">3</span>
+          <h3>Reabre na versão nova</h3>
+          <p>A instalação roda em silêncio e o app volta aberto, com sua biblioteca e seus ajustes intactos.</p>
+        </li>
+      </ol>
+    </section>
+
+    <!-- ======================================================= download -->
+    <section class="section" id="download">
+      <div class="download">
+        <div class="dl-glow" aria-hidden="true"></div>
+        <div class="dl-copy">
+          <p class="eyebrow">Download</p>
+          <h2>Refrata <span data-version>para Windows</span></h2>
+          <p class="lead">Grátis, sem anúncios e de código aberto. Não precisa instalar o VLC nem mais nada: o motor
+            vem junto.</p>
+          <div class="cta-row">
+            <a class="btn-orb" href="https://github.com/LucsLabsStudios/refrata/releases/latest" data-download>
+              <span class="orb" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M12 3a1 1 0 0 1 1 1v9.59l3.3-3.3a1 1 0 1 1 1.4 1.42l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.42l3.3 3.3V4a1 1 0 0 1 1-1Zm-7 15a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"/></svg>
+              </span>
+              <span class="btn-text"><strong>Instalador</strong><small data-size>recomendado</small></span>
+            </a>
+            <a class="pill ghost big" href="https://github.com/LucsLabsStudios/refrata/releases/latest" data-portable>Versão portátil (.zip)</a>
+          </div>
+          <p class="fine">Windows 10 ou 11, 64 bits · <a href="https://github.com/LucsLabsStudios/refrata/releases" target="_blank" rel="noopener">todas as versões</a>
+            <span data-sha></span></p>
+        </div>
+        <div class="dl-help card">
+          <h3>Se o Windows desconfiar</h3>
+          <p>Enquanto a assinatura digital do projeto está em análise, o navegador e o Windows podem avisar que o arquivo é pouco baixado.</p>
+          <ol>
+            <li>No navegador, escolha <b>Manter</b>.</li>
+            <li>Na tela azul do SmartScreen, clique em <b>Mais informações</b> e depois em <b>Executar assim mesmo</b>.</li>
+          </ol>
+          <p class="fine">Quer conferir o arquivo? Compare o SHA-256 do download com o publicado no lançamento.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================= security -->
+    <section class="section" id="seguranca">
+      <p class="eyebrow">Segurança</p>
+      <h2>Código aberto, de ponta a ponta.</h2>
+      <div class="policy card">
+        <div>
+          <h3>Assinatura de código</h3>
+          <p>Os instaladores oficiais do Refrata são gerados a partir do código público em
+            <a href="https://github.com/LucsLabsStudios/refrata" target="_blank" rel="noopener">github.com/LucsLabsStudios/refrata</a>
+            por um build automatizado no GitHub Actions. Quando aprovada, a assinatura é feita pela
+            <a href="https://signpath.org" target="_blank" rel="noopener">SignPath Foundation</a>, com certificado da
+            fundação; nenhum binário montado fora desse fluxo recebe a assinatura.</p>
+        </div>
+        <div>
+          <h3>Quem publica</h3>
+          <p>Lançamentos são aprovados pela LucsLabs Studios, com autenticação em dois fatores. Todo lançamento traz o
+            SHA-256 do instalador, conferido pelo próprio app antes de qualquer atualização.</p>
+        </div>
+        <div>
+          <h3>Privacidade</h3>
+          <p>O Refrata não coleta dados. A única conexão que ele faz por conta própria é consultar a página pública de
+            lançamentos do GitHub para saber se há versão nova, e isso pode ser desligado nos Ajustes.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="brand">
+      <img src="/img/icon.png" alt="" width="28" height="28">
+      <span>Refrata</span>
+    </div>
+    <p>© LucsLabs Studios · software livre sob a <a href="https://github.com/LucsLabsStudios/refrata/blob/main/LICENSE" target="_blank" rel="noopener">GPL 3.0</a>.
+      Construído sobre o libVLC da VideoLAN. “VLC” é marca da VideoLAN; o Refrata é um projeto independente.</p>
+    <a href="mailto:lucslabs.studios@gmail.com">lucslabs.studios@gmail.com</a>
+  </footer>
+
+  <script src="/main.js" defer></script>
+</body>
+</html>

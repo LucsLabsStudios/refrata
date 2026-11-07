@@ -1,0 +1,13 @@
+[
+  {
+    "id": "s1_symbol",
+    "background": "transparent",
+    "prompt": "Isolated logo symbol on a fully transparent background: a rounded-corner triangular PLAY symbol made of thick polished optical glass, like a scientific prism. A thin beam of pure white light enters its left side and refracts out of its right side as a short smooth spectrum of amber, vivid orange (#FF7A2F) and soft magenta that fades out quickly. No tile, no background, no shadow plate, nothing behind it. Centered with generous empty margin, crisp clean edges, premium Apple-style 3D glass rendering, reads well on both dark and light backgrounds. No text, no letters, no watermark."
+  },
+  {
+    "id": "h1_hero",
+    "size": "1536x1024",
+    "background": "opaque",
+    "prompt": "Cinematic wide brand key visual for LucsLabs Studios media player: on the right third, a large rounded triangular PLAY prism made of polished optical glass floating in deep warm black space; a thin beam of white light enters from the far left and refracts into a broad soft spectrum of amber, vivid orange (#FF7A2F) and magenta that washes across the right edge. Large calm empty dark area on the left for typography. Subtle film grain, soft volumetric haze, premium Apple keynote aesthetic, photorealistic glass caustics. No text, no letters, no logos."
+  }
+]

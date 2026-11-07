@@ -1,0 +1,183 @@
+﻿# Refrata · LucsLabs Studios
+
+Um player moderno construído sobre o **motor do VLC (libVLC)**: todos os codecs, formatos e
+protocolos do VLC, com uma interface nova no estilo One UI / Apple TV. Tipografia grande, vidro
+fosco com desfoque real sobre o vídeo, navegação em pílula, temas escuro e claro.
+
+![Refrata](assets/brand/hero.jpg)
+
+## Baixar
+
+**[refrata.vercel.app](https://refrata.vercel.app)** · ou direto na página de
+[lançamentos](https://github.com/LucsLabsStudios/refrata/releases/latest).
+
+## Instalar (usuário final)
+
+Rode `Refrata-Setup-<versão>.exe`. **Não precisa de Python nem do VLC instalados**: o libVLC e todos
+os módulos do VLC 3 vêm embutidos. A instalação é por usuário (sem pedir administrador) e:
+
+- cria o atalho no menu Iniciar (e na área de trabalho, se você marcar);
+- registra o Refrata em **"Abrir com"** e em **Configurações › Apps padrão** para 41 tipos de vídeo,
+  música e playlist, sem tomar o padrão de outro player à força;
+- mantém **uma única janela**: abrir outro arquivo pelo Explorer manda o arquivo para a janela aberta.
+
+Também há uma versão portátil: `Refrata-<versão>-portable.zip` (descompacte e rode `Refrata.exe`).
+
+### Atualizações
+
+A cópia instalada se atualiza sozinha: ao abrir (no máximo a cada 12 h) o Refrata consulta o
+último lançamento do GitHub e, se houver versão nova, mostra um aviso. Em **Atualizar** ele baixa
+o instalador, confere o SHA-256 publicado no lançamento, roda o setup em modo silencioso e reabre
+já na versão nova. Nada é instalado sem o clique. Dá para desligar ou procurar na hora em
+**Ajustes › Atualizações**. A versão portátil só avisa e abre o site; a da Store é atualizada pela
+própria Store.
+
+Na **Microsoft Store**, o Refrata vem como pacote MSIX assinado pela Microsoft, com as mesmas
+associações de arquivo, o comando `refrata` no terminal e desinstalação limpa. Como publicar está
+em [docs/STORE.md](docs/STORE.md).
+
+## Desenvolver
+
+```powershell
+pip install -r requirements.txt -r requirements-dev.txt
+python main.py                       # abre o app
+python main.py "C:\filme.mkv"        # abre já reproduzindo (arquivos, pastas, playlists ou URLs)
+python main.py --new-window          # ignora a instância única
+```
+
+O app procura o libVLC nesta ordem: embutido no pacote → `vendor/vlc` (criado pelo build) → VLC
+instalado em Program Files.
+
+## Publicar uma versão
+
+```powershell
+# 1. suba a versão em refrata/__init__.py (ex.: 1.2.0) e faça o commit
+python tools/release.py --notes "O que mudou nesta versão"
+```
+
+O `tools/release.py` gera o build, calcula o SHA-256, cria a tag `v1.2.0` e publica o lançamento no
+GitHub com o instalador, o `.sha256` e o zip portátil. A partir daí todo app instalado recebe o
+aviso de atualização e o botão de download do site aponta para a versão nova.
+
+## Empacotar
+
+```powershell
+python tools/build.py                 # vendor/vlc + PyInstaller + zip portátil + instalador + MSIX
+python tools/build.py --no-installer --no-msix   # só a pasta dist/Refrata e o zip
+python tools/msix.py                  # só os pacotes MSIX (de teste e, com installer/store.json, o da Store)
+python tools/build.py --vlc-zip vlc-3.0.21-win64.zip   # usa um zip oficial do VLC em vez do instalado
+```
+
+Requer o Inno Setup 6 para o instalador (`winget install JRSoftware.InnoSetup`). Saídas em `dist/`.
+
+### Assinatura digital
+
+O build assina o `Refrata.exe`, o instalador e o desinstalador (SHA-256 + carimbo de tempo) quando
+uma destas variáveis está definida (detalhes em `tools/sign.py`):
+
+| Variável | Certificado |
+|---|---|
+| `REFRATA_SIGN_AZURE` + `REFRATA_SIGN_AZURE_DLIB` | Azure Artifact Signing (antigo Trusted Signing) |
+| `REFRATA_SIGN_PFX` (+ `REFRATA_SIGN_PFX_PASSWORD`) | arquivo .pfx |
+| `REFRATA_SIGN_THUMBPRINT` | certificado no repositório do Windows (token USB, HSM) |
+| `REFRATA_SIGN_DEV=1` | certificado de desenvolvimento autoassinado, só para testar o fluxo |
+
+```powershell
+$env:REFRATA_SIGN_DEV = "1"
+python tools/build.py --skip-build     # reassina a pasta existente e refaz zip e instalador
+python tools/sign.py --verify dist\Refrata-Setup-1.0.0.exe
+```
+
+O certificado de desenvolvimento não tira o alerta do SmartScreen. Para isso é preciso um
+certificado emitido por uma autoridade, ou publicar pela Store, onde a Microsoft assina. Como o
+Refrata é código aberto, ele pode ter a assinatura de graça pela **SignPath Foundation**: o
+passo a passo está em [docs/SIGNING.md](docs/SIGNING.md).
+
+## Funcionalidades
+
+| Área | O que tem |
+|---|---|
+| Biblioteca | Varredura das pastas (Vídeos/Músicas por padrão), miniaturas geradas pelo libVLC, duração e tags, busca, ordenação, cache |
+| Início | Saudação em "big text", destaque *Continue assistindo*, estatísticas, recentes, adicionados, músicas |
+| Player | Vídeo com controles em vidro fosco, título gigante, ±10 s, barra de busca com prévia de tempo, auto-ocultar |
+| Faixas | Troca de faixa de áudio e legenda, legenda externa (botão ou arrastar `.srt`), atraso de áudio/legenda |
+| Áudio | Volume até 150 %, mudo, equalizador de 10 bandas + pré-amp + 18 presets |
+| Imagem | Brilho, contraste, saturação, gama, matiz; ajustar / preencher / esticar |
+| Fila | A seguir (painel lateral e página), reordenar, remover, tocar em seguida, aleatório, repetir 1/todos |
+| Extras | Velocidade 0,25×–4×, timer de sono, captura de quadro, avanço quadro a quadro, continuar de onde parou |
+| Rede | HTTP/HLS/RTSP/RTMP/… pela página Streams |
+| Playlists | M3U/M3U8, PLS, XSPF |
+| Windows | Instância única, "Abrir com", Apps padrão, diálogos nativos de arquivo/pasta, barra de título tingida |
+| Robustez | Itens com defeito são pulados automaticamente; aviso se uma mídia não abre |
+
+Atalhos: `Espaço` play/pausa · `F` tela cheia · `←/→` ±10 s · `↑/↓` volume · `M` mudo ·
+`N/P` próximo/anterior · `[ ] =` velocidade · `S` captura · `E` quadro a quadro ·
+`Ctrl+O` abrir · `Ctrl+L` streams · `Esc` sair/fechar.
+
+## Identidade visual
+
+O ícone é um prisma de vidro em forma de play que decompõe a luz: *lux* + *labs*, da LucsLabs
+Studios. Paleta, regras e como regerar os assets estão em [docs/BRAND.md](docs/BRAND.md).
+
+## Arquitetura
+
+```
+main.py               boot, instância única, --selftest
+refrata/vlcpath.py    localiza o libVLC (embutido → vendor → sistema)
+refrata/engine.py     libVLC: reprodução, fila, faixas, EQ, ajustes; vídeo via vmem → QVideoSink
+refrata/library.py    varredura, modelos filtráveis, miniaturas (thread com libVLC próprio)
+refrata/settings.py   preferências + histórico/posições (%LOCALAPPDATA%\Refrata)
+refrata/single.py     instância única (QLocalServer por usuário)
+refrata/app.py        integração com o Windows (DWM, Explorer, abrir arquivos vindos de outra instância)
+refrata/updater.py    atualização pelo GitHub Releases (verificar, baixar, conferir SHA-256, instalar)
+qml/                  toda a interface (Qt Quick)
+tests/                fixtures sintéticos, bateria E2E, driver dos diálogos nativos do Windows
+tools/build.py        empacotamento; tools/msix.py gera os pacotes MSIX; tools/sign.py assina
+tools/release.py      publica um lançamento no GitHub (que alimenta site e atualizações)
+site/                 site do projeto (Vercel)
+tools/test_*.py       testes do instalador e do MSIX
+tools/brand/          geração da identidade visual (gpt-image) e dos assets
+installer/            script do Inno Setup
+```
+
+O vídeo é decodificado pelo libVLC num buffer de CPU e entregue ao Qt como `QVideoFrame`
+(com descarte de quadros quando a UI está ocupada). Isso permite desenhar qualquer coisa
+por cima do vídeo, inclusive o desfoque ao vivo dos painéis, sem os problemas de janela
+nativa do VLC tradicional.
+
+## Testes
+
+```powershell
+python tests/e2e.py                          # bateria completa (47 testes, ~4 min)
+python tests/e2e.py -k t37,t40               # filtro por nome
+dist\Refrata\Refrata.exe --selftest --log r.log --report r.json   # a mesma bateria dentro do pacote
+python tools/test_installer.py               # instala, testa a cópia instalada, abre via registro, desinstala
+python tools/test_msix.py                    # o mesmo para o pacote MSIX (veja docs/STORE.md)
+```
+
+A bateria sobe o app real (QML + libVLC) com dados isolados e mídia sintética gerada na hora
+(tons WAV, vídeo H.264 com 2 faixas de áudio, legenda, playlists, arquivo corrompido, servidor
+HTTP local). Ela testa engine, biblioteca, configurações, playlists, rede, cliques reais de mouse
+em todos os controles, teclado, painéis, tela cheia, arrastar-e-soltar, **os diálogos nativos do
+Windows** (operados de verdade por `tests/windialogs.py`), a instância única com um segundo
+processo real, o cartão Sobre e o encerramento. **Qualquer aviso Qt/QML reprova o teste.**
+
+Dá para usar o PC enquanto a bateria roda. Se outro app roubar o foco, o teste reativa a janela
+antes de mandar teclas e avisa no final.
+
+Capturas de tela para conferência visual:
+
+```powershell
+python main.py --screenshot out.png --page player --panel eq "C:\video.mp4"
+python main.py --screenshot out.png --page settings --panel about
+```
+
+Logs: `%LOCALAPPDATA%\Refrata\crash.log` (falhas fatais), `native.log` (mensagens internas do
+VLC/ffmpeg) e `stdout.log` (versão empacotada).
+
+## Licença
+
+Refrata © LucsLabs Studios, software livre sob a **GNU GPL 3.0** ([LICENSE](LICENSE)). Inclui o
+libVLC e os módulos do VLC 3 (VideoLAN, LGPL 2.1+ / GPL 2+) e o Qt for Python (LGPL 3),
+redistribuídos sem modificação. Veja `installer/LICENSE-pt.txt`.
+"VLC" é marca da VideoLAN; o Refrata é um projeto independente.
