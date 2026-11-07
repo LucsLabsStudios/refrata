@@ -63,6 +63,8 @@ Window {
         var i = files.indexOf(path)
         index = i < 0 ? 0 : i
         dir = 0
+        // two soundtracks at once is never wanted: hold Refrata's own playback while previewing
+        if (!shown && player.playing) { player.pause(); pausedMain = true }
         load()
         placeCentered(fitSize())
         openedAt = Date.now()
@@ -82,7 +84,9 @@ Window {
         property int tries: 0
         interval: 80; repeat: true
         onTriggered: {
-            if (qw.active || !qw.shown || ++tries > 8) { stop(); keys.forceActiveFocus(); return }
+            if (qw.active || !qw.shown || ++tries > 18) { stop(); keys.forceActiveFocus(); return }
+            qw.raise()
+            qw.requestActivate()
             appctl.activateWindow(qw)
         }
     }
@@ -106,7 +110,9 @@ Window {
         openAnim.stop()
         closeAnim.restart()
     }
+    property bool expanded: false
     function expand() {
+        expanded = true
         var ms = mp.position
         mp.pause()
         shown = false
@@ -116,6 +122,7 @@ Window {
         expandRequested(files, index, ms)
     }
     property bool restoreFocus: false
+    property bool pausedMain: false
     // in: grows from 92 % and fades up; out: quicker, settles to 97 % (exits ≈ half the entry)
     ParallelAnimation {
         id: openAnim
@@ -131,6 +138,9 @@ Window {
         ScriptAction {
             script: {
                 mp.stop(); mp.source = ""
+                if (qw.pausedMain && !qw.expanded) player.play()   // pick up where it was
+                qw.pausedMain = false
+                qw.expanded = false
                 qw.hide()
                 if (qw.restoreFocus) quicklook.restoreForeground()
                 qw.closed()
@@ -364,6 +374,7 @@ Window {
     // ------------------------------------------------------------------ keys
     Item {
         id: keys
+        objectName: "quickKeys"
         focus: true
         Keys.onPressed: (e) => {
             if (e.isAutoRepeat && e.key === Qt.Key_Space) { e.accepted = true; return }

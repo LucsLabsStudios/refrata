@@ -1413,8 +1413,24 @@ def t41_second_launch_hands_files_to_running_instance():
         wait(lambda: child.poll() is not None, 30, "second launch exits after handing over")
         wait(lambda: quick.isVisible() and Path(quick.property("path")) == C.fx["tone_c"], 10,
              "with the app hidden, the file opens in the quick player")
+        pump(0.5)
+        check(not C.parts.win.isVisible(), "the app window stays in the tray behind the quick player")
         QMetaObject.invokeMethod(quick, "close")
         wait(lambda: not quick.isVisible(), 2)
+        # a plain relaunch (no file) brings the window back
+        reply = local_request(inst.name, json.dumps({"open": []}).encode("utf8") + b"\n")
+        check(reply.startswith(b"ok"), "plain relaunch acknowledged")
+        wait(lambda: C.parts.win.isVisible(), 3, "a plain relaunch shows the window")
+        # ... and closing it goes back to the tray (Qt and Windows agree it is hidden)
+        C.parts.win.close()
+        pump(0.4)
+        check(not C.parts.win.isVisible(), "close sends the shown window back to the tray")
+        C.parts.ctl.activate(C.parts.win)
+        pump(0.3)
+        check(C.parts.win.isVisible(), "activate shows a hidden window through Qt")
+        C.parts.win.close()
+        pump(0.4)
+        check(not C.parts.win.isVisible(), "and it hides again on close")
     # a subtitle handed over while a video plays is attached, not queued
     open_player_with([C.fx["video"]])
     n0 = len(e.subtitleTracks)
@@ -1745,15 +1761,28 @@ class main_hidden:
         pump(0.2)
 
 
+def soft_focus(window, what):
+    """Ask for the window's focus; when another app (the person using the PC) holds the
+    foreground, Windows refuses on purpose: note it, like ensure_focus does, instead of failing."""
+    if window.isActive():
+        return True
+    QMetaObject.invokeMethod(C.parts.ctl, "activateWindow", Q_ARG(QObject, window))
+    end = time.time() + 3
+    while time.time() < end and not window.isActive():
+        pump(0.1)
+    if not window.isActive():
+        FOCUS_LOSSES.append(CURRENT["test"] + f" ({what})")
+    return window.isActive()
+
+
 def wkey(window, k):
-    """Key press+release delivered to a specific window (the quick player)."""
+    """Key press+release delivered to the quick player's key handler (independent of which
+    window Windows lets have the focus at that moment)."""
     from PySide6.QtCore import QEvent
     from PySide6.QtGui import QKeyEvent
-    if not window.isActive():   # keys go to the focused item of the *active* window
-        QMetaObject.invokeMethod(C.parts.ctl, "activateWindow", Q_ARG(QObject, window))
-        wait(lambda: window.isActive(), 3, "quick player has the keyboard focus")
+    target = window.findChild(QObject, "quickKeys") or window
     for typ in (QEvent.Type.KeyPress, QEvent.Type.KeyRelease):
-        QGuiApplication.sendEvent(window, QKeyEvent(typ, k, Qt.KeyboardModifier.NoModifier))
+        QGuiApplication.sendEvent(target, QKeyEvent(typ, k, Qt.KeyboardModifier.NoModifier))
     pump(0.05)
 
 
@@ -1785,6 +1814,16 @@ def t48_quick_player_preview_compact_and_background():
     sib = Q.media_siblings(video)
     check(video in sib and video2 in sib, "folder siblings for ← →", str(len(sib)))
 
+    # previewing while Refrata plays music: the music waits, then resumes
+    e.openFiles([str(C.fx["tone_long"])], 0)
+    wait(lambda: e.state == "playing", 8)
+    QMetaObject.invokeMethod(quick, "open", Q_ARG("QVariant", video), Q_ARG("QVariant", sib), Q_ARG("QVariant", "preview"))
+    wait(lambda: quick.isVisible(), 3)
+    wait(lambda: e.state == "paused", 3, "Refrata's music pauses during a preview")
+    QMetaObject.invokeMethod(quick, "close")
+    wait(lambda: not quick.isVisible() and e.state == "playing", 4, "and resumes when the preview closes")
+    stop_playback()
+
     # preview: opens, plays, browses, closes with Space
     QMetaObject.invokeMethod(quick, "open", Q_ARG("QVariant", video), Q_ARG("QVariant", sib), Q_ARG("QVariant", "preview"))
     wait(lambda: quick.isVisible(), 3, "preview window shows")
@@ -1794,12 +1833,23 @@ def t48_quick_player_preview_compact_and_background():
     wait(lambda: quick.findChild(QObject, "quickSeek").property("value") > 300, 8, "preview plays")
     check(e.state in ("idle", "stopped", "ended") or not e.playing, "the main player is left alone")
     pump(0.35)   # past the guard for the Space that opened it
-    wait(lambda: quick.isActive(), 2, "preview has the keyboard focus")
+    soft_focus(quick, "preview focus")
     i0 = quick.property("index")
     wkey(quick, Qt.Key.Key_Right)
     wait(lambda: quick.property("index") == (i0 + 1) % len(sib), 2, "→ goes to the next file in the folder")
     wkey(quick, Qt.Key.Key_Left)
     wait(lambda: quick.property("index") == i0, 2, "← goes back")
+    # tooltips of the top-right buttons stay inside the small window
+    close_btn = C.parts.find("quickClose")
+    c = close_btn.mapToScene(QPointF(close_btn.width() / 2, close_btn.height() / 2)).toPoint()
+    QTest.mouseMove(quick, c)
+    tip = next(ch for ch in close_btn.childItems() if ch.property("shown") is not None)
+    wait(lambda: tip.property("opacity") > 0.9, 2, "close button shows its tooltip")
+    tl = tip.mapToScene(QPointF(0, 0))
+    check(tl.x() >= 0 and tl.y() >= 0 and tl.x() + tip.width() <= quick.width() and tl.y() + tip.height() <= quick.height(),
+          "tooltip fits inside the quick player", f"{tl.x():.0f},{tl.y():.0f} {tip.width():.0f}x{tip.height():.0f} in {quick.width()}x{quick.height()}")
+    QTest.mouseMove(quick, QPoint(int(quick.width() / 2), int(quick.height() / 2)))
+    pump(0.2)
     wkey(quick, Qt.Key.Key_Space)
     wait(lambda: not quick.isVisible(), 2, "Space closes the preview")
 
@@ -1821,8 +1871,7 @@ def t48_quick_player_preview_compact_and_background():
     wait(lambda: quick.isVisible() and quick.property("mode") == "compact", 3, "compact quick player")
     wait(lambda: quick.findChild(QObject, "quickSeek").property("value") > 1200, 8, "compact plays")
     pump(0.35)
-    QMetaObject.invokeMethod(C.parts.ctl, "activateWindow", Q_ARG(QObject, quick))
-    wait(lambda: quick.isActive(), 3, "compact player has the keyboard focus")
+    soft_focus(quick, "compact focus")
     wkey(quick, Qt.Key.Key_Space)
     pump(0.3)
     paused_at = quick.findChild(QObject, "quickSeek").property("value")

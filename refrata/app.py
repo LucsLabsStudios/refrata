@@ -57,16 +57,17 @@ class AppController(QObject):
 
     def activate(self, window: QWindow):
         """Bring the window to the front (Windows only lets the foreground app steal focus)."""
-        if window.visibility() == QWindow.Visibility.Minimized:
+        # show / restore through Qt only: a native ShowWindow left Qt believing a hidden window was
+        # still hidden, so closing it (to the tray) did nothing afterwards
+        if not window.isVisible():
+            window.show()
+        elif window.visibility() == QWindow.Visibility.Minimized:
             window.showNormal()
         window.raise_()
         window.requestActivate()
         if sys.platform == "win32":
             try:
-                hwnd = int(window.winId())
-                u = ctypes.windll.user32
-                u.ShowWindow(hwnd, 9 if u.IsIconic(hwnd) else 5)  # SW_RESTORE / SW_SHOW
-                force_foreground(hwnd)
+                force_foreground(int(window.winId()))
             except Exception:
                 pass
 

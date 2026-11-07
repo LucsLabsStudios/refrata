@@ -203,7 +203,7 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
         instance = InstanceServer(instance_name or None, app)
         instance.listen()
         instance.received.connect(ctl.handOver)
-        instance.activateRequested.connect(lambda: ctl.activate(win))
+        instance.activateRequested.connect(lambda: QTimer.singleShot(0, lambda: root.showMain()))
     tray.showRequested.connect(lambda: QTimer.singleShot(0, lambda: root.showMain()))
     return AppParts(app, qml, win, settings, theme, engine, library, ctl, updater, quicklook, tray, instance)
 

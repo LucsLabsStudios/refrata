@@ -75,6 +75,10 @@ class InstanceServer(QObject):
             return
         s.write(b"ok\n")
         s.flush()
-        self.activateRequested.emit()
+        # a plain relaunch brings the window back; with files, the app decides where they go
+        # (quick player or the open window) - activating here would pop the main window up with
+        # the previous video behind the quick player
         if files:
             self.received.emit(files)
+        else:
+            self.activateRequested.emit()
