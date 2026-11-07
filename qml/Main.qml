@@ -17,7 +17,7 @@ Window {
     property int page: 0
     property bool alwaysOnTop: false
     flags: Qt.Window | (alwaysOnTop ? Qt.WindowStaysOnTopHint : 0)
-    onAlwaysOnTopChanged: { toast.show(alwaysOnTop ? "Sempre no topo" : "Sempre no topo desligado"); Qt.callLater(restyle) }
+    onAlwaysOnTopChanged: { toast.show(alwaysOnTop ? qsTr("Sempre no topo") : qsTr("Sempre no topo desligado")); Qt.callLater(restyle) }
     property bool playerOpen: false
     // text fields must not keep keyboard focus (and swallow Space/arrows) once the player shows
     onPlayerOpenChanged: if (playerOpen) focusSink.forceActiveFocus()
@@ -73,7 +73,7 @@ Window {
         }
         var paths = appctl.expand(urls)
         if (paths.length) { win.playPaths(paths, 0); return "play" }
-        toast.show("Nenhuma mídia reconhecida")
+        toast.show(qsTr("Nenhuma mídia reconhecida"))
         return "none"
     }
     function restyle() { appctl.styleWindow(win, theme.dark, theme.bg) }
@@ -102,25 +102,25 @@ Window {
     // ------------------------------------------------------------ dialogs
     FileDialog {
         id: openDialog
-        title: "Abrir mídia"
+        title: qsTr("Abrir mídia")
         fileMode: FileDialog.OpenFiles
-        nameFilters: ["Mídia (*.mp4 *.mkv *.avi *.mov *.wmv *.webm *.m4v *.mpg *.mpeg *.ts *.m2ts *.flv *.3gp *.ogv *.vob *.mp3 *.flac *.wav *.m4a *.aac *.ogg *.opus *.wma *.m3u *.m3u8 *.pls *.xspf)", "Todos os arquivos (*)"]
+        nameFilters: [qsTr("Mídia") + " (*.mp4 *.mkv *.avi *.mov *.wmv *.webm *.m4v *.mpg *.mpeg *.ts *.m2ts *.flv *.3gp *.ogv *.vob *.mp3 *.flac *.wav *.m4a *.aac *.ogg *.opus *.wma *.m3u *.m3u8 *.pls *.xspf)", qsTr("Todos os arquivos") + " (*)"]
         onAccepted: win.playPaths(appctl.expand(selectedFiles.map(function (u) { return u.toString() })), 0)
     }
     FolderDialog {
         id: playFolderDialog
-        title: "Reproduzir pasta"
+        title: qsTr("Reproduzir pasta")
         onAccepted: win.playPaths(appctl.expand([selectedFolder.toString()]), 0)
     }
     FolderDialog {
         id: addFolderDialog
-        title: "Adicionar pasta à biblioteca"
-        onAccepted: { settings.addFolder(selectedFolder.toString()); toast.show("Pasta adicionada à biblioteca") }
+        title: qsTr("Adicionar pasta à biblioteca")
+        onAccepted: { settings.addFolder(selectedFolder.toString()); toast.show(qsTr("Pasta adicionada à biblioteca")) }
     }
     FileDialog {
         id: subDialog
-        title: "Carregar legenda"
-        nameFilters: ["Legendas (*.srt *.ass *.ssa *.vtt *.sub *.idx *.smi)", "Todos os arquivos (*)"]
+        title: qsTr("Carregar legenda")
+        nameFilters: [qsTr("Legendas") + " (*.srt *.ass *.ssa *.vtt *.sub *.idx *.smi)", qsTr("Todos os arquivos") + " (*)"]
         onAccepted: player.addSubtitle(selectedFile.toString())
     }
 
@@ -133,8 +133,8 @@ Window {
     Shortcut { sequence: "Shift+Right"; onActivated: player.skip(3000) }
     Shortcut { sequence: "Ctrl+Left"; onActivated: player.skip(-60000) }
     Shortcut { sequence: "Ctrl+Right"; onActivated: player.skip(60000) }
-    Shortcut { sequence: "Up"; onActivated: { player.volume = player.volume + 5; toast.show("Volume " + player.volume + "%") } }
-    Shortcut { sequence: "Down"; onActivated: { player.volume = player.volume - 5; toast.show("Volume " + player.volume + "%") } }
+    Shortcut { sequence: "Up"; onActivated: { player.volume = player.volume + 5; toast.show(qsTr("Volume %1%").arg(player.volume)) } }
+    Shortcut { sequence: "Down"; onActivated: { player.volume = player.volume - 5; toast.show(qsTr("Volume %1%").arg(player.volume)) } }
     Shortcut { sequence: "M"; onActivated: { player.toggleMute(); toast.show(player.muted ? "Sem som" : "Som ativado") } }
     Shortcut { sequence: "N"; onActivated: player.next() }
     Shortcut { sequence: "P"; onActivated: player.previous() }
@@ -142,8 +142,8 @@ Window {
     Shortcut { sequence: "L"; onActivated: { player.cycleLoop(); pv.poke() } }
     Shortcut { sequence: "T"; onActivated: win.alwaysOnTop = !win.alwaysOnTop }
     Shortcut { sequence: "E"; onActivated: player.frameStep() }
-    Shortcut { sequence: "]"; onActivated: { player.rate = player.rate + 0.25; toast.show("Velocidade " + player.rate + "×") } }
-    Shortcut { sequence: "["; onActivated: { player.rate = player.rate - 0.25; toast.show("Velocidade " + player.rate + "×") } }
+    Shortcut { sequence: "]"; onActivated: { player.rate = player.rate + 0.25; toast.show(qsTr("Velocidade %1×").arg(player.rate)) } }
+    Shortcut { sequence: "["; onActivated: { player.rate = player.rate - 0.25; toast.show(qsTr("Velocidade %1×").arg(player.rate)) } }
     Shortcut { sequence: "="; onActivated: { player.rate = 1; toast.show("Velocidade normal") } }
     Shortcut { sequence: "Ctrl+O"; onActivated: openDialog.open() }
     Shortcut { sequence: "Ctrl+L"; onActivated: { win.playerOpen = false; win.page = 4 } }
@@ -335,8 +335,8 @@ Window {
             anchors.centerIn: parent
             spacing: 12
             Icon { anchors.horizontalCenter: parent.horizontalCenter; name: "add"; size: 48; color: theme.accent }
-            Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Solte para reproduzir"; color: theme.text; font.family: theme.displayFont; font.pixelSize: 40; font.weight: Font.DemiBold }
-            Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Vídeos, músicas, pastas ou legendas"; color: theme.textDim; font.pixelSize: 16 }
+            Text { anchors.horizontalCenter: parent.horizontalCenter; text: qsTr("Solte para reproduzir"); color: theme.text; font.family: theme.displayFont; font.pixelSize: 40; font.weight: Font.DemiBold }
+            Text { anchors.horizontalCenter: parent.horizontalCenter; text: qsTr("Vídeos, músicas, pastas ou legendas"); color: theme.textDim; font.pixelSize: 16 }
         }
     }
 

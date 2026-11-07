@@ -37,6 +37,8 @@ SetupIconFile={#Root}\assets\icon.ico
 UninstallDisplayIcon={app}\{#AppExe}
 UninstallDisplayName={#AppName}
 WizardStyle=modern
+ShowLanguageDialog=auto
+LanguageDetectionMethod=uilanguage
 WizardImageFile={#Root}\assets\installer\wizard.bmp,{#Root}\assets\installer\wizard@2.5x.bmp
 WizardSmallImageFile={#Root}\assets\installer\small.bmp,{#Root}\assets\installer\small@2.5x.bmp
 Compression=lzma2/max
@@ -56,26 +58,90 @@ RestartApplications=no
 LicenseFile={#Root}\installer\LICENSE-pt.txt
 
 [Languages]
+; follows the Windows display language (English when Inno has no translation, e.g. Chinese, Hindi)
+Name: "en"; MessagesFile: "compiler:Default.isl"
 Name: "ptbr"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
+Name: "es"; MessagesFile: "compiler:Languages\Spanish.isl"
+Name: "fr"; MessagesFile: "compiler:Languages\French.isl"
+Name: "de"; MessagesFile: "compiler:Languages\German.isl"
+Name: "it"; MessagesFile: "compiler:Languages\Italian.isl"
+Name: "ru"; MessagesFile: "compiler:Languages\Russian.isl"
+Name: "pl"; MessagesFile: "compiler:Languages\Polish.isl"
+Name: "tr"; MessagesFile: "compiler:Languages\Turkish.isl"
+Name: "ja"; MessagesFile: "compiler:Languages\Japanese.isl"
+Name: "ko"; MessagesFile: "compiler:Languages\Korean.isl"
 
 [CustomMessages]
+en.AssocTask=Show Refrata in "Open with" for videos, music and playlists
+en.LaunchNow=Open Refrata now
+en.WinIntegration=Windows integration:
+en.ShortcutComment=Media player by {#Studio}
+en.ProgIdName=Refrata media
 ptbr.AssocTask=Mostrar o Refrata em "Abrir com" para vídeos, músicas e playlists
 ptbr.LaunchNow=Abrir o Refrata agora
+ptbr.WinIntegration=Integração com o Windows:
+ptbr.ShortcutComment=Player de mídia da {#Studio}
+ptbr.ProgIdName=Mídia do Refrata
+es.AssocTask=Mostrar Refrata en "Abrir con" para vídeos, música y listas
+es.LaunchNow=Abrir Refrata ahora
+es.WinIntegration=Integración con Windows:
+es.ShortcutComment=Reproductor multimedia de {#Studio}
+es.ProgIdName=Multimedia de Refrata
+fr.AssocTask=Proposer Refrata dans « Ouvrir avec » pour les vidéos, la musique et les playlists
+fr.LaunchNow=Ouvrir Refrata maintenant
+fr.WinIntegration=Intégration à Windows :
+fr.ShortcutComment=Lecteur multimédia de {#Studio}
+fr.ProgIdName=Média Refrata
+de.AssocTask=Refrata unter „Öffnen mit“ für Videos, Musik und Playlists anzeigen
+de.LaunchNow=Refrata jetzt öffnen
+de.WinIntegration=Windows-Integration:
+de.ShortcutComment=Mediaplayer von {#Studio}
+de.ProgIdName=Refrata-Medien
+it.AssocTask=Mostra Refrata in «Apri con» per video, musica e playlist
+it.LaunchNow=Apri Refrata ora
+it.WinIntegration=Integrazione con Windows:
+it.ShortcutComment=Lettore multimediale di {#Studio}
+it.ProgIdName=Contenuto multimediale Refrata
+ru.AssocTask=Показывать Refrata в меню «Открыть с помощью» для видео, музыки и плейлистов
+ru.LaunchNow=Открыть Refrata
+ru.WinIntegration=Интеграция с Windows:
+ru.ShortcutComment=Медиаплеер от {#Studio}
+ru.ProgIdName=Медиафайл Refrata
+pl.AssocTask=Pokazuj Refrata w menu „Otwórz za pomocą” dla filmów, muzyki i playlist
+pl.LaunchNow=Otwórz Refrata teraz
+pl.WinIntegration=Integracja z Windows:
+pl.ShortcutComment=Odtwarzacz multimediów od {#Studio}
+pl.ProgIdName=Multimedia Refrata
+tr.AssocTask=Videolar, müzik ve çalma listeleri için "Birlikte aç" menüsünde Refrata'yı göster
+tr.LaunchNow=Refrata'yı şimdi aç
+tr.WinIntegration=Windows tümleştirmesi:
+tr.ShortcutComment={#Studio} medya oynatıcısı
+tr.ProgIdName=Refrata medyası
+ja.AssocTask=動画、音楽、プレイリストの「プログラムから開く」に Refrata を表示する
+ja.LaunchNow=Refrata を今すぐ開く
+ja.WinIntegration=Windows との統合:
+ja.ShortcutComment={#Studio} のメディアプレーヤー
+ja.ProgIdName=Refrata メディア
+ko.AssocTask=동영상, 음악, 재생 목록의 '연결 프로그램'에 Refrata 표시
+ko.LaunchNow=지금 Refrata 열기
+ko.WinIntegration=Windows 통합:
+ko.ShortcutComment={#Studio}의 미디어 플레이어
+ko.ProgIdName=Refrata 미디어
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
-Name: "assoc"; Description: "{cm:AssocTask}"; GroupDescription: "Integração com o Windows:"
+Name: "assoc"; Description: "{cm:AssocTask}"; GroupDescription: "{cm:WinIntegration}"
 
 [Files]
 Source: "{#Root}\dist\Refrata\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"; Comment: "Player de mídia da {#Studio}"
+Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"; Comment: "{cm:ShortcutComment}"
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopicon
 
 [Registry]
 ; ProgID used for every media type
-Root: HKA; Subkey: "Software\Classes\{#ProgId}"; ValueType: string; ValueData: "Mídia do Refrata"; Flags: uninsdeletekey; Tasks: assoc
+Root: HKA; Subkey: "Software\Classes\{#ProgId}"; ValueType: string; ValueData: "{cm:ProgIdName}"; Flags: uninsdeletekey; Tasks: assoc
 Root: HKA; Subkey: "Software\Classes\{#ProgId}\DefaultIcon"; ValueType: string; ValueData: """{app}\{#AppExe}"",0"; Tasks: assoc
 Root: HKA; Subkey: "Software\Classes\{#ProgId}\shell\open"; ValueType: string; ValueName: "FriendlyAppName"; ValueData: "{#AppName}"; Tasks: assoc
 Root: HKA; Subkey: "Software\Classes\{#ProgId}\shell\open\command"; ValueType: string; ValueData: """{app}\{#AppExe}"" ""%1"""; Tasks: assoc

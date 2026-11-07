@@ -20,6 +20,7 @@ from PySide6.QtMultimedia import QVideoFrame, QVideoFrameFormat, QVideoSink
 
 from .media import is_audio_path, nice_title
 from .playlists import is_playlist, read_playlist
+from .i18n import N_, tr
 
 # ---- raw libVLC video callbacks (python-vlc declares chroma as c_char_p, which
 # cannot be written to, so we declare our own prototypes) ----------------------
@@ -307,17 +308,17 @@ class Engine(QObject):
         """L: mark the start, then the end (the stretch repeats), then turn it off."""
         if self._loop_a < 0:
             self._loop_a = self._time
-            self.message.emit(f"Início do trecho em {self._fmt(self._time)}. Aperte L de novo no fim.")
+            self.message.emit(tr("Início do trecho em %1. Aperte L de novo no fim.").replace("%1", self._fmt(self._time)))
         elif self._loop_b < 0:
             if self._time <= self._loop_a + 500:
-                self.message.emit("O fim do trecho precisa vir depois do início")
+                self.message.emit(tr("O fim do trecho precisa vir depois do início"))
                 return
             self._loop_b = self._time
-            self.message.emit(f"Repetindo de {self._fmt(self._loop_a)} a {self._fmt(self._loop_b)}")
+            self.message.emit(tr("Repetindo de %1 a %2").replace("%1", self._fmt(self._loop_a)).replace("%2", self._fmt(self._loop_b)))
             self.seek(self._loop_a)
         else:
             self._loop_a = self._loop_b = -1
-            self.message.emit("Repetição do trecho desligada")
+            self.message.emit(tr("Repetição do trecho desligada"))
         self.loopChanged.emit()
 
     @Property(int, notify=loopChanged)
@@ -361,7 +362,7 @@ class Engine(QObject):
         was_empty = not self._queue
         self._queue.extend(entries)
         self.queueChanged.emit()
-        self.message.emit(f"{len(entries)} item(ns) adicionado(s) à fila")
+        self.message.emit(tr("%n item(ns) adicionado(s) à fila", len(entries)))
         if was_empty:
             self._play_index(0)
 
@@ -373,7 +374,7 @@ class Engine(QObject):
         pos = self._index + 1
         self._queue[pos:pos] = entries
         self.queueChanged.emit()
-        self.message.emit("Vai tocar em seguida")
+        self.message.emit(tr("Vai tocar em seguida"))
         if len(self._queue) == len(entries):
             self._play_index(0)
 
@@ -455,7 +456,7 @@ class Engine(QObject):
                     pos = 0
                 if pos > 0:
                     media.add_option(f":start-time={pos / 1000:.1f}")
-                    self.message.emit("Continuando de onde você parou")
+                    self.message.emit(tr("Continuando de onde você parou"))
         self._mp.set_media(media)
         self._meta = {"title": e["title"], "artist": "", "album": "", "artwork": ""}
         self._audio_tracks, self._sub_tracks, self._tracks_polled = [], [], 0
@@ -494,7 +495,7 @@ class Engine(QObject):
         self._state = "error"
         self.stateChanged.emit()
         name = self._queue[self._index]["title"] if 0 <= self._index < len(self._queue) else ""
-        self.message.emit(f"Não foi possível reproduzir “{name}”" if name else "Não foi possível reproduzir este arquivo")
+        self.message.emit(tr("Não foi possível reproduzir “%1”").replace("%1", name) if name else tr("Não foi possível reproduzir este arquivo"))
         if self._consecutive_errors >= len(self._queue) or self._repeat == 2:
             return
         nxt = self._next_index(auto=True)
@@ -628,7 +629,7 @@ class Engine(QObject):
         if (new_state == "idle" and self._open_deadline and time.time() > self._open_deadline):
             self._open_deadline = 0
             new_state = "error"
-            self.message.emit("Não foi possível abrir esta mídia")
+            self.message.emit(tr("Não foi possível abrir esta mídia"))
         elif new_state not in ("idle",):
             self._open_deadline = 0
         elif self._open_deadline:
@@ -660,7 +661,7 @@ class Engine(QObject):
             self._sleep_deadline = 0
             self.pause()
             self.modeChanged.emit()
-            self.message.emit("Timer de sono: reprodução pausada")
+            self.message.emit(tr("Timer de sono: reprodução pausada"))
 
     def _refresh_meta(self):
         m = self._mp.get_media()
@@ -796,7 +797,7 @@ class Engine(QObject):
             path = QUrl(path).toLocalFile()
         uri = QUrl.fromLocalFile(path).toString()
         ok = self._mp.add_slave(vlc.MediaSlaveType.subtitle, uri, True) == 0
-        self.message.emit("Legenda carregada" if ok else "Não foi possível carregar a legenda")
+        self.message.emit(tr("Legenda carregada") if ok else tr("Não foi possível carregar a legenda"))
         QTimer.singleShot(800, self._refresh_tracks)
 
     @Property(int, notify=tracksChanged)
@@ -886,14 +887,14 @@ class Engine(QObject):
     def setSleepTimer(self, minutes):
         self._sleep_deadline = time.time() + minutes * 60 if minutes > 0 else 0
         self.modeChanged.emit()
-        self.message.emit(f"Timer de sono: {minutes} min" if minutes > 0 else "Timer de sono desligado")
+        self.message.emit(tr("Timer de sono: %1 min").replace("%1", str(minutes)) if minutes > 0 else tr("Timer de sono desligado"))
 
     # equalizer -------------------------------------------------------------
     EQ_PT = {
-        "Flat": "Plano", "Classical": "Clássica", "Club": "Clube", "Dance": "Dança",
-        "Full bass": "Graves", "Full bass and treble": "Graves e agudos", "Full treble": "Agudos",
-        "Headphones": "Fones de ouvido", "Large Hall": "Grande salão", "Live": "Ao vivo",
-        "Party": "Festa", "Soft": "Suave", "Soft rock": "Rock suave",
+        "Flat": N_("Plano"), "Classical": N_("Clássica"), "Club": N_("Clube"), "Dance": N_("Dança"),
+        "Full bass": N_("Graves"), "Full bass and treble": N_("Graves e agudos"), "Full treble": N_("Agudos"),
+        "Headphones": N_("Fones de ouvido"), "Large Hall": N_("Grande salão"), "Live": N_("Ao vivo"),
+        "Party": N_("Festa"), "Soft": N_("Suave"), "Soft rock": N_("Rock suave"),
     }
 
     @Property(list, constant=True)
@@ -997,7 +998,7 @@ class Engine(QObject):
     @Slot()
     def snapshot(self):
         if self._last_frame is None:
-            self.message.emit("Nada para capturar")
+            self.message.emit(tr("Nada para capturar"))
             return
         img = self._last_frame.toImage()
         folder = Path(self._settings.value("snapshotDir"))
@@ -1007,9 +1008,9 @@ class Engine(QObject):
         path = folder / name
         if img.save(str(path)):
             self.lastSnapshot = str(path)
-            self.message.emit(f"Captura salva em {folder.name}")
+            self.message.emit(tr("Captura salva em %1").replace("%1", folder.name))
         else:
-            self.message.emit("Não foi possível salvar a captura")
+            self.message.emit(tr("Não foi possível salvar a captura"))
 
     def save_state(self):
         self._save_resume()

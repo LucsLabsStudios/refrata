@@ -70,7 +70,7 @@ Item {
         spacing: 3
         SwapText {
             width: parent.width; elide: Text.ElideRight
-            value: root.title || "Nada tocando"
+            value: root.title || qsTr("Nada tocando")
             color: theme.text; font.pixelSize: 15; font.weight: Font.DemiBold
         }
         Text {
@@ -115,7 +115,7 @@ Item {
             mark: 100; boostColor: "#E0398C"
             onMoved: (v) => player.volume = v
         }
-        IconButton { objectName: "miniExpand"; icon: "fullscreen"; tip: "Abrir player"; size: 40; iconSize: 14; onClicked: root.expand(); anchors.verticalCenter: parent.verticalCenter }
+        IconButton { objectName: "miniExpand"; icon: "fullscreen"; tip: qsTr("Abrir player"); size: 40; iconSize: 14; onClicked: root.expand(); anchors.verticalCenter: parent.verticalCenter }
     }
     // progress
     Rectangle {

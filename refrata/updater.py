@@ -24,6 +24,7 @@ from PySide6.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequ
 
 from . import __version__
 from .settings import DATA_DIR
+from .i18n import tr
 
 REPO = "LucsLabsStudios/refrata"
 API_LATEST = f"https://api.github.com/repos/{REPO}/releases/latest"
@@ -176,13 +177,13 @@ class Updater(QObject):
         reply.deleteLater()
         if reply.error() != QNetworkReply.NetworkError.NoError:
             # silent background checks just give up; manual ones explain
-            self._set("error" if self._last_manual else "idle", "Sem conexão com o servidor de atualizações")
+            self._set("error" if self._last_manual else "idle", tr("Sem conexão com o servidor de atualizações"))
             return
         try:
             data = json.loads(bytes(reply.readAll()).decode("utf8"))
             self.apply_release(data)
         except (ValueError, KeyError, TypeError) as exc:
-            self._set("error" if self._last_manual else "idle", f"Resposta inválida do servidor ({exc})")
+            self._set("error" if self._last_manual else "idle", tr("Resposta inválida do servidor (%1)").replace("%1", str(exc)))
 
     def apply_release(self, data: dict):
         self._settings.setValue("lastUpdateCheck", time.time())
@@ -223,7 +224,7 @@ class Updater(QObject):
     @Slot()
     def download(self):
         if not self._asset.get("url"):
-            self._set("error", "Este lançamento não tem instalador para Windows")
+            self._set("error", tr("Este lançamento não tem instalador para Windows"))
             return
         if not self._asset.get("sha256") and self._asset.get("shaUrl"):
             # older GitHub responses carry no digest: fetch the .sha256 asset first
@@ -248,14 +249,14 @@ class Updater(QObject):
         text = bytes(reply.readAll()).decode("utf8", "replace").strip()
         m = re.search(r"\b[0-9a-fA-F]{64}\b", text)
         if not self._http_ok(reply) or not m:
-            self._set("error", "Não foi possível conferir a assinatura do download")
+            self._set("error", tr("Não foi possível conferir o download"))
             return
         self._asset["sha256"] = m.group(0).lower()
         self._start_download()
 
     def _start_download(self):
         if not self._asset.get("sha256"):
-            self._set("error", "O lançamento não publica o SHA-256 do instalador")
+            self._set("error", tr("O lançamento não publica o SHA-256 do instalador"))
             return
         folder = DATA_DIR / "updates"
         folder.mkdir(parents=True, exist_ok=True)
@@ -303,11 +304,11 @@ class Updater(QObject):
             part.unlink(missing_ok=True)
             cancelled = reply.error() == QNetworkReply.NetworkError.OperationCanceledError
             self._set("available" if cancelled else "error",
-                      "" if cancelled else "O download falhou ou veio incompleto. Tente de novo.")
+                      "" if cancelled else tr("O download falhou ou veio incompleto. Tente de novo."))
             return
         if self._hash.hexdigest().lower() != self._asset["sha256"]:
             part.unlink(missing_ok=True)
-            self._set("error", "O arquivo baixado não confere (SHA-256). Nada foi instalado.")
+            self._set("error", tr("O arquivo baixado não confere (SHA-256). Nada foi instalado."))
             return
         part.replace(self._target)
         self._progress = 1.0
@@ -334,7 +335,7 @@ class Updater(QObject):
             return
         ok, _pid = QProcess.startDetached(str(self._target), args, str(self._target.parent))
         if not ok:
-            self._set("error", "Não foi possível iniciar o instalador")
+            self._set("error", tr("Não foi possível iniciar o instalador"))
             return
         self._set("installing")
         # leave quickly so the installer finds the files free; the setup starts us again

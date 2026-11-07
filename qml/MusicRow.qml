@@ -85,7 +85,7 @@ Item {
         }
         Text {
             width: parent.width; elide: Text.ElideRight
-            text: root.artist || "Artista desconhecido"
+            text: root.artist || qsTr("Artista desconhecido")
             color: theme.textDim; font.pixelSize: 13
         }
     }

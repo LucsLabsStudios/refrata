@@ -240,8 +240,8 @@ Window {
                     visible: qw.failed
                     spacing: 14
                     Icon { anchors.horizontalCenter: parent.horizontalCenter; name: "film"; size: 40; color: Qt.rgba(1, 1, 1, 0.5) }
-                    Text { anchors.horizontalCenter: parent.horizontalCenter; text: "A prévia não abre este formato"; color: "white"; font.pixelSize: 16; font.weight: Font.DemiBold }
-                    PillButton { anchors.horizontalCenter: parent.horizontalCenter; text: "Abrir no Refrata"; icon: "fullscreen"; variant: "accent"; onClicked: qw.expand() }
+                    Text { anchors.horizontalCenter: parent.horizontalCenter; text: qsTr("A prévia não abre este formato"); color: "white"; font.pixelSize: 16; font.weight: Font.DemiBold }
+                    PillButton { anchors.horizontalCenter: parent.horizontalCenter; text: qsTr("Abrir no Refrata"); icon: "fullscreen"; variant: "accent"; onClicked: qw.expand() }
                 }
             }
 
@@ -290,8 +290,8 @@ Window {
                         }
                         Text {
                             text: (qw.artist ? qw.artist + "  ·  " : "")
-                                  + (qw.files.length > 1 ? (qw.index + 1) + " de " + qw.files.length + "  ·  " : "")
-                                  + (qw.mode === "preview" ? "Espaço fecha  ·  ← → navega" : "Espaço pausa  ·  ← → navega")
+                                  + (qw.files.length > 1 ? qsTr("%1 de %2").arg(qw.index + 1).arg(qw.files.length) + "  ·  " : "")
+                                  + (qw.mode === "preview" ? qsTr("Espaço fecha  ·  ← → navega") : qsTr("Espaço pausa  ·  ← → navega"))
                             color: Qt.rgba(1, 1, 1, 0.6); font.pixelSize: 11
                         }
                     }
@@ -300,9 +300,9 @@ Window {
                         anchors.right: parent.right; anchors.rightMargin: 12
                         anchors.verticalCenter: parent.verticalCenter
                         spacing: 2
-                        IconButton { objectName: "quickPin"; visible: qw.mode === "compact"; icon: "up"; motion: "pop"; onMedia: true; size: 36; iconSize: 13; checked: qw.pinned; tip: qw.pinned ? "Sempre no topo: ligado" : "Sempre no topo"; onClicked: qw.pinned = !qw.pinned }
-                        IconButton { objectName: "quickExpand"; icon: "fullscreen"; onMedia: true; size: 36; iconSize: 13; tip: "Abrir no Refrata (Enter)"; onClicked: qw.expand() }
-                        IconButton { objectName: "quickClose"; icon: "close"; onMedia: true; size: 36; iconSize: 12; tip: "Fechar (Esc)"; onClicked: qw.close() }
+                        IconButton { objectName: "quickPin"; visible: qw.mode === "compact"; icon: "up"; motion: "pop"; onMedia: true; size: 36; iconSize: 13; checked: qw.pinned; tip: qw.pinned ? qsTr("Sempre no topo: ligado") : qsTr("Sempre no topo"); onClicked: qw.pinned = !qw.pinned }
+                        IconButton { objectName: "quickExpand"; icon: "fullscreen"; onMedia: true; size: 36; iconSize: 13; tip: qsTr("Abrir no Refrata (Enter)"); onClicked: qw.expand() }
+                        IconButton { objectName: "quickClose"; icon: "close"; onMedia: true; size: 36; iconSize: 12; tip: qsTr("Fechar (Esc)"); onClicked: qw.close() }
                     }
                 }
                 // transport

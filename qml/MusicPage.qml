@@ -20,24 +20,24 @@ ListView {
         spacing: 28
         PageHeader {
             width: parent.width
-            eyebrow: "Biblioteca"
-            title: "Músicas"
-            subtitle: library.musicModel.count + " faixas"
-            SearchField { width: 260; placeholder: "Filtrar músicas"; onTextChanged: library.musicModel.search = text }
-            PillButton { objectName: "musicShuffle"; text: "Aleatório"; icon: "shuffle"; variant: "outline"; h: 44; enabled: library.musicModel.count > 0
+            eyebrow: qsTr("Biblioteca")
+            title: qsTr("Músicas")
+            subtitle: qsTr("%n faixa(s)", "", library.musicModel.count)
+            SearchField { width: 260; placeholder: qsTr("Filtrar músicas"); onTextChanged: library.musicModel.search = text }
+            PillButton { objectName: "musicShuffle"; text: qsTr("Aleatório"); icon: "shuffle"; variant: "outline"; h: 44; enabled: library.musicModel.count > 0
                 onClicked: { if (!player.shuffle) player.toggleShuffle(); var p = library.musicModel.paths(); page.playPaths(p, Math.floor(Math.random() * p.length)) } }
-            PillButton { objectName: "musicPlayAll"; text: "Tocar tudo"; icon: "play"; variant: "accent"; h: 44; enabled: library.musicModel.count > 0; onClicked: page.playPaths(library.musicModel.paths(), 0) }
+            PillButton { objectName: "musicPlayAll"; text: qsTr("Tocar tudo"); icon: "play"; variant: "accent"; h: 44; enabled: library.musicModel.count > 0; onClicked: page.playPaths(library.musicModel.paths(), 0) }
         }
         Segmented {
-            options: [{ text: "Recentes", value: "recent" }, { text: "Título", value: "name" }, { text: "Duração", value: "duration" }]
+            options: [{ text: qsTr("Recentes"), value: "recent" }, { text: qsTr("Título"), value: "name" }, { text: qsTr("Duração"), value: "duration" }]
             value: library.musicModel.sortMode
             onPicked: (v) => library.musicModel.sortMode = v
         }
         Item {
             width: parent.width; height: 28
             Text { x: 32; text: "#"; color: theme.textFaint; font.pixelSize: 12 }
-            Text { x: 58; text: "TÍTULO"; color: theme.textFaint; font.pixelSize: 11; font.weight: Font.DemiBold; font.letterSpacing: 1.4 }
-            Text { anchors.right: parent.right; anchors.rightMargin: 20; text: "DURAÇÃO"; color: theme.textFaint; font.pixelSize: 11; font.weight: Font.DemiBold; font.letterSpacing: 1.4 }
+            Text { x: 58; text: qsTr("TÍTULO"); color: theme.textFaint; font.pixelSize: 11; font.weight: Font.DemiBold; font.letterSpacing: 1.4 }
+            Text { anchors.right: parent.right; anchors.rightMargin: 20; text: qsTr("DURAÇÃO"); color: theme.textFaint; font.pixelSize: 11; font.weight: Font.DemiBold; font.letterSpacing: 1.4 }
             Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: theme.stroke }
         }
     }
@@ -60,7 +60,7 @@ ListView {
         anchors.centerIn: parent
         spacing: 16
         Icon { anchors.horizontalCenter: parent.horizontalCenter; name: "music"; size: 56; color: theme.textFaint }
-        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Nenhuma música por aqui"; color: theme.text; font.pixelSize: 22; font.weight: Font.DemiBold }
-        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Adicione sua pasta de músicas em Ajustes."; color: theme.textDim; font.pixelSize: 14 }
+        Text { anchors.horizontalCenter: parent.horizontalCenter; text: qsTr("Nenhuma música por aqui"); color: theme.text; font.pixelSize: 22; font.weight: Font.DemiBold }
+        Text { anchors.horizontalCenter: parent.horizontalCenter; text: qsTr("Adicione sua pasta de músicas em Ajustes."); color: theme.textDim; font.pixelSize: 14 }
     }
 }

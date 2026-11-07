@@ -1,5 +1,13 @@
 // Latest release from GitHub → download links, version, size and SHA-256 on the page.
 const REPO = "LucsLabsStudios/refrata";
+// the page language (pt, en, es) picks the wording of the lines this script fills in
+const LANG = (document.documentElement.lang || "pt").slice(0, 2);
+const T = {
+  pt: { size: (v, mb) => `versão ${v} · ${mb} MB`, line: (v) => `Versão ${v} · Windows 10 e 11` },
+  en: { size: (v, mb) => `version ${v} · ${mb} MB`, line: (v) => `Version ${v} · Windows 10 and 11` },
+  es: { size: (v, mb) => `versión ${v} · ${mb} MB`, line: (v) => `Versión ${v} · Windows 10 y 11` },
+}[LANG] || null;
+const t = T || { size: (v, mb) => `versão ${v} · ${mb} MB`, line: (v) => `Versão ${v} · Windows 10 e 11` };
 
 async function latest() {
   try {
@@ -14,7 +22,7 @@ async function latest() {
     if (setup) {
       document.querySelectorAll("[data-download]").forEach((a) => (a.href = setup.browser_download_url));
       const mb = Math.round(setup.size / 1e6);
-      document.querySelectorAll("[data-size]").forEach((el) => (el.textContent = `versão ${version} · ${mb} MB`));
+      document.querySelectorAll("[data-size]").forEach((el) => (el.textContent = t.size(version, mb)));
       const sha = String(setup.digest || "").replace(/^sha256:/i, "");
       if (sha) {
         document.querySelectorAll("[data-sha]").forEach((el) => {
@@ -26,7 +34,7 @@ async function latest() {
     if (zip) document.querySelectorAll("[data-portable]").forEach((a) => (a.href = zip.browser_download_url));
     if (version) {
       document.querySelectorAll("[data-version]").forEach((el) => (el.textContent = version));
-      document.querySelectorAll("[data-version-line]").forEach((el) => (el.textContent = `Versão ${version} · Windows 10 e 11`));
+      document.querySelectorAll("[data-version-line]").forEach((el) => (el.textContent = t.line(version)));
     }
   } catch (_) {
     /* offline or rate-limited: the links keep pointing at the releases page */
@@ -95,3 +103,10 @@ if (finePointer) {
     });
   });
 }
+
+// language switch: remember the choice so the root page stops redirecting
+document.querySelectorAll(".lang-switch a").forEach((a) =>
+  a.addEventListener("click", () => {
+    try { localStorage.setItem("refrata-lang", a.dataset.lang); } catch (_) { /* private mode */ }
+  })
+);

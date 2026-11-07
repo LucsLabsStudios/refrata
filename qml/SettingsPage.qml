@@ -25,12 +25,14 @@ Flickable {
         property string desc: ""
         default property alias control: ctl.data
         width: parent ? parent.width : 0
-        height: 68
+        // grows with the text: some languages need two or three lines where Portuguese needs one
+        height: Math.max(68, rowText.implicitHeight + 24, ctl.height + 16)
         Column {
+            id: rowText
             anchors.verticalCenter: parent.verticalCenter
             width: parent.width - ctl.width - 24
             spacing: 3
-            Text { text: title; color: theme.text; font.pixelSize: 15; font.weight: Font.DemiBold }
+            Text { text: title; color: theme.text; font.pixelSize: 15; font.weight: Font.DemiBold; width: parent.width; wrapMode: Text.WordWrap }
             Text { text: desc; visible: desc !== ""; color: theme.textDim; font.pixelSize: 13; width: parent.width; wrapMode: Text.WordWrap }
         }
         Item { id: ctl; anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; width: childrenRect.width; height: childrenRect.height }
@@ -43,21 +45,21 @@ Flickable {
         topPadding: 36
         spacing: 24
 
-        PageHeader { width: parent.width; eyebrow: "Preferências"; title: "Ajustes"; subtitle: "Deixe o player do seu jeito." }
+        PageHeader { width: parent.width; eyebrow: qsTr("Preferências"); title: qsTr("Ajustes"); subtitle: qsTr("Deixe o player do seu jeito.") }
 
         Card {
-            title: "Aparência"
+            title: qsTr("Aparência")
             SettingRow {
-                title: "Tema"; desc: "Escuro é ideal para filmes; claro tem tons quentes e suaves."
+                title: qsTr("Tema"); desc: qsTr("Escuro é ideal para filmes; claro tem tons quentes e suaves.")
                 Segmented {
                     objectName: "themeSeg"
-                    options: [{ text: "Escuro", value: "dark" }, { text: "Claro", value: "light" }]
+                    options: [{ text: qsTr("Escuro"), value: "dark" }, { text: qsTr("Claro"), value: "light" }]
                     value: settings.theme
                     onPicked: (v) => settings.theme = v
                 }
             }
             SettingRow {
-                title: "Cor de destaque"; desc: "Usada em botões, progresso e seleção."
+                title: qsTr("Cor de destaque"); desc: qsTr("Usada em botões, progresso e seleção.")
                 Row {
                     spacing: 10
                     Repeater {
@@ -73,7 +75,7 @@ Flickable {
                             }
                             Rectangle { anchors.centerIn: parent; width: 24; height: 24; radius: 12; color: modelData.color }
                             MouseArea { id: sw; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: settings.accent = modelData.color }
-                            Tip { text: modelData.name; shown: sw.containsMouse }
+                            Tip { text: qsTr(modelData.name); shown: sw.containsMouse }
                         }
                     }
                 }
@@ -81,85 +83,109 @@ Flickable {
         }
 
         Card {
-            title: "Reprodução"
+            objectName: "languageCard"
+            title: qsTr("Idioma")
             SettingRow {
-                title: "Continuar de onde parou"; desc: "Lembra a posição de cada arquivo."
+                title: qsTr("Idioma do app")
+                desc: qsTr("“Automático” segue o idioma do Windows. A troca vale na hora.")
+            }
+            Flow {
+                width: parent.width
+                spacing: 8
+                bottomPadding: 6
+                Repeater {
+                    model: [{ code: "auto", name: qsTr("Automático (%1)").arg(i18n.nameOf(i18n.system)) }].concat(i18n.languages)
+                    PillButton {
+                        objectName: "lang_" + modelData.code
+                        text: modelData.name
+                        variant: "outline"; h: 36; fontSize: 13
+                        checked: i18n.language === modelData.code
+                        onClicked: i18n.language = modelData.code
+                    }
+                }
+            }
+        }
+
+        Card {
+            title: qsTr("Reprodução")
+            SettingRow {
+                title: qsTr("Continuar de onde parou"); desc: qsTr("Lembra a posição de cada arquivo.")
                 Toggle { objectName: "toggleResume"; checked: settings.resume; onToggled: (on) => settings.resume = on }
             }
             SettingRow {
-                title: "Reproduzir o próximo automaticamente"; desc: "Avança na fila ao terminar um item."
+                title: qsTr("Reproduzir o próximo automaticamente"); desc: qsTr("Avança na fila ao terminar um item.")
                 Toggle { objectName: "toggleAutoplay"; checked: settings.autoplay; onToggled: (on) => settings.autoplay = on }
             }
             SettingRow {
-                title: "Decodificação por hardware"; desc: "Usa a GPU para decodificar vídeo. Vale ao reiniciar o app."
+                title: qsTr("Decodificação por hardware"); desc: qsTr("Usa a GPU para decodificar vídeo. Vale ao reiniciar o app.")
                 Toggle { objectName: "toggleHwdec"; checked: settings.hwdec; onToggled: (on) => settings.hwdec = on }
             }
         }
 
         Card {
-            title: "Pastas da biblioteca"
+            title: qsTr("Pastas da biblioteca")
             Repeater {
                 model: settings.folders
                 SettingRow {
                     title: modelData.split(/[\\/]/).pop()
                     desc: modelData
-                    IconButton { icon: "delete"; size: 38; iconSize: 14; tip: "Remover"; onClicked: settings.removeFolder(modelData) }
+                    IconButton { icon: "delete"; size: 38; iconSize: 14; tip: qsTr("Remover"); onClicked: settings.removeFolder(modelData) }
                 }
             }
             Item { width: 1; height: 10 }
             Row {
                 spacing: 10
-                PillButton { objectName: "settingsAddFolder"; text: "Adicionar pasta"; icon: "add"; variant: "filled"; onClicked: page.addFolder() }
-                PillButton { objectName: "rescanBtn"; text: library.scanning ? "Atualizando…" : "Atualizar agora"; icon: "refresh"; variant: "outline"; onClicked: library.rescan() }
+                PillButton { objectName: "settingsAddFolder"; text: qsTr("Adicionar pasta"); icon: "add"; variant: "filled"; onClicked: page.addFolder() }
+                PillButton { objectName: "rescanBtn"; text: library.scanning ? qsTr("Atualizando…") : qsTr("Atualizar agora"); icon: "refresh"; variant: "outline"; onClicked: library.rescan() }
             }
         }
 
         Card {
-            title: "Abertura rápida"
+            title: qsTr("Abertura rápida")
             SettingRow {
-                title: "Prévia com Espaço no Explorer"
-                desc: "Selecione um vídeo ou música no Explorer ou na área de trabalho e aperte Espaço. Espaço ou Esc fecha; ← → passa pelos arquivos da pasta."
+                title: qsTr("Prévia com Espaço no Explorer")
+                desc: qsTr("Selecione um vídeo ou música no Explorer ou na área de trabalho e aperte Espaço. Espaço ou Esc fecha; ← → passa pelos arquivos da pasta.")
                 Toggle { objectName: "toggleQuickLook"; checked: quicklook.enabled; onToggled: (on) => quicklook.enabled = on }
             }
             SettingRow {
-                title: "Abrir arquivos no player rápido"
-                desc: "Um vídeo ou música aberto pelo Explorer começa numa janela compacta e flutuante; ⤢ leva para o app completo."
+                title: qsTr("Abrir arquivos no player rápido")
+                desc: qsTr("Um vídeo ou música aberto pelo Explorer começa numa janela compacta e flutuante; ⤢ leva para o app completo.")
                 Toggle { objectName: "toggleQuickOpen"; checked: settings.value("quickOpen"); onToggled: (on) => settings.setValue("quickOpen", on) }
             }
             SettingRow {
-                title: "Manter em segundo plano"
-                desc: "Ao fechar a janela, o Refrata fica na bandeja do Windows, e a prévia e os arquivos abrem na hora."
+                title: qsTr("Manter em segundo plano")
+                desc: qsTr("Ao fechar a janela, o Refrata fica na bandeja do Windows, e a prévia e os arquivos abrem na hora.")
                 Toggle { objectName: "toggleBackground"; checked: tray.background; onToggled: (on) => tray.background = on }
             }
             SettingRow {
                 visible: tray.canAutostart
-                title: "Iniciar com o Windows"
-                desc: "Começa discretamente na bandeja ao ligar o computador."
+                title: qsTr("Iniciar com o Windows")
+                desc: qsTr("Começa discretamente na bandeja ao ligar o computador.")
                 Toggle { objectName: "toggleAutostart"; checked: tray.autostart; onToggled: (on) => tray.autostart = on }
             }
         }
 
         Card {
-            title: "Atualizações"
+            title: qsTr("Atualizações")
             SettingRow {
-                title: "Procurar atualizações automaticamente"
-                desc: updater.kind === "store" ? "Esta cópia veio da Microsoft Store, que cuida das atualizações."
-                    : "Ao abrir o app, no máximo duas vezes por dia. Nada é instalado sem você pedir."
+                title: qsTr("Procurar atualizações automaticamente")
+                desc: updater.kind === "store" ? qsTr("Esta cópia veio da Microsoft Store, que cuida das atualizações.")
+                    : qsTr("Ao abrir o app, no máximo duas vezes por dia. Nada é instalado sem você pedir.")
                 Toggle { objectName: "toggleAutoUpdate"; enabled: updater.kind !== "store"; checked: updater.auto; onToggled: (on) => updater.auto = on }
             }
             SettingRow {
                 objectName: "updateStatusRow"
-                title: "Versão " + updater.current
+                title: qsTr("Versão %1").arg(updater.current)
                 desc: {
                     switch (updater.state) {
-                    case "checking": return "Procurando…"
-                    case "uptodate": return "Você está com a versão mais recente."
-                    case "available": return "A versão " + updater.latest + " está disponível."
-                    case "downloading": return "Baixando a versão " + updater.latest + "… " + Math.round(updater.progress * 100) + "%"
-                    case "ready": return "A versão " + updater.latest + " está pronta para instalar."
-                    case "installing": return "Instalando…"
+                    case "checking": return qsTr("Procurando…")
+                    case "uptodate": return qsTr("Você está com a versão mais recente.")
+                    case "available": return qsTr("A versão %1 está disponível.").arg(updater.latest)
+                    case "downloading": return qsTr("Baixando a versão %1… %2%").arg(updater.latest).arg(Math.round(updater.progress * 100))
+                    case "ready": return qsTr("A versão %1 está pronta para instalar.").arg(updater.latest)
+                    case "installing": return qsTr("Instalando…")
                     case "error": return updater.error
-                    default: return updater.lastCheck > 0 ? "Última verificação: " + new Date(updater.lastCheck * 1000).toLocaleString(Qt.locale("pt_BR"), "dd/MM HH:mm") : "Ainda não verificado."
+                    default: return updater.lastCheck > 0 ? qsTr("Última verificação: %1").arg(new Date(updater.lastCheck * 1000).toLocaleString(Qt.locale(i18n.locale), Locale.ShortFormat)) : qsTr("Ainda não verificado.")
                     }
                 }
                 Row {
@@ -168,13 +194,13 @@ Flickable {
                         objectName: "updateCheck"
                         visible: updater.state !== "available" && updater.state !== "ready"
                         enabled: updater.kind !== "store" && updater.state !== "checking" && updater.state !== "downloading" && updater.state !== "installing"
-                        text: updater.state === "checking" ? "Procurando…" : "Procurar agora"; icon: "sync"; variant: "outline"
+                        text: updater.state === "checking" ? qsTr("Procurando…") : qsTr("Procurar agora"); icon: "sync"; variant: "outline"
                         onClicked: updater.checkNow()
                     }
                     PillButton {
                         objectName: "updateNow"
                         visible: updater.state === "available" || updater.state === "ready"
-                        text: updater.state === "ready" ? "Reiniciar e atualizar" : (updater.canSelfUpdate ? "Atualizar" : "Baixar")
+                        text: updater.state === "ready" ? qsTr("Reiniciar e atualizar") : (updater.canSelfUpdate ? qsTr("Atualizar") : qsTr("Baixar"))
                         icon: "download"; variant: "accent"
                         onClicked: updater.update()
                     }
@@ -183,20 +209,20 @@ Flickable {
         }
 
         Card {
-            title: "Atalhos de teclado"
+            title: qsTr("Atalhos de teclado")
             Grid {
                 columns: 2
                 columnSpacing: 40
                 rowSpacing: 12
                 Repeater {
                     model: [
-                        ["Espaço", "Reproduzir / pausar"], ["F  ·  duplo clique", "Tela cheia"],
-                        ["← / →", "Voltar / avançar 10 s"], ["↑ / ↓", "Volume"],
-                        ["M", "Silenciar"], ["N / P", "Próximo / anterior"],
-                        ["[  /  ]", "Velocidade − / +"], ["S", "Capturar quadro"],
-                        ["E", "Avançar um quadro"], ["L", "Repetir um trecho (A-B)"],
-                        ["T", "Sempre no topo"], ["Ctrl + O", "Abrir arquivos"],
-                        ["Ctrl + L", "Abrir stream de rede"], ["Esc", "Sair da tela cheia / fechar"],
+                        [qsTr("Espaço"), qsTr("Reproduzir / pausar")], [qsTr("F  ·  duplo clique"), qsTr("Tela cheia")],
+                        ["← / →", qsTr("Voltar / avançar 10 s")], ["↑ / ↓", qsTr("Volume")],
+                        ["M", qsTr("Silenciar")], ["N / P", qsTr("Próximo / anterior")],
+                        ["[  /  ]", qsTr("Velocidade − / +")], ["S", qsTr("Capturar quadro")],
+                        ["E", qsTr("Avançar um quadro")], ["L", qsTr("Repetir um trecho (A-B)")],
+                        ["T", qsTr("Sempre no topo")], ["Ctrl + O", qsTr("Abrir arquivos")],
+                        ["Ctrl + L", qsTr("Abrir stream de rede")], ["Esc", qsTr("Sair da tela cheia / fechar")],
                     ]
                     Row {
                         spacing: 14
@@ -251,7 +277,7 @@ Flickable {
                         anchors.verticalCenter: parent.verticalCenter
                         spacing: 2
                         Text { text: "LUCSLABS STUDIOS"; color: "#FFB36B"; font.pixelSize: 12; font.weight: Font.Bold; font.letterSpacing: 2.4 }
-                        Text { text: "apresenta"; color: Qt.rgba(1, 1, 1, 0.55); font.pixelSize: 12 }
+                        Text { text: qsTr("apresenta"); color: Qt.rgba(1, 1, 1, 0.55); font.pixelSize: 12 }
                     }
                 }
                 Text {
@@ -263,7 +289,7 @@ Flickable {
                 Text {
                     width: parent.width
                     textFormat: Text.StyledText
-                    text: "Todo o motor do VLC, <font color='#FF9A5C'>refratado</font> numa experiência nova."
+                    text: qsTr("Todo o motor do VLC, <font color='#FF9A5C'>refratado</font> numa experiência nova.")
                     color: Qt.rgba(1, 1, 1, 0.86)
                     font.family: theme.displayFont; font.pixelSize: 22; font.weight: Font.Normal
                     wrapMode: Text.WordWrap
@@ -275,8 +301,8 @@ Flickable {
                     topPadding: 6
                     Repeater {
                         model: [
-                            "Versão " + (appctl.about.version || "?"),
-                            "libVLC " + (appctl.about.vlcVersion || "?") + (appctl.about.vlcBundled ? " · embutido" : " · do sistema"),
+                            qsTr("Versão %1").arg(appctl.about.version || "?"),
+                            "libVLC " + (appctl.about.vlcVersion || "?") + " · " + (appctl.about.vlcBundled ? qsTr("embutido") : qsTr("do sistema")),
                             "Qt 6 · QML"
                         ]
                         Rectangle {
@@ -294,18 +320,18 @@ Flickable {
                     topPadding: 10
                     PillButton {
                         objectName: "aboutContact"
-                        text: "Falar com a LucsLabs"; icon: "mail"; variant: "glass"
+                        text: qsTr("Falar com a LucsLabs"); icon: "mail"; variant: "glass"
                         onClicked: appctl.openExternal("mailto:" + (appctl.about.contact || ""))
                     }
                     PillButton {
                         objectName: "aboutSource"
-                        text: "Código-fonte"; icon: "link"; variant: "glass"
+                        text: qsTr("Código-fonte"); icon: "link"; variant: "glass"
                         onClicked: appctl.openExternal("https://github.com/LucsLabsStudios/refrata")
                     }
                     PillButton {
                         objectName: "aboutDefaults"
                         visible: appctl.about.installed === true
-                        text: "Definir como player padrão"; icon: "apps"; variant: "glass"
+                        text: qsTr("Definir como player padrão"); icon: "apps"; variant: "glass"
                         onClicked: appctl.openExternal("ms-settings:defaultapps")
                     }
                 }
@@ -316,7 +342,7 @@ Flickable {
                 anchors.bottom: parent.bottom; anchors.bottomMargin: 26
                 wrapMode: Text.WordWrap
                 color: Qt.rgba(1, 1, 1, 0.5); font.pixelSize: 12
-                text: "Software livre (GPL 3.0) construído sobre o libVLC da VideoLAN (LGPL 2.1+). VLC é marca da VideoLAN; este é um projeto independente."
+                text: qsTr("Software livre (GPL 3.0) construído sobre o libVLC da VideoLAN (LGPL 2.1+). VLC é marca da VideoLAN; este é um projeto independente.")
             }
         }
     }

@@ -8,10 +8,10 @@ Item {
     z: 900
     property string path: ""
     property var actions: [
-        { key: "play", text: "Reproduzir", icon: "play" },
-        { key: "next", text: "Tocar em seguida", icon: "next" },
-        { key: "queue", text: "Adicionar à fila", icon: "add" },
-        { key: "reveal", text: "Mostrar no Explorer", icon: "folder" },
+        { key: "play", text: qsTr("Reproduzir"), icon: "play" },
+        { key: "next", text: qsTr("Tocar em seguida"), icon: "next" },
+        { key: "queue", text: qsTr("Adicionar à fila"), icon: "add" },
+        { key: "reveal", text: qsTr("Mostrar no Explorer"), icon: "folder" },
     ]
     signal triggered(string key, string path)
 

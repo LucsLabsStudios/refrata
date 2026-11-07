@@ -24,9 +24,9 @@ Flickable {
 
         PageHeader {
             width: parent.width
-            eyebrow: "Rede"
-            title: "Streams"
-            subtitle: "HTTP, HLS, RTSP, RTMP, MMS, UDP, FTP, SMB… tudo o que o VLC abre."
+            eyebrow: qsTr("Rede")
+            title: qsTr("Streams")
+            subtitle: qsTr("HTTP, HLS, RTSP, RTMP, MMS, UDP, FTP, SMB… tudo o que o VLC abre.")
         }
 
         Rectangle {
@@ -39,7 +39,7 @@ Flickable {
                 anchors.fill: parent
                 anchors.margins: 36
                 spacing: 22
-                Text { text: "Cole um endereço de rede"; color: theme.text; font.family: theme.displayFont; font.pixelSize: 28; font.weight: Font.DemiBold }
+                Text { text: qsTr("Cole um endereço de rede"); color: theme.text; font.family: theme.displayFont; font.pixelSize: 28; font.weight: Font.DemiBold }
                 Row {
                     width: parent.width
                     spacing: 12
@@ -60,11 +60,11 @@ Flickable {
                             selectByMouse: true; clip: true
                             selectionColor: theme.accent
                             onAccepted: page.submit()
-                            Text { visible: !field.text; text: "https://exemplo.com/video.m3u8"; color: theme.textFaint; font.pixelSize: 18; anchors.verticalCenter: parent.verticalCenter }
+                            Text { visible: !field.text; text: qsTr("https://exemplo.com/video.m3u8"); color: theme.textFaint; font.pixelSize: 18; anchors.verticalCenter: parent.verticalCenter }
                         }
                     }
-                    PillButton { id: pasteBtn; objectName: "pasteBtn"; text: "Colar"; variant: "outline"; h: 60; fontSize: 15; onClicked: field.text = appctl.clipboardText() }
-                    PillButton { id: goBtn; objectName: "goBtn"; text: "Reproduzir"; icon: "play"; variant: "accent"; h: 60; fontSize: 15; onClicked: page.submit() }
+                    PillButton { id: pasteBtn; objectName: "pasteBtn"; text: qsTr("Colar"); variant: "outline"; h: 60; fontSize: 15; onClicked: field.text = appctl.clipboardText() }
+                    PillButton { id: goBtn; objectName: "goBtn"; text: qsTr("Reproduzir"); icon: "play"; variant: "accent"; h: 60; fontSize: 15; onClicked: page.submit() }
                 }
             }
         }
@@ -74,7 +74,7 @@ Flickable {
             spacing: 14
             readonly property var urls: settings.history.filter(function (h) { return h.path.indexOf("://") > 0 })
             visible: urls.length > 0
-            Text { text: "Streams recentes"; color: theme.text; font.family: theme.displayFont; font.pixelSize: 26; font.weight: Font.DemiBold }
+            Text { text: qsTr("Streams recentes"); color: theme.text; font.family: theme.displayFont; font.pixelSize: 26; font.weight: Font.DemiBold }
             Repeater {
                 model: parent.urls
                 Rectangle {

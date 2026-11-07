@@ -32,6 +32,8 @@ TMP = Path(os.environ.get("REFRATA_E2E_TMP") or tempfile.mkdtemp(prefix="refrata
 os.environ["REFRATA_E2E_TMP"] = str(TMP)
 os.environ["REFRATA_DATA"] = str(TMP / "data")
 os.environ["REFRATA_NO_HOOK"] = "1"   # no system-wide keyboard hook while the battery types
+# the battery checks Portuguese text: "auto" resolves to Portuguese whatever the Windows language
+os.environ["REFRATA_LANG"] = "pt"
 (TMP / "data").mkdir(parents=True, exist_ok=True)
 FROZEN = bool(getattr(sys, "frozen", False))
 if not FROZEN:
@@ -1959,6 +1961,64 @@ def t49_ab_repeat_and_always_on_top():
     check(not (C.parts.win.flags() & _Qt.WindowType.WindowStaysOnTopHint), "T again releases it")
     win().setProperty("playerOpen", False)
     stop_playback()
+
+
+@test
+def t50_language_switch_live_and_complete():
+    import main as M
+    from refrata.i18n import CODES, tr
+    i18n, tray = C.parts.i18n, C.parts.tray
+    check(i18n.property("language") == "auto" and i18n.property("current") == "pt", "starts in Portuguese (auto)")
+    if not FROZEN:
+        sys.path.insert(0, str(ROOT / "tools"))
+        import i18n as tool  # noqa: PLC0415
+        problems = tool.check(verbose=False)
+        check(not problems, "every language covers every string", "; ".join(problems[:5]))
+    go_page(5)
+    row = C.parts.find("updateStatusRow")
+    check(row.property("title").startswith("Versão"), "Portuguese text", row.property("title"))
+    warnings_before = len(M.QT_MESSAGES)
+
+    # a click on a language switches the whole app on the spot, Python text included
+    ui_click("lang_en")
+    wait(lambda: i18n.property("current") == "en", 2, "English picked")
+    pump(0.3)
+    check(row.property("title").startswith("Version "), "QML text follows", row.property("title"))
+    check(C.parts.find("lang_en").property("checked") is True, "the chosen language is highlighted")
+    check(tr("Timer de sono desligado") == "Sleep timer off", "Python messages follow")
+    check(tr("%n item(ns) adicionado(s) à fila", 1) == "1 item added to the queue"
+          and tr("%n item(ns) adicionado(s) à fila", 3) == "3 items added to the queue", "English plurals")
+    check(tray._a_quit.text() == "Quit", "the tray menu follows", tray._a_quit.text())
+    check(C.parts.settings.value("language") == "en", "the choice is saved")
+
+    # Russian and Polish have three plural forms
+    i18n.setProperty("language", "ru")
+    pump(0.3)
+    check([tr("%n faixa(s)", n) for n in (1, 3, 5, 21)] == ["1 трек", "3 трека", "5 треков", "21 трек"],
+          "Russian plural forms", str([tr("%n faixa(s)", n) for n in (1, 3, 5, 21)]))
+    i18n.setProperty("language", "pl")
+    pump(0.3)
+    check([tr("%n vídeo(s)", n) for n in (1, 2, 5, 22)] == ["1 film", "2 filmy", "5 filmów", "22 filmy"],
+          "Polish plural forms", str([tr("%n vídeo(s)", n) for n in (1, 2, 5, 22)]))
+
+    # every language loads, switches and renders without a single QML warning
+    for code in CODES:
+        i18n.setProperty("language", code)
+        pump(0.15)
+        check(i18n.property("current") == code, f"{code} loads")
+    i18n.setProperty("language", "ja")
+    pump(0.3)
+    check(row.property("title").startswith("バージョン"), "Japanese", row.property("title"))
+    check(len(M.QT_MESSAGES) == warnings_before, "no warnings while switching",
+          "; ".join(M.QT_MESSAGES[warnings_before:][:3]))
+
+    # back to automatic: Windows' language (pinned to Portuguese for the battery)
+    ui_click("lang_auto")
+    wait(lambda: i18n.property("current") == "pt", 2)
+    pump(0.3)
+    check(row.property("title").startswith("Versão"), "automatic goes back to Portuguese", row.property("title"))
+    check(tray._a_quit.text() == "Sair", "tray back in Portuguese")
+    go_page(0)
 
 
 @test

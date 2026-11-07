@@ -148,7 +148,7 @@ def write_spec() -> Path:
 a = Analysis(
     [{r(ROOT / 'main.py')}],
     pathex=[{r(ROOT)}],
-    datas=[({r(ROOT / 'qml')}, 'qml'), ({r(ROOT / 'assets')}, 'assets'), ({r(VENDOR)}, 'vlc')],
+    datas=[({r(ROOT / 'qml')}, 'qml'), ({r(ROOT / 'assets')}, 'assets'), ({r(ROOT / 'i18n')}, 'i18n'), ({r(VENDOR)}, 'vlc')],
     hiddenimports=['tests', 'tests.e2e', 'tests.fixtures', 'tests.windialogs', 'PySide6.QtTest',
                    'PySide6.QtNetwork', 'PySide6.QtMultimedia', 'PySide6.QtQuickControls2',
                    'PySide6.QtWidgets', 'PySide6.QtAxContainer'],

@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Refrata · reproductor de vídeo y música para Windows</title>
+  <meta name="description" content="Refrata es un reproductor de vídeo y música para Windows, gratuito y de código abierto. Usa el motor de VLC, así que abre casi cualquier archivo sin instalar códecs, con una interfaz pensada para ver y vista previa con la barra espaciadora en el Explorador.">
+  <meta name="theme-color" content="#0b0908">
+  <meta property="og:title" content="Refrata · reproduce todo lo que reproduce VLC, con otra cara">
+  <meta property="og:description" content="Reproductor de vídeo y música para Windows, gratuito y de código abierto, hecho en Brasil.">
+  <meta property="og:image" content="/img/og.jpg">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="/img/icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="alternate" hreflang="pt-BR" href="https://refrata.vercel.app/">
+  <link rel="alternate" hreflang="en" href="https://refrata.vercel.app/en/">
+  <link rel="alternate" hreflang="es" href="https://refrata.vercel.app/es/">
+  <link rel="alternate" hreflang="x-default" href="https://refrata.vercel.app/en/">
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+
+  <header class="nav" id="top">
+    <a class="brand" href="#top" aria-label="Refrata, inicio">
+      <img src="/img/icon.png" alt="" width="34" height="34">
+      <span>Refrata</span>
+    </a>
+    <nav class="links" aria-label="Secciones">
+      <a href="#video">Vídeo</a>
+      <a href="#rapido">Vista previa</a>
+      <a href="#musica">Música</a>
+      <a href="#recursos">Funciones</a>
+      <a href="#duvidas">Preguntas</a>
+    </nav>
+    <div class="nav-cta">
+      <div class="lang-switch" role="group" aria-label="Idioma">
+        <a href="/" hreflang="pt-BR" data-lang="pt">PT</a>
+        <a href="/en/" hreflang="en" data-lang="en">EN</a>
+        <a href="/es/" hreflang="es" data-lang="es" aria-current="true">ES</a>
+      </div>
+      <a class="pill ghost" href="https://github.com/LucsLabsStudios/refrata" target="_blank" rel="noopener">
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38v-1.33c-2.23.48-2.7-1.07-2.7-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.06-.49.06-.49.8.06 1.23.83 1.23.83.72 1.22 1.88.87 2.34.66.07-.52.28-.87.5-1.07-1.78-.2-3.65-.89-3.65-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.19c0 .21.15.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+        <span>GitHub</span>
+      </a>
+      <a class="pill accent" href="#download">Descargar</a>
+    </div>
+  </header>
+
+  <main>
+    <!-- ======================================================= hero -->
+    <section class="hero">
+      <div class="hero-art" aria-hidden="true"></div>
+      <div class="hero-copy">
+        <p class="eyebrow">Gratis y de código abierto</p>
+        <h1>Lo reproduce todo.<br><em>Con otra cara.</em></h1>
+        <p class="lead">El reproductor de vídeo y música para Windows que funciona con el motor de VLC. Películas, series, una carpeta de canciones o un enlace de streaming: abre casi cualquier archivo sin que tengas que buscar códecs. Y alrededor, una interfaz pensada para ver, no para configurar.</p>
+        <div class="cta-row">
+          <a class="btn-orb" href="#download" data-download>
+            <span class="orb" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M12 3a1 1 0 0 1 1 1v9.59l3.3-3.3a1 1 0 1 1 1.4 1.42l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.42l3.3 3.3V4a1 1 0 0 1 1-1Zm-7 15a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"/></svg>
+            </span>
+            <span class="btn-text">
+              <strong>Descargar para Windows</strong>
+              <small data-version-line>Windows 10 y 11 · 64 bits</small>
+            </span>
+          </a>
+          <a class="pill ghost big" href="https://github.com/LucsLabsStudios/refrata" target="_blank" rel="noopener">Ver el código</a>
+        </div>
+      </div>
+      <figure class="hero-shot">
+        <div class="window">
+          <div class="window-bar"><i></i><i></i><i></i><span>Refrata</span></div>
+          <img src="/img/video-player.webp" alt="Reproductor de vídeo de Refrata: el título de la película en letras grandes y controles de vidrio esmerilado sobre la imagen" width="1440" height="900" fetchpriority="high">
+        </div>
+        <div class="window mini-window" aria-hidden="true">
+          <img src="/img/music-player.webp" alt="" width="1440" height="900" loading="lazy">
+        </div>
+      </figure>
+    </section>
+
+    <!-- ======================================================= formats -->
+    <section class="formats" aria-label="Formatos compatibles">
+      <div class="marquee">
+        <div class="track">
+          <span>MKV</span><span>MP4</span><span>AVI</span><span>MOV</span><span>WEBM</span><span>FLAC</span><span>MP3</span><span>OPUS</span>
+          <span>M4A</span><span>WAV</span><span>HLS</span><span>RTSP</span><span>M3U</span><span>XSPF</span><span>SRT</span><span>ASS</span>
+          <span>MKV</span><span>MP4</span><span>AVI</span><span>MOV</span><span>WEBM</span><span>FLAC</span><span>MP3</span><span>OPUS</span>
+          <span>M4A</span><span>WAV</span><span>HLS</span><span>RTSP</span><span>M3U</span><span>XSPF</span><span>SRT</span><span>ASS</span>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ======================================================= video -->
+    <section class="section split" id="video">
+      <div class="split-copy">
+        <p class="eyebrow">Vídeo</p>
+        <h2>Toda la escena en pantalla.<br><span class="dim">Los controles vuelven cuando mueves el ratón.</span></h2>
+        <p class="lead">Deja quieto el ratón y todo desaparece: solo queda la película. Muévelo y los controles de vidrio esmerilado vuelven sin tapar la imagen. La barra de tiempo te muestra adónde vas antes de hacer clic.</p>
+        <ul class="ticks">
+          <li>Cambia el audio y los subtítulos con un clic, o arrastra un .srt a la ventana</li>
+          <li>Ajusta brillo, contraste, saturación y encuadre mientras ves</li>
+          <li>Repite un fragmento con <kbd>L</kbd> y deja la ventana siempre visible con <kbd>T</kbd></li>
+          <li>Velocidad de 0,25× a 4×, avance fotograma a fotograma y capturas</li>
+        </ul>
+      </div>
+      <figure class="split-shot">
+        <img src="/img/video-adjust.webp" alt="Panel Imagen abierto sobre el vídeo, con brillo, contraste, saturación, gamma, tono y encuadre" width="1440" height="900" loading="lazy">
+      </figure>
+    </section>
+
+    <!-- ======================================================= quick -->
+    <section class="section split reverse" id="rapido">
+      <div class="split-copy">
+        <p class="eyebrow">Vista previa al instante</p>
+        <h2>Pulsa <span class="keycap">Espacio</span>.<br><span class="dim">Míralo antes de abrirlo.</span></h2>
+        <p class="lead">En el Explorador de archivos o en el escritorio, selecciona un vídeo o una canción y pulsa Espacio. La vista previa aparece flotando al instante, y Espacio otra vez la cierra. Las flechas recorren los demás archivos de la carpeta, como quien hojea un álbum.</p>
+        <ul class="ticks">
+          <li>Un doble clic en un archivo abre un reproductor compacto, sin cargar toda la aplicación</li>
+          <li>¿Quieres pantalla completa? <kbd>Intro</kbd> lo lleva a la aplicación completa, en el mismo segundo</li>
+          <li>Deja Refrata en la bandeja y arrancando con Windows, y todo se abre sin esperas</li>
+        </ul>
+      </div>
+      <figure class="split-shot quick-shot">
+        <div class="desk" aria-hidden="true">
+          <div class="desk-files">
+            <span class="file"></span><span class="file sel"></span><span class="file"></span><span class="file"></span>
+          </div>
+          <span class="keycap big press">Espacio</span>
+        </div>
+        <img class="quick-card" src="/img/quick-preview.webp" alt="Ventana de vista previa de Refrata flotando con un vídeo, el nombre del archivo y 3 de 4 en la carpeta" width="1280" height="720" loading="lazy">
+      </figure>
+    </section>
+
+    <!-- ======================================================= library -->
+    <section class="section" id="biblioteca">
+      <p class="eyebrow">Biblioteca</p>
+      <h2>Tus vídeos y tu música,<br><span class="dim">ordenados sin que muevas un dedo.</span></h2>
+      <p class="lead section-lead">La primera vez que se abre, Refrata lee tus carpetas de Vídeos y Música y monta la biblioteca con miniaturas, duraciones y lo que estabas viendo. No copia ni envía nada a ningún sitio: solo lee los archivos donde ya están.</p>
+      <div class="duo">
+        <img src="/img/home-videos.webp" alt="Pantalla de inicio de Refrata con el destacado Visto recientemente y el minirreproductor" width="1440" height="900" loading="lazy">
+        <img src="/img/videos-grid.webp" alt="Cuadrícula de vídeos de la biblioteca con miniaturas y duración" width="1440" height="900" loading="lazy">
+      </div>
+    </section>
+
+    <!-- ======================================================= features -->
+    <section class="section" id="recursos">
+      <p class="eyebrow">Funciones</p>
+      <h2>Todo lo que necesita un reproductor serio.<br><span class="dim">Nada escondido en submenús.</span></h2>
+      <div class="grid">
+        <article class="card">
+          <div class="knob"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H4z M8 20h8" /></svg></div>
+          <h3>Abre casi de todo</h3>
+          <p>MKV, MP4, AVI, HEVC, FLAC, Opus y streams HLS y RTSP, con el motor de VLC integrado. Sin paquetes de códecs que instalar.</p>
+        </article>
+        <article class="card">
+          <div class="knob"><svg viewBox="0 0 24 24"><path d="M5 9v6 M9 6v12 M13 9v6 M17 4v16 M21 10v4" /></svg></div>
+          <h3>Ecualizador de 10 bandas</h3>
+          <p>18 preajustes, preamplificador y volumen hasta el 150 %, con una marca en el 100 % para que no satures el sonido sin querer.</p>
+        </article>
+        <article class="card">
+          <div class="knob"><svg viewBox="0 0 24 24"><path d="M4 6h16v12H4z M7 14h4 M13 14h4" /></svg></div>
+          <h3>Subtítulos a su tiempo</h3>
+          <p>Elige la pista de audio y los subtítulos, arrastra un .srt a la ventana y corrige el retraso de cada uno cuando se desincronicen.</p>
+        </article>
+        <article class="card">
+          <div class="knob"><svg viewBox="0 0 24 24"><path d="M4 7h11 M4 12h11 M4 17h7 M18 14v6 M15 17h6" /></svg></div>
+          <h3>Cola y listas</h3>
+          <p>Reproducir a continuación, aleatorio y repetir. Abre listas M3U, PLS y XSPF, y repite un fragmento A-B con una tecla.</p>
+        </article>
+        <article class="card">
+          <div class="knob"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" /><path d="M4 12h16 M12 4c2.5 2.5 2.5 13.5 0 16 M12 4c-2.5 2.5-2.5 13.5 0 16" /></svg></div>
+          <h3>Streams de red</h3>
+          <p>Pega un enlace HTTP, HLS, RTSP o RTMP y míralo, igual que harías en VLC.</p>
+        </article>
+        <article class="card">
+          <div class="knob"><svg viewBox="0 0 24 24"><path d="M12 4v4 M12 16v4 M4 12h4 M16 12h4 M7 7l2 2 M15 15l2 2 M17 7l-2 2 M9 15l-2 2" /></svg></div>
+          <h3>Sigue donde lo dejaste</h3>
+          <p>Películas, pódcasts y audiolibros vuelven al punto donde paraste. Las canciones cortas empiezan desde el principio, como debe ser.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- ======================================================= music -->
+    <section class="section music" id="musica">
+      <div class="music-copy">
+        <p class="eyebrow">Modo música</p>
+        <h2>Para escuchar,<br>no solo para reproducir.</h2>
+        <p class="lead">Un clic reproduce, otro pausa. La cola se convierte en un carrusel de portadas, el fondo toma los colores del disco y el progreso corre alrededor del botón de reproducir.</p>
+        <ul class="ticks">
+          <li>Biblioteca con artistas, álbumes, portadas y búsqueda</li>
+          <li>Carrusel de la cola con portadas en 3D</li>
+          <li>Minirreproductor que te acompaña por toda la aplicación</li>
+        </ul>
+      </div>
+      <div class="music-visual">
+        <div class="ring-demo" aria-hidden="true">
+          <svg viewBox="0 0 200 200">
+            <defs>
+              <linearGradient id="arc" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#ffd2a3"/><stop offset="1" stop-color="#ff6a1f"/>
+              </linearGradient>
+            </defs>
+            <circle class="ring-track" cx="100" cy="100" r="88"/>
+            <circle class="ring-arc" cx="100" cy="100" r="88"/>
+          </svg>
+          <div class="ring-orb"><svg viewBox="0 0 24 24" width="34" height="34"><path fill="currentColor" d="M7 5h3v14H7zm7 0h3v14h-3z"/></svg></div>
+        </div>
+        <img class="lib-shot" src="/img/music-library.webp" alt="Biblioteca de música de Refrata con portadas, artistas y duración" width="1440" height="900" loading="lazy">
+      </div>
+    </section>
+
+    <!-- ======================================================= updates -->
+    <section class="section" id="atualizacoes">
+      <p class="eyebrow">Actualizaciones</p>
+      <h2>Instálalo una vez.<br><span class="dim">Las mejoras llegan desde la propia aplicación.</span></h2>
+      <ol class="steps">
+        <li class="card">
+          <span class="num">1</span>
+          <h3>Un aviso discreto</h3>
+          <p>Al abrirse, Refrata comprueba si hay una versión nueva y te avisa. No se descarga nada sin tu clic.</p>
+        </li>
+        <li class="card">
+          <span class="num">2</span>
+          <h3>Descarga verificada</h3>
+          <p>En <b>Actualizar</b>, descarga el instalador y compara su SHA-256 con el publicado en la versión. Si no coincide, no lo instala.</p>
+        </li>
+        <li class="card">
+          <span class="num">3</span>
+          <h3>Vuelve ya actualizado</h3>
+          <p>La instalación se hace en segundo plano y la aplicación se vuelve a abrir en la versión nueva, con tu biblioteca y tus ajustes tal como estaban.</p>
+        </li>
+      </ol>
+    </section>
+
+    <!-- ======================================================= download -->
+    <section class="section" id="download">
+      <div class="download">
+        <div class="dl-glow" aria-hidden="true"></div>
+        <div class="dl-copy">
+          <p class="eyebrow">Descarga</p>
+          <h2>Refrata <span data-version>para Windows</span></h2>
+          <p class="lead">Gratis de verdad: sin anuncios, sin cuenta y sin recopilar datos. El motor de VLC ya viene incluido, así que no hay que instalar nada más.</p>
+          <div class="cta-row">
+            <a class="btn-orb" href="https://github.com/LucsLabsStudios/refrata/releases/latest" data-download>
+              <span class="orb" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M12 3a1 1 0 0 1 1 1v9.59l3.3-3.3a1 1 0 1 1 1.4 1.42l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.42l3.3 3.3V4a1 1 0 0 1 1-1Zm-7 15a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"/></svg>
+              </span>
+              <span class="btn-text"><strong>Instalador</strong><small data-size>recomendado</small></span>
+            </a>
+            <a class="pill ghost big" href="https://github.com/LucsLabsStudios/refrata/releases/latest" data-portable>Versión portátil (.zip)</a>
+          </div>
+          <p class="fine">Windows 10 u 11, 64 bits · <a href="https://github.com/LucsLabsStudios/refrata/releases" target="_blank" rel="noopener">todas las versiones</a> · <a href="#code-signing-policy">Code signing policy</a>
+            <span data-sha></span></p>
+        </div>
+        <div class="dl-help card">
+          <h3>Si Windows desconfía</h3>
+          <p>Refrata todavía no tiene firma digital, que solo se concede a proyectos con más recorrido. Por eso el navegador y Windows pueden avisar de que el archivo se descarga poco.</p>
+          <ol>
+            <li>En el navegador, elige <b>Conservar</b>.</li>
+            <li>En la pantalla azul de SmartScreen, haz clic en <b>Más información</b> y después en <b>Ejecutar de todas formas</b>.</li>
+          </ol>
+          <p class="fine">¿Quieres comprobar el archivo? El SHA-256 de cada versión está publicado en la página de la versión.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================= faq -->
+    <section class="section" id="duvidas">
+      <p class="eyebrow">Preguntas</p>
+      <h2>Antes de instalar.</h2>
+      <div class="faq">
+        <details class="card">
+          <summary>¿Necesito tener VLC instalado?</summary>
+          <p>No. El motor de VLC ya viene dentro de Refrata. Si tienes VLC instalado, los dos conviven sin problema, cada uno con su configuración.</p>
+        </details>
+        <details class="card">
+          <summary>¿De verdad es gratis? ¿Dónde está el truco?</summary>
+          <p>No lo hay. Refrata es software libre con licencia GPL 3.0: sin anuncios, sin cuenta, sin versión de pago y sin recopilar datos. Todo el código está en GitHub para quien quiera revisarlo.</p>
+        </details>
+        <details class="card">
+          <summary>¿Por qué Windows avisa de que el archivo puede ser peligroso?</summary>
+          <p>Porque el instalador todavía no tiene firma digital, y Windows desconfía de cualquier programa nuevo sin ella. El aviso no indica un virus. Para comprobarlo, compara el SHA-256 del archivo con el publicado en la versión, o genera tú mismo el instalador a partir del código.</p>
+        </details>
+        <details class="card">
+          <summary>¿Cómo pongo Refrata como reproductor predeterminado?</summary>
+          <p>El instalador registra Refrata para los formatos de vídeo, música y listas más comunes. Para que sea el predeterminado, haz clic derecho en un archivo, elige <b>Abrir con</b>, luego <b>Elegir otra aplicación</b>, selecciona Refrata y marca usarla siempre.</p>
+        </details>
+        <details class="card">
+          <summary>¿Qué diferencia hay entre el instalador y la versión portátil?</summary>
+          <p>El instalador crea los accesos directos, registra los formatos de archivo y permite actualizar desde la propia aplicación. La versión portátil solo hay que descomprimirla y abrirla, ideal para probar sin instalar nada.</p>
+        </details>
+        <details class="card">
+          <summary>¿En qué idiomas está la aplicación?</summary>
+          <p>Catorce: español, inglés, portugués, francés, alemán, italiano, ruso, polaco, turco, indonesio, hindi, chino, japonés y coreano. Sigue el idioma de Windows, y puedes cambiarlo en Configuración.</p>
+        </details>
+        <details class="card">
+          <summary>He encontrado un error. ¿Cómo aviso?</summary>
+          <p>Abre un informe en <a href="https://github.com/LucsLabsStudios/refrata/issues" target="_blank" rel="noopener">GitHub Issues</a>
+            o escribe a <a href="mailto:lucslabs.studios@gmail.com">lucslabs.studios@gmail.com</a>. Cuéntanos qué hiciste, qué esperabas y qué pasó; si puedes, añade una captura y la versión, que aparece en Configuración.</p>
+        </details>
+        <details class="card">
+          <summary>¿Cómo lo desinstalo?</summary>
+          <p>En Configuración de Windows, ve a <b>Aplicaciones</b>, busca Refrata y haz clic en <b>Desinstalar</b>. También quita el inicio con Windows, si estaba activado.</p>
+        </details>
+      </div>
+    </section>
+
+    <!-- ======================================================= security -->
+    <section class="section" id="seguranca">
+      <p class="eyebrow">Transparencia</p>
+      <h2>Código abierto.<br><span class="dim">Sin rastreo. Sin sorpresas.</span></h2>
+      <div class="policy card">
+        <div>
+          <h3>Código abierto</h3>
+          <p>Todo el código está en
+            <a href="https://github.com/LucsLabsStudios/refrata" target="_blank" rel="noopener">github.com/LucsLabsStudios/refrata</a>,
+            bajo la GPL 3.0. Los instaladores oficiales salen de una compilación automática y pública en GitHub Actions, a partir de ese mismo código.</p>
+        </div>
+        <div>
+          <h3>Privacidad</h3>
+          <p>Refrata no recopila datos. La única conexión que hace por su cuenta es consultar la página pública de versiones de GitHub para saber si hay una nueva, y eso se puede desactivar en Configuración.</p>
+        </div>
+        <div id="code-signing-policy">
+          <h3>Política de firma de código</h3>
+          <p>Las versiones todavía no están firmadas digitalmente. Cada archivo publicado incluye su SHA-256, que el actualizador de la aplicación también comprueba antes de instalar. Cuando haya firma, solo se aplicará a los archivos generados por la compilación pública; ningún binario hecho fuera de ella se firmará.</p>
+          <p class="fine">Committers and reviewers: <a href="https://github.com/LucsLabsStudios" target="_blank" rel="noopener">LucsLabsStudios</a> · Approvers: <a href="https://github.com/LucsLabsStudios" target="_blank" rel="noopener">LucsLabsStudios</a>.
+            Privacy: this program will not transfer any information to other networked systems unless specifically
+            requested by the user or the person installing or operating it.</p>
+        </div>
+        <div>
+          <h3>Quién lo publica</h3>
+          <p>Refrata está hecho en Brasil por LucsLabs Studios. Cada versión se aprueba desde una cuenta protegida con autenticación en dos pasos.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="brand">
+      <img src="/img/icon.png" alt="" width="28" height="28">
+      <span>Refrata</span>
+    </div>
+    <p>Hecho en Brasil por LucsLabs Studios · software libre bajo la <a href="https://github.com/LucsLabsStudios/refrata/blob/main/LICENSE" target="_blank" rel="noopener">GPL 3.0</a>.
+      Construido sobre libVLC, de VideoLAN. «VLC» es una marca de VideoLAN; Refrata es un proyecto independiente.</p>
+    <a href="https://github.com/LucsLabsStudios/refrata/issues" target="_blank" rel="noopener">Informar de un error</a>
+    <a href="#code-signing-policy">Code signing policy</a>
+    <a href="mailto:lucslabs.studios@gmail.com">lucslabs.studios@gmail.com</a>
+  </footer>
+
+  <script src="/main.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "_note": "Portuguese is the source language: the app shows the source text as is. This file only holds the plural forms.",
+  "%n resultado(s) para “%1”": { "one": "%n resultado para “%1”", "other": "%n resultados para “%1”" },
+  "%n faixa(s)": { "one": "%n faixa", "other": "%n faixas" },
+  "%n item(ns)": { "one": "%n item", "other": "%n itens" },
+  "%n item(ns) na fila": { "one": "%n item na fila", "other": "%n itens na fila" },
+  "%n vídeo(s)": { "one": "%n vídeo", "other": "%n vídeos" },
+  "há %n min": { "one": "há %n min", "other": "há %n min" },
+  "há %n h": { "one": "há %n h", "other": "há %n h" },
+  "há %n dia(s)": { "one": "há %n dia", "other": "há %n dias" },
+  "%n item(ns) adicionado(s) à fila": { "one": "%n item adicionado à fila", "other": "%n itens adicionados à fila" }
+}

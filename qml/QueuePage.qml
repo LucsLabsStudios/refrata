@@ -19,12 +19,12 @@ ListView {
         spacing: 24
         PageHeader {
             width: parent.width
-            eyebrow: "Reprodução"
-            title: "A seguir"
-            subtitle: player.queue.length ? player.queue.length + " itens na fila" : "A fila está vazia"
-            IconButton { icon: "shuffle"; tip: "Aleatório"; checked: player.shuffle; size: 44; iconSize: 15; bg: theme.surface2; onClicked: player.toggleShuffle() }
-            IconButton { icon: player.repeat === 2 ? "repeat1" : "repeat"; tip: ["Repetir: desligado", "Repetir: tudo", "Repetir: um"][player.repeat]; checked: player.repeat > 0; size: 44; iconSize: 15; bg: theme.surface2; onClicked: player.cycleRepeat() }
-            PillButton { objectName: "queueClear"; text: "Limpar fila"; icon: "delete"; variant: "outline"; h: 44; enabled: player.queue.length > 0; onClicked: player.clearQueue() }
+            eyebrow: qsTr("Reprodução")
+            title: qsTr("A seguir")
+            subtitle: player.queue.length ? qsTr("%n item(ns) na fila", "", player.queue.length) : qsTr("A fila está vazia")
+            IconButton { icon: "shuffle"; tip: qsTr("Aleatório"); checked: player.shuffle; size: 44; iconSize: 15; bg: theme.surface2; onClicked: player.toggleShuffle() }
+            IconButton { icon: player.repeat === 2 ? "repeat1" : "repeat"; tip: [qsTr("Repetir: desligado"), qsTr("Repetir: tudo"), qsTr("Repetir: um")][player.repeat]; checked: player.repeat > 0; size: 44; iconSize: 15; bg: theme.surface2; onClicked: player.cycleRepeat() }
+            PillButton { objectName: "queueClear"; text: qsTr("Limpar fila"); icon: "delete"; variant: "outline"; h: 44; enabled: player.queue.length > 0; onClicked: player.clearQueue() }
         }
     }
 
@@ -126,7 +126,7 @@ ListView {
         anchors.centerIn: parent
         spacing: 16
         Icon { anchors.horizontalCenter: parent.horizontalCenter; name: "playlist"; size: 56; color: theme.textFaint }
-        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Nada na fila"; color: theme.text; font.pixelSize: 22; font.weight: Font.DemiBold }
-        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Clique com o botão direito em um item e escolha “Adicionar à fila”."; color: theme.textDim; font.pixelSize: 14 }
+        Text { anchors.horizontalCenter: parent.horizontalCenter; text: qsTr("Nada na fila"); color: theme.text; font.pixelSize: 22; font.weight: Font.DemiBold }
+        Text { anchors.horizontalCenter: parent.horizontalCenter; text: qsTr("Clique com o botão direito em um item e escolha “Adicionar à fila”."); color: theme.textDim; font.pixelSize: 14 }
     }
 }

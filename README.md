@@ -98,6 +98,7 @@ passo está em [docs/SIGNING.md](docs/SIGNING.md).
 
 | Área | O que tem |
 |---|---|
+| Idiomas | 14 idiomas (português, inglês, espanhol, francês, alemão, italiano, russo, polonês, turco, indonésio, hindi, chinês, japonês e coreano), trocados na hora em Ajustes; o automático segue o Windows. Textos em `i18n/*.json`, conferidos com `python tools/i18n.py check` |
 | Biblioteca | Varredura das pastas (Vídeos/Músicas por padrão), miniaturas geradas pelo libVLC, duração e tags, busca, ordenação, cache |
 | Início | Saudação em "big text", destaque *Continue assistindo*, estatísticas, recentes, adicionados, músicas |
 | Player | Vídeo com controles em vidro fosco, título gigante, ±10 s, barra de busca com prévia de tempo, auto-ocultar |

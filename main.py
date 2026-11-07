@@ -49,6 +49,7 @@ from refrata.theme import Theme  # noqa: E402
 from refrata.updater import Updater  # noqa: E402
 from refrata.quicklook import QuickLook  # noqa: E402
 from refrata.tray import Tray  # noqa: E402
+from refrata.i18n import I18n  # noqa: E402
 from refrata.media import is_media_path  # noqa: E402
 
 ROOT = app_root()
@@ -62,6 +63,9 @@ _IGNORED = (
     "Retrying to obtain clipboard",
     # QtMultimedia's FFmpeg (quick player) on MKVs without a stream duration: it falls back by itself
     "AVStream duration",
+    # font fallback walking past fonts without a script (e.g. Devanagari for "हिन्दी") before it
+    # reaches one that has it (Nirmala UI); the text renders with the fallback
+    "OpenType support missing for",
 )
 
 
@@ -92,6 +96,7 @@ class AppParts:
     updater: Updater
     quicklook: QuickLook
     tray: Tray
+    i18n: I18n
     instance: InstanceServer | None = None
 
     def find(self, name: str) -> QObject:
@@ -156,6 +161,8 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
     settings = Settings()
     if theme_name:
         settings.setValue("theme", theme_name)
+    # the translator goes in first: everything built after it (engine messages, tray menu) speaks it
+    i18n = I18n(settings)
     theme = Theme(settings)
     f = QFont(theme.textFont)
     f.setPixelSize(14)
@@ -167,6 +174,7 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
     updater.quitRequested.connect(app.quit)
     quicklook = QuickLook(settings)
     tray = Tray(settings, quicklook, ROOT / "assets" / "icon.ico")
+    i18n.changed.connect(tray.retranslate)
     ctl.setAbout({
         "version": __version__,
         "vlcVersion": _vlc_version(),
@@ -188,6 +196,8 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
     ctx.setContextProperty("updater", updater)
     ctx.setContextProperty("quicklook", quicklook)
     ctx.setContextProperty("tray", tray)
+    ctx.setContextProperty("i18n", i18n)
+    i18n.attach(qml)
     ctx.setContextProperty("startHidden", bool(start_hidden))
     ctx.setContextProperty("startPage", page)
     ctx.setContextProperty("startPanel", panel)
@@ -205,7 +215,7 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
         instance.received.connect(ctl.handOver)
         instance.activateRequested.connect(lambda: QTimer.singleShot(0, lambda: root.showMain()))
     tray.showRequested.connect(lambda: QTimer.singleShot(0, lambda: root.showMain()))
-    return AppParts(app, qml, win, settings, theme, engine, library, ctl, updater, quicklook, tray, instance)
+    return AppParts(app, qml, win, settings, theme, engine, library, ctl, updater, quicklook, tray, i18n, instance)
 
 
 def _norm_args(files: list[str]) -> list[str]:

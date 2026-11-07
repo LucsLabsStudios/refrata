@@ -9,6 +9,7 @@ from pathlib import Path
 from PySide6.QtCore import Property, QObject, Signal, Slot
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
+from .i18n import tr
 
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 RUN_NAME = "Refrata"
@@ -37,19 +38,27 @@ class Tray(QObject):
         self._icon.setToolTip("Refrata")
         self._icon.activated.connect(self._activated)
         menu = QMenu()
-        a_open = QAction("Abrir o Refrata", menu)
+        a_open = self._a_open = QAction(menu)
         a_open.triggered.connect(self.showRequested.emit)
-        self._a_preview = QAction("Prévia com Espaço no Explorer", menu, checkable=True)
+        self._a_preview = QAction(menu, checkable=True)
         self._a_preview.toggled.connect(lambda on: setattr(self._ql, "enabled", on))
-        self._a_auto = QAction("Iniciar com o Windows", menu, checkable=True)
+        self._a_auto = QAction(menu, checkable=True)
         self._a_auto.toggled.connect(lambda on: self._set_autostart(on))
-        a_quit = QAction("Sair", menu)
+        a_quit = self._a_quit = QAction(menu)
         a_quit.triggered.connect(QApplication.instance().quit)
         for a in (a_open, None, self._a_preview, self._a_auto, None, a_quit):
             menu.addSeparator() if a is None else menu.addAction(a)
         self._menu = menu
+        self.retranslate()
         self._icon.setContextMenu(menu)
         self._apply()
+
+    def retranslate(self):
+        """Menu text in the current language (called again when the language changes)."""
+        self._a_open.setText(tr("Abrir o Refrata"))
+        self._a_preview.setText(tr("Prévia com Espaço no Explorer"))
+        self._a_auto.setText(tr("Iniciar com o Windows"))
+        self._a_quit.setText(tr("Sair"))
 
     def _activated(self, reason):
         if reason in (QSystemTrayIcon.ActivationReason.Trigger, QSystemTrayIcon.ActivationReason.DoubleClick):

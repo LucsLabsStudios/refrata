@@ -10,11 +10,11 @@ Item {
     width: 96
 
     readonly property var items: [
-        { icon: "home", tip: "Início" },
-        { icon: "video", tip: "Vídeos" },
-        { icon: "music", tip: "Músicas" },
-        { icon: "queue", tip: "A seguir" },
-        { icon: "globe", tip: "Streams de rede" },
+        { icon: "home", tip: qsTr("Início") },
+        { icon: "video", tip: qsTr("Vídeos") },
+        { icon: "music", tip: qsTr("Músicas") },
+        { icon: "queue", tip: qsTr("A seguir") },
+        { icon: "globe", tip: qsTr("Streams de rede") },
     ]
 
     // logo (LucsLabs prism) — click opens the About card
@@ -91,7 +91,7 @@ Item {
             Rectangle { anchors.fill: parent; radius: 24; color: theme.accent; scale: oma.pressed ? 0.92 : 1; Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } } }
             Icon { anchors.centerIn: parent; name: "add"; size: 18; color: theme.onAccent }
             MouseArea { id: oma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.openFiles() }
-            Tip { text: "Abrir arquivos"; shown: oma.containsMouse; anchors.horizontalCenter: undefined; x: parent.width + 14; y: (parent.height - height) / 2 }
+            Tip { text: qsTr("Abrir arquivos"); shown: oma.containsMouse; anchors.horizontalCenter: undefined; x: parent.width + 14; y: (parent.height - height) / 2 }
         }
         Item {
             objectName: "nav5"
@@ -99,7 +99,7 @@ Item {
             Rectangle { anchors.fill: parent; radius: 24; color: root.current === 5 ? theme.inverse : (sma.containsMouse ? theme.surface2 : theme.surface); border.width: 1; border.color: theme.stroke }
             Icon { anchors.centerIn: parent; name: "settings"; size: 18; color: root.current === 5 ? theme.inverseText : theme.textDim }
             MouseArea { id: sma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.navigate(5) }
-            Tip { text: "Ajustes"; shown: sma.containsMouse; anchors.horizontalCenter: undefined; x: parent.width + 14; y: (parent.height - height) / 2 }
+            Tip { text: qsTr("Ajustes"); shown: sma.containsMouse; anchors.horizontalCenter: undefined; x: parent.width + 14; y: (parent.height - height) / 2 }
         }
     }
 }

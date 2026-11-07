@@ -407,3 +407,21 @@ h2 .keycap { font-size: 0.62em; padding: 0.1em 0.6em; vertical-align: 0.18em; co
 #code-signing-policy { scroll-margin-top: 110px; }
 @media (max-width: 760px) { .faq { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: reduce) { .faq details[open] p { animation: none; } }
+
+/* ------------------------------------------------------------------ language switch */
+.lang-switch {
+  display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px;
+  border: 1px solid var(--stroke); background: rgba(255, 255, 255, 0.03);
+}
+.lang-switch a {
+  display: inline-flex; align-items: center; height: 30px; padding: 0 11px;
+  border-radius: 999px; font: 600 12px/1 var(--body); letter-spacing: 0.06em;
+  color: var(--dim); text-decoration: none;
+  transition: color var(--t-base) var(--ease-out), background var(--t-base) var(--ease-out);
+}
+.lang-switch a:hover { color: var(--text); }
+.lang-switch a[aria-current="true"] { color: #1a0f08; background: var(--accent2); }
+.lang-switch a:focus-visible { outline: 2px solid var(--accent2); outline-offset: 2px; }
+@media (max-width: 560px) { .nav-cta .pill.ghost { display: none; } }
+/* phones: the hero's big download button sits right below, so the nav keeps brand + language only */
+@media (max-width: 480px) { .nav-cta .pill.accent { display: none; } }

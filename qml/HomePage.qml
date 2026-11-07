@@ -22,13 +22,13 @@ Flickable {
         var h = history
         for (var i = 0; i < h.length; i++)
             if (h[i].pos > 0 && h[i].path.indexOf("://") < 0 && !U.baseName(h[i].path).match(/\.(mp3|flac|wav|m4a|aac|ogg|opus|wma)$/i))
-                return { path: h[i].path, title: h[i].title, pos: h[i].pos, len: h[i].len, label: "Continue assistindo" }
+                return { path: h[i].path, title: h[i].title, pos: h[i].pos, len: h[i].len, label: qsTr("Continue assistindo") }
         for (var j = 0; j < h.length; j++)
             if (h[j].path.indexOf("://") < 0 && !U.baseName(h[j].path).match(/\.(mp3|flac|wav|m4a|aac|ogg|opus|wma)$/i))
-                return { path: h[j].path, title: h[j].title, pos: 0, len: h[j].len, label: "Assistido recentemente" }
+                return { path: h[j].path, title: h[j].title, pos: 0, len: h[j].len, label: qsTr("Assistido recentemente") }
         if (library.videoModel.count > 0) {
             var v = library.videoModel.get(0)
-            return { path: v.path, title: v.title, pos: 0, len: v.duration, label: "Novo na sua biblioteca" }
+            return { path: v.path, title: v.title, pos: 0, len: v.duration, label: qsTr("Novo na sua biblioteca") }
         }
         return null
     }
@@ -57,7 +57,7 @@ Flickable {
                 Text {
                     width: parent.width
                     textFormat: Text.StyledText
-                    text: U.greeting() + ".<br><font color='" + theme.textFaint + "'>O que vamos </font><font color='" + theme.accent + "'>assistir</font><font color='" + theme.textFaint + "'>?</font>"
+                    text: qsTr("%1.<br><font color='%2'>O que vamos </font><font color='%3'>assistir</font><font color='%2'>?</font>").arg(U.greeting()).arg(theme.textFaint).arg(theme.accent)
                     color: theme.text
                     font.family: theme.displayFont
                     font.pixelSize: Math.min(76, Math.max(48, page.width / 16))
@@ -71,8 +71,8 @@ Flickable {
                 id: actions
                 anchors.right: parent.right
                 spacing: 10
-                SearchField { id: search; objectName: "homeSearch"; width: Math.min(320, page.width * 0.26); placeholder: "Buscar na biblioteca" }
-                PillButton { objectName: "homeOpenFolder"; text: "Abrir pasta"; icon: "folder"; variant: "outline"; h: 44; onClicked: page.openFolder() }
+                SearchField { id: search; objectName: "homeSearch"; width: Math.min(320, page.width * 0.26); placeholder: qsTr("Buscar na biblioteca") }
+                PillButton { objectName: "homeOpenFolder"; text: qsTr("Abrir pasta"); icon: "folder"; variant: "outline"; h: 44; onClicked: page.openFolder() }
             }
             Binding { target: library.searchModel; property: "search"; value: search.text.trim() }
         }
@@ -83,7 +83,7 @@ Flickable {
             width: parent.width
             spacing: 20
             Text {
-                text: library.searchModel.count + " resultado" + (library.searchModel.count === 1 ? "" : "s") + " para “" + search.text.trim() + "”"
+                text: qsTr("%n resultado(s) para “%1”", "", library.searchModel.count).arg(search.text.trim())
                 color: theme.textDim; font.pixelSize: 16
             }
             Flow {
@@ -95,7 +95,7 @@ Flickable {
                         width: Math.floor((content.width - 24 * 3) / 4)
                         path: model.path; title: model.title; thumb: model.thumb; duration: model.duration
                         audio: model.kind === "audio"
-                        subtitle: model.kind === "audio" ? (model.artist || "Música") : model.folder
+                        subtitle: model.kind === "audio" ? (model.artist || qsTr("Música")) : model.folder
                         onPlay: page.playPaths([model.path], 0)
                         onMenu: (x, y) => page.menu(model.path, x, y)
                     }
@@ -154,21 +154,21 @@ Flickable {
                 anchors.verticalCenter: parent.verticalCenter
                 width: parent.width * 0.6
                 spacing: 18
-                Text { text: "COMECE AQUI"; color: theme.accent; font.pixelSize: 12; font.weight: Font.Bold; font.letterSpacing: 2.4 }
+                Text { text: qsTr("COMECE AQUI"); color: theme.accent; font.pixelSize: 12; font.weight: Font.Bold; font.letterSpacing: 2.4 }
                 Text {
                     width: parent.width; wrapMode: Text.WordWrap
-                    text: "Solte qualquer vídeo, música ou pasta nesta janela."
+                    text: qsTr("Solte qualquer vídeo, música ou pasta nesta janela.")
                     color: theme.text; font.family: theme.displayFont; font.pixelSize: 46; font.weight: Font.Light; font.letterSpacing: -1
                 }
                 Text {
                     width: parent.width; wrapMode: Text.WordWrap
-                    text: "O motor do VLC toca praticamente tudo: MKV, MP4, AVI, FLAC, streams de rede e muito mais."
+                    text: qsTr("O motor do VLC toca praticamente tudo: MKV, MP4, AVI, FLAC, streams de rede e muito mais.")
                     color: theme.textDim; font.pixelSize: 16
                 }
                 Row {
                     spacing: 12
-                    PillButton { objectName: "emptyOpenFiles"; text: "Abrir arquivos"; icon: "file"; variant: "filled"; h: 48; fontSize: 15; onClicked: page.openFiles() }
-                    PillButton { objectName: "emptyAddFolder"; text: "Adicionar pasta"; icon: "folder"; variant: "outline"; h: 48; fontSize: 15; onClicked: page.openFolder() }
+                    PillButton { objectName: "emptyOpenFiles"; text: qsTr("Abrir arquivos"); icon: "file"; variant: "filled"; h: 48; fontSize: 15; onClicked: page.openFiles() }
+                    PillButton { objectName: "emptyAddFolder"; text: qsTr("Adicionar pasta"); icon: "folder"; variant: "outline"; h: 48; fontSize: 15; onClicked: page.openFolder() }
                 }
             }
 
@@ -210,7 +210,7 @@ Flickable {
                         if (!page.hero) return ""
                         var parts = []
                         var len = page.hero.len || (page.heroInfo ? page.heroInfo.duration : 0)
-                        if (page.hero.pos > 0 && len > 0) parts.push("Faltam " + U.duration(len - page.hero.pos))
+                        if (page.hero.pos > 0 && len > 0) parts.push(qsTr("Faltam %1").arg(U.duration(len - page.hero.pos)))
                         else if (len > 0) parts.push(U.duration(len))
                         if (page.heroInfo && page.heroInfo.ext) parts.push(page.heroInfo.ext)
                         if (page.heroInfo && page.heroInfo.folder) parts.push(page.heroInfo.folder)
@@ -229,13 +229,13 @@ Flickable {
                     spacing: 12
                     PillButton {
                         objectName: "heroPlay"
-                        text: page.hero && page.hero.pos > 0 ? "Continuar" : "Assistir"
+                        text: page.hero && page.hero.pos > 0 ? qsTr("Continuar") : qsTr("Assistir")
                         icon: "play"; variant: "accent"; h: 52; fontSize: 15
                         onClicked: page.playPaths([page.hero.path], 0)
                     }
                     PillButton {
                         visible: heroBox.overImage
-                        text: "Mostrar no Explorer"; icon: "folder"; variant: "glass"; h: 52; fontSize: 15
+                        text: qsTr("Mostrar no Explorer"); icon: "folder"; variant: "glass"; h: 52; fontSize: 15
                         onClicked: appctl.reveal(page.hero.path)
                     }
                 }
@@ -249,10 +249,10 @@ Flickable {
             spacing: 20
             Repeater {
                 model: [
-                    { icon: "video", value: library.videoCount, label: "Vídeos na biblioteca", page: 1 },
-                    { icon: "music", value: library.audioCount, label: "Músicas e áudios", page: 2 },
-                    { icon: "clock", value: Math.round(library.totalHours), label: "Horas de conteúdo", page: 1 },
-                    { icon: "history", value: page.history.length, label: "Reproduzidos recentemente", page: 3 },
+                    { icon: "video", value: library.videoCount, label: qsTr("Vídeos na biblioteca"), page: 1 },
+                    { icon: "music", value: library.audioCount, label: qsTr("Músicas e áudios"), page: 2 },
+                    { icon: "clock", value: Math.round(library.totalHours), label: qsTr("Horas de conteúdo"), page: 1 },
+                    { icon: "history", value: page.history.length, label: qsTr("Reproduzidos recentemente"), page: 3 },
                 ]
                 Rectangle {
                     objectName: "stat_" + index
@@ -287,8 +287,8 @@ Flickable {
         Shelf {
             visible: !page.searching && page.history.length > 0
             width: parent.width
-            title: "Reproduzidos recentemente"
-            actionText: "Limpar"
+            title: qsTr("Reproduzidos recentemente")
+            actionText: qsTr("Limpar")
             onAction: settings.clearHistory()
             model: page.history
             delegate: MediaCard {
@@ -310,8 +310,8 @@ Flickable {
         Shelf {
             visible: !page.searching && library.videoModel.count > 0
             width: parent.width
-            title: "Adicionados recentemente"
-            actionText: "Ver todos"
+            title: qsTr("Adicionados recentemente")
+            actionText: qsTr("Ver todos")
             onAction: page.jump(1)
             model: library.videoModel
             delegate: MediaCard {
@@ -327,8 +327,8 @@ Flickable {
         Shelf {
             visible: !page.searching && library.musicModel.count > 0
             width: parent.width
-            title: "Para ouvir"
-            actionText: "Ver todas"
+            title: qsTr("Para ouvir")
+            actionText: qsTr("Ver todas")
             onAction: page.jump(2)
             model: library.musicModel
             itemHeight: 250

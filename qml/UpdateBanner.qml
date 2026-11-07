@@ -74,11 +74,11 @@ Item {
                 objectName: "updateTitle"
                 text: {
                     switch (root.st) {
-                    case "downloading": return "Baixando a versão " + updater.latest + "…  " + Math.round(updater.progress * 100) + "%"
-                    case "ready": return "Versão " + updater.latest + " pronta"
-                    case "installing": return "Instalando a versão " + updater.latest + "…"
-                    case "error": return "A atualização não deu certo"
-                    default: return "Nova versão " + updater.latest + " disponível"
+                    case "downloading": return qsTr("Baixando a versão %1…  %2%").arg(updater.latest).arg(Math.round(updater.progress * 100))
+                    case "ready": return qsTr("Versão %1 pronta").arg(updater.latest)
+                    case "installing": return qsTr("Instalando a versão %1…").arg(updater.latest)
+                    case "error": return qsTr("A atualização não deu certo")
+                    default: return qsTr("Nova versão %1 disponível").arg(updater.latest)
                     }
                 }
                 width: Math.min(implicitWidth, 300); elide: Text.ElideRight
@@ -87,10 +87,10 @@ Item {
             Text {
                 text: {
                     if (root.st === "error") return updater.error
-                    if (root.st === "installing") return "O Refrata vai fechar e abrir sozinho"
-                    if (root.st === "ready") return "Leva poucos segundos, e o app reabre sozinho"
-                    if (!root.selfUpdate) return "Baixe o instalador no site"
-                    return "Você está na " + updater.current
+                    if (root.st === "installing") return qsTr("O Refrata vai fechar e abrir sozinho")
+                    if (root.st === "ready") return qsTr("Leva poucos segundos, e o app reabre sozinho")
+                    if (!root.selfUpdate) return qsTr("Baixe o instalador no site")
+                    return qsTr("Você está na %1").arg(updater.current)
                 }
                 width: Math.min(implicitWidth, 300); elide: Text.ElideRight
                 color: theme.textDim; font.pixelSize: 12
@@ -103,17 +103,17 @@ Item {
             visible: root.st !== "installing"
             variant: root.st === "downloading" ? "outline" : "accent"
             h: 38; fontSize: 13
-            text: root.st === "downloading" ? "Cancelar"
-                : root.st === "ready" ? "Reiniciar e atualizar"
-                : root.st === "error" ? "Tentar de novo"
-                : root.selfUpdate ? "Atualizar" : "Baixar"
+            text: root.st === "downloading" ? qsTr("Cancelar")
+                : root.st === "ready" ? qsTr("Reiniciar e atualizar")
+                : root.st === "error" ? qsTr("Tentar de novo")
+                : root.selfUpdate ? qsTr("Atualizar") : qsTr("Baixar")
             onClicked: root.st === "downloading" ? updater.cancel() : updater.update()
         }
         IconButton {
             objectName: "updateDismiss"
             anchors.verticalCenter: parent.verticalCenter
             visible: root.st !== "installing" && root.st !== "downloading"
-            icon: "close"; size: 34; iconSize: 11; tip: "Agora não"
+            icon: "close"; size: 34; iconSize: 11; tip: qsTr("Agora não")
             onClicked: updater.dismiss()
         }
     }

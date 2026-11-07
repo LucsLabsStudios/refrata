@@ -3,7 +3,7 @@ import QtQuick
 Rectangle {
     id: root
     property alias text: input.text
-    property string placeholder: "Buscar"
+    property string placeholder: qsTr("Buscar")
     signal accepted()
     width: 280; height: 44; radius: 22
     color: theme.surface2

@@ -1,16 +1,17 @@
 """Design tokens exposed to QML as the `theme` context property."""
 from PySide6.QtCore import Property, QObject, Signal
 from PySide6.QtGui import QColor, QFontDatabase
+from .i18n import N_
 
 ACCENTS = [
-    ("Laranja VLC", "#FF7A2F"),
-    ("Coral", "#FF5A5F"),
-    ("Azul One UI", "#3E91FF"),
-    ("Índigo", "#6C63FF"),
-    ("Menta", "#22C3A6"),
-    ("Âmbar", "#E8A33D"),
-    ("Rosa", "#F25C9A"),
-    ("Grafite", "#8E8E93"),
+    (N_("Laranja"), "#FF7A2F"),
+    (N_("Coral"), "#FF5A5F"),
+    (N_("Azul"), "#3E91FF"),
+    (N_("Índigo"), "#6C63FF"),
+    (N_("Menta"), "#22C3A6"),
+    (N_("Âmbar"), "#E8A33D"),
+    (N_("Rosa"), "#F25C9A"),
+    (N_("Grafite"), "#8E8E93"),
 ]
 
 PALETTES = {

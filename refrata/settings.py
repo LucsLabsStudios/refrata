@@ -38,6 +38,7 @@ DEFAULTS = {
     "quickOpen": True,        # files from Explorer start in the quick player
     "quickLook": True,        # Space preview in Explorer
     "background": False,      # close to the tray
+    "language": "auto",       # auto (Windows language) or a code from refrata/i18n.py
 }
 
 

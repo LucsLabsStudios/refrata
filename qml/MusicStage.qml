@@ -38,7 +38,7 @@ Item {
         spacing: 4
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: "OUVINDO AGORA"
+            text: qsTr("OUVINDO AGORA")
             color: theme.accent
             font.pixelSize: 12; font.weight: Font.Bold; font.letterSpacing: 2.4
         }
@@ -48,7 +48,7 @@ Item {
             value: {
                 var parts = []
                 if (stage.curAlbum) parts.push(stage.curAlbum)
-                if (player.queue.length > 1) parts.push((player.currentIndex + 1) + " de " + player.queue.length)
+                if (player.queue.length > 1) parts.push(qsTr("%1 de %2").arg(player.currentIndex + 1).arg(player.queue.length))
                 return parts.join("  ·  ")
             }
             visible: text !== ""
@@ -228,7 +228,7 @@ Item {
                         width: parent.width
                         horizontalAlignment: Text.AlignHCenter
                         elide: Text.ElideRight
-                        text: card.artist || "Artista desconhecido"
+                        text: card.artist || qsTr("Artista desconhecido")
                         color: Qt.rgba(1, 1, 1, 0.62)
                         font.pixelSize: Math.max(12, carousel.cardW * 0.042)
                     }
@@ -255,7 +255,7 @@ Item {
         Text {
             anchors.centerIn: parent
             visible: player.queue.length === 0
-            text: "Nada tocando"
+            text: qsTr("Nada tocando")
             color: Qt.rgba(1, 1, 1, 0.6)
             font.pixelSize: 18
         }
@@ -283,7 +283,7 @@ Item {
             anchors.left: parent.left; anchors.leftMargin: 18
             anchors.verticalCenter: parent.verticalCenter
             spacing: 6
-            IconButton { objectName: "mpPrev"; anchors.verticalCenter: parent.verticalCenter; icon: "prev"; onMedia: true; size: 48; iconSize: 17; tip: "Anterior (P)"; onClicked: player.previous() }
+            IconButton { objectName: "mpPrev"; anchors.verticalCenter: parent.verticalCenter; icon: "prev"; onMedia: true; size: 48; iconSize: 17; tip: qsTr("Anterior (P)"); onClicked: player.previous() }
             // glowing accent orb inside a progress ring (the track's position runs around it)
             Item {
                 objectName: "mpPlay"
@@ -340,7 +340,7 @@ Item {
                 Ripple { id: playRipple; width: 54; color: Qt.lighter(theme.accent, 1.3) }
                 MouseArea { id: playMa; anchors.fill: parent; anchors.margins: 6; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: { playRipple.burst(); player.togglePlay() } }
             }
-            IconButton { objectName: "mpNext"; anchors.verticalCenter: parent.verticalCenter; icon: "next"; onMedia: true; size: 48; iconSize: 17; tip: "Próximo (N)"; onClicked: player.next() }
+            IconButton { objectName: "mpNext"; anchors.verticalCenter: parent.verticalCenter; icon: "next"; onMedia: true; size: 48; iconSize: 17; tip: qsTr("Próximo (N)"); onClicked: player.next() }
         }
 
         Row {
@@ -348,21 +348,21 @@ Item {
             anchors.right: parent.right; anchors.rightMargin: 18
             anchors.verticalCenter: parent.verticalCenter
             spacing: 2
-            IconButton { objectName: "mpShuffle"; anchors.verticalCenter: parent.verticalCenter; icon: "shuffle"; onMedia: true; size: 44; iconSize: 15; checked: player.shuffle; tip: "Aleatório"; onClicked: player.toggleShuffle() }
-            IconButton { objectName: "mpRepeat"; anchors.verticalCenter: parent.verticalCenter; icon: player.repeat === 2 ? "repeat1" : "repeat"; onMedia: true; size: 44; iconSize: 15; checked: player.repeat > 0; tip: ["Repetir: desligado", "Repetir: tudo", "Repetir: um"][player.repeat]; onClicked: player.cycleRepeat() }
+            IconButton { objectName: "mpShuffle"; anchors.verticalCenter: parent.verticalCenter; icon: "shuffle"; onMedia: true; size: 44; iconSize: 15; checked: player.shuffle; tip: qsTr("Aleatório"); onClicked: player.toggleShuffle() }
+            IconButton { objectName: "mpRepeat"; anchors.verticalCenter: parent.verticalCenter; icon: player.repeat === 2 ? "repeat1" : "repeat"; onMedia: true; size: 44; iconSize: 15; checked: player.repeat > 0; tip: [qsTr("Repetir: desligado"), qsTr("Repetir: tudo"), qsTr("Repetir: um")][player.repeat]; onClicked: player.cycleRepeat() }
             IconButton { objectName: "mpLoop"; anchors.verticalCenter: parent.verticalCenter; label: "A-B"; motion: "pop"; onMedia: true; size: 44; iconSize: 15; checked: player.loopA >= 0
-                         tip: player.loopB >= 0 ? "Repetindo o trecho: L desliga" : player.loopA >= 0 ? "Marque o fim do trecho (L)" : "Repetir um trecho, A-B (L)"; onClicked: player.cycleLoop() }
-            IconButton { objectName: "mpEq"; anchors.verticalCenter: parent.verticalCenter; icon: "eq"; onMedia: true; size: 44; iconSize: 15; checked: stage.pv && stage.pv.panel === "eq"; tip: "Equalizador"; onClicked: stage.pv.togglePanel("eq") }
-            IconButton { objectName: "mpSpeed"; anchors.verticalCenter: parent.verticalCenter; icon: "speed"; onMedia: true; size: 44; iconSize: 15; checked: stage.pv && stage.pv.panel === "speed"; tip: "Velocidade " + player.rate.toFixed(2).replace(/\.?0+$/, "") + "×"; onClicked: stage.pv.togglePanel("speed") }
-            IconButton { objectName: "mpSleep"; anchors.verticalCenter: parent.verticalCenter; icon: "timer"; onMedia: true; size: 44; iconSize: 15; checked: (stage.pv && stage.pv.panel === "sleep") || player.sleepMinutes > 0; tip: player.sleepMinutes > 0 ? "Timer: " + player.sleepMinutes + " min" : "Timer de sono"; onClicked: stage.pv.togglePanel("sleep") }
-            IconButton { objectName: "mpQueue"; anchors.verticalCenter: parent.verticalCenter; icon: "queue"; onMedia: true; size: 44; iconSize: 15; checked: stage.pv && stage.pv.queueOpen; tip: "A seguir"; onClicked: { stage.pv.queueOpen = !stage.pv.queueOpen; stage.pv.poke() } }
+                         tip: player.loopB >= 0 ? qsTr("Repetindo o trecho: L desliga") : player.loopA >= 0 ? qsTr("Marque o fim do trecho (L)") : qsTr("Repetir um trecho, A-B (L)"); onClicked: player.cycleLoop() }
+            IconButton { objectName: "mpEq"; anchors.verticalCenter: parent.verticalCenter; icon: "eq"; onMedia: true; size: 44; iconSize: 15; checked: stage.pv && stage.pv.panel === "eq"; tip: qsTr("Equalizador"); onClicked: stage.pv.togglePanel("eq") }
+            IconButton { objectName: "mpSpeed"; anchors.verticalCenter: parent.verticalCenter; icon: "speed"; onMedia: true; size: 44; iconSize: 15; checked: stage.pv && stage.pv.panel === "speed"; tip: qsTr("Velocidade %1×").arg(player.rate.toFixed(2).replace(/\.?0+$/, "")); onClicked: stage.pv.togglePanel("speed") }
+            IconButton { objectName: "mpSleep"; anchors.verticalCenter: parent.verticalCenter; icon: "timer"; onMedia: true; size: 44; iconSize: 15; checked: (stage.pv && stage.pv.panel === "sleep") || player.sleepMinutes > 0; tip: player.sleepMinutes > 0 ? qsTr("Timer: %1 min").arg(player.sleepMinutes) : qsTr("Timer de sono"); onClicked: stage.pv.togglePanel("sleep") }
+            IconButton { objectName: "mpQueue"; anchors.verticalCenter: parent.verticalCenter; icon: "queue"; onMedia: true; size: 44; iconSize: 15; checked: stage.pv && stage.pv.queueOpen; tip: qsTr("A seguir"); onClicked: { stage.pv.queueOpen = !stage.pv.queueOpen; stage.pv.poke() } }
             Item { width: 6; height: 1 }
             IconButton {
                 objectName: "mpMute"
                 anchors.verticalCenter: parent.verticalCenter
                 icon: player.muted || player.volume === 0 ? "mute" : player.volume < 34 ? "vol1" : player.volume < 67 ? "vol2" : "volume"
                 onMedia: true; size: 40; iconSize: 15
-                tip: player.muted ? "Sem som" : "Volume " + player.volume + "%"
+                tip: player.muted ? qsTr("Sem som") : qsTr("Volume %1%").arg(player.volume)
                 onClicked: player.toggleMute()
             }
             MiniSlider {
@@ -407,7 +407,7 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter; anchors.verticalCenterOffset: -2
                 spacing: 1
                 SwapText { objectName: "mpTitle"; width: parent.width; elide: Text.ElideRight; value: stage.curTitle || "—"; color: "white"; font.pixelSize: 14; font.weight: Font.DemiBold }
-                SwapText { objectName: "mpArtist"; width: parent.width; elide: Text.ElideRight; value: stage.curArtist || "Artista desconhecido"; color: Qt.rgba(1, 1, 1, 0.6); font.pixelSize: 12; shift: 4 }
+                SwapText { objectName: "mpArtist"; width: parent.width; elide: Text.ElideRight; value: stage.curArtist || qsTr("Artista desconhecido"); color: Qt.rgba(1, 1, 1, 0.6); font.pixelSize: 12; shift: 4 }
             }
             Row {
                 id: nmeta
@@ -419,7 +419,7 @@ Item {
                     objectName: "mpTime"
                     anchors.verticalCenter: parent.verticalCenter
                     visible: !dock.compact
-                    text: U.time(seekMa.dragging ? seekMa.dragMs : player.time) + "  /  " + (player.length > 0 ? U.time(player.length) : "ao vivo")
+                    text: U.time(seekMa.dragging ? seekMa.dragMs : player.time) + "  /  " + (player.length > 0 ? U.time(player.length) : qsTr("ao vivo"))
                     color: Qt.rgba(1, 1, 1, 0.7); font.pixelSize: 12; font.weight: Font.DemiBold
                     font.features: { "tnum": 1 }
                 }

@@ -25,29 +25,29 @@ GridView {
         spacing: 28
         PageHeader {
             width: parent.width
-            eyebrow: "Biblioteca"
-            title: "Vídeos"
-            subtitle: library.videoModel.count + " vídeos" + (library.scanning ? " · atualizando…" : "")
+            eyebrow: qsTr("Biblioteca")
+            title: qsTr("Vídeos")
+            subtitle: qsTr("%n vídeo(s)", "", library.videoModel.count) + (library.scanning ? " · " + qsTr("atualizando…") : "")
             SearchField {
                 width: 280
-                placeholder: "Filtrar vídeos"
+                placeholder: qsTr("Filtrar vídeos")
                 onTextChanged: library.videoModel.search = text
             }
-            PillButton { objectName: "videosPlayAll"; text: "Reproduzir tudo"; icon: "play"; variant: "accent"; h: 44; enabled: library.videoModel.count > 0; onClicked: page.playPaths(library.videoModel.paths(), 0) }
+            PillButton { objectName: "videosPlayAll"; text: qsTr("Reproduzir tudo"); icon: "play"; variant: "accent"; h: 44; enabled: library.videoModel.count > 0; onClicked: page.playPaths(library.videoModel.paths(), 0) }
         }
         Row {
             spacing: 12
             Segmented {
                 objectName: "videoSort"
                 options: [
-                    { text: "Recentes", value: "recent" }, { text: "Nome", value: "name" },
-                    { text: "Duração", value: "duration" }, { text: "Tamanho", value: "size" },
+                    { text: qsTr("Recentes"), value: "recent" }, { text: qsTr("Nome"), value: "name" },
+                    { text: qsTr("Duração"), value: "duration" }, { text: qsTr("Tamanho"), value: "size" },
                 ]
                 value: library.videoModel.sortMode
                 onPicked: (v) => library.videoModel.sortMode = v
             }
-            PillButton { objectName: "videosAddFolder"; text: "Adicionar pasta"; icon: "folder"; variant: "outline"; h: 40; onClicked: page.openFolder() }
-            IconButton { icon: "refresh"; tip: "Atualizar biblioteca"; size: 40; iconSize: 14; bg: theme.surface2; onClicked: library.rescan() }
+            PillButton { objectName: "videosAddFolder"; text: qsTr("Adicionar pasta"); icon: "folder"; variant: "outline"; h: 40; onClicked: page.openFolder() }
+            IconButton { icon: "refresh"; tip: qsTr("Atualizar biblioteca"); size: 40; iconSize: 14; bg: theme.surface2; onClicked: library.rescan() }
         }
     }
 
@@ -68,7 +68,7 @@ GridView {
         anchors.centerIn: parent
         spacing: 16
         Icon { anchors.horizontalCenter: parent.horizontalCenter; name: "film"; size: 56; color: theme.textFaint }
-        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Nenhum vídeo encontrado"; color: theme.text; font.pixelSize: 22; font.weight: Font.DemiBold }
-        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Adicione uma pasta em Ajustes ou arraste arquivos para cá."; color: theme.textDim; font.pixelSize: 14 }
+        Text { anchors.horizontalCenter: parent.horizontalCenter; text: qsTr("Nenhum vídeo encontrado"); color: theme.text; font.pixelSize: 22; font.weight: Font.DemiBold }
+        Text { anchors.horizontalCenter: parent.horizontalCenter; text: qsTr("Adicione uma pasta em Ajustes ou arraste arquivos para cá."); color: theme.textDim; font.pixelSize: 14 }
     }
 }
