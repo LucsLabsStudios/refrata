@@ -13,6 +13,7 @@ Item {
     property color hoverBg: onMedia ? Qt.rgba(1, 1, 1, 0.14) : (theme.dark ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(0, 0, 0, 0.06))
     property color bg: "transparent"
     property string tip: ""
+    property string label: ""             // short text instead of a glyph (e.g. "A-B")
     // each icon has its own signature gesture; set `motion` to override (or "none")
     property string motion: ({
         "prev": "nudgeLeft", "next": "nudgeRight", "left": "nudgeLeft", "right": "nudgeRight",
@@ -61,8 +62,21 @@ Item {
         Behavior on color { ColorAnimation { duration: 160; easing.type: Easing.OutCubic } }
         Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
     }
+    Text {
+        visible: root.label !== ""
+        anchors.centerIn: parent
+        anchors.horizontalCenterOffset: root.kx
+        anchors.verticalCenterOffset: root.ky
+        text: root.label
+        color: root.checked ? theme.accent : root.fg
+        Behavior on color { ColorAnimation { duration: 180; easing.type: Easing.OutCubic } }
+        font.pixelSize: root.iconSize - 2; font.weight: Font.Bold; font.letterSpacing: 0.3
+        rotation: root.krot
+        scale: glyph.scale
+    }
     Icon {
         id: glyph
+        visible: root.label === ""
         anchors.centerIn: parent
         anchors.horizontalCenterOffset: root.kx
         anchors.verticalCenterOffset: root.ky

@@ -350,7 +350,7 @@ Item {
             spacing: 2
             IconButton { objectName: "mpShuffle"; anchors.verticalCenter: parent.verticalCenter; icon: "shuffle"; onMedia: true; size: 44; iconSize: 15; checked: player.shuffle; tip: "Aleatório"; onClicked: player.toggleShuffle() }
             IconButton { objectName: "mpRepeat"; anchors.verticalCenter: parent.verticalCenter; icon: player.repeat === 2 ? "repeat1" : "repeat"; onMedia: true; size: 44; iconSize: 15; checked: player.repeat > 0; tip: ["Repetir: desligado", "Repetir: tudo", "Repetir: um"][player.repeat]; onClicked: player.cycleRepeat() }
-            IconButton { objectName: "mpLoop"; anchors.verticalCenter: parent.verticalCenter; icon: "loop"; onMedia: true; size: 44; iconSize: 15; checked: player.loopA >= 0
+            IconButton { objectName: "mpLoop"; anchors.verticalCenter: parent.verticalCenter; label: "A-B"; motion: "pop"; onMedia: true; size: 44; iconSize: 15; checked: player.loopA >= 0
                          tip: player.loopB >= 0 ? "Repetindo o trecho: L desliga" : player.loopA >= 0 ? "Marque o fim do trecho (L)" : "Repetir um trecho, A-B (L)"; onClicked: player.cycleLoop() }
             IconButton { objectName: "mpEq"; anchors.verticalCenter: parent.verticalCenter; icon: "eq"; onMedia: true; size: 44; iconSize: 15; checked: stage.pv && stage.pv.panel === "eq"; tip: "Equalizador"; onClicked: stage.pv.togglePanel("eq") }
             IconButton { objectName: "mpSpeed"; anchors.verticalCenter: parent.verticalCenter; icon: "speed"; onMedia: true; size: 44; iconSize: 15; checked: stage.pv && stage.pv.panel === "speed"; tip: "Velocidade " + player.rate.toFixed(2).replace(/\.?0+$/, "") + "×"; onClicked: stage.pv.togglePanel("speed") }

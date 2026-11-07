@@ -356,7 +356,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 6
                     IconButton { objectName: "pvShuffle"; icon: "shuffle"; onMedia: true; size: 44; iconSize: 15; checked: player.shuffle; tip: "Aleatório"; onClicked: player.toggleShuffle() }
-                    IconButton { objectName: "pvLoop"; icon: "loop"; motion: "spin"; onMedia: true; size: 44; iconSize: 15; checked: player.loopA >= 0
+                    IconButton { objectName: "pvLoop"; label: "A-B"; motion: "pop"; onMedia: true; size: 44; iconSize: 15; checked: player.loopA >= 0
                                  tip: player.loopB >= 0 ? "Repetindo o trecho: L desliga" : player.loopA >= 0 ? "Marque o fim do trecho (L)" : "Repetir um trecho, A-B (L)"; onClicked: player.cycleLoop() }
                     IconButton { objectName: "pvRepeat"; icon: player.repeat === 2 ? "repeat1" : "repeat"; onMedia: true; size: 44; iconSize: 15; checked: player.repeat > 0; tip: ["Repetir: desligado", "Repetir: tudo", "Repetir: um"][player.repeat]; onClicked: player.cycleRepeat() }
                     PillButton { objectName: "pvQueue"; variant: "glass"; icon: "queue"; text: bottom.compact ? "" : "A seguir"; h: 44; checked: pv.queueOpen; onClicked: { pv.queueOpen = !pv.queueOpen; pv.poke() } }

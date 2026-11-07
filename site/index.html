@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Refrata · player de mídia para Windows</title>
-  <meta name="description" content="Refrata é um player de vídeo e música para Windows, gratuito e de código aberto, construído sobre o motor do VLC. Toca praticamente tudo, com uma interface nova.">
+  <title>Refrata · player de vídeo e música para Windows</title>
+  <meta name="description" content="Refrata é um player multimídia para Windows, gratuito e de código aberto, construído sobre o motor do VLC: filmes, séries, músicas, streams e playlists, com prévia instantânea pelo Explorer e uma interface nova.">
   <meta name="theme-color" content="#0b0908">
   <meta property="og:title" content="Refrata · todo o motor do VLC, refratado">
   <meta property="og:description" content="Player de vídeo e música para Windows, gratuito e de código aberto.">
@@ -25,10 +25,10 @@
       <span>Refrata</span>
     </a>
     <nav class="links" aria-label="Seções">
-      <a href="#recursos">Recursos</a>
+      <a href="#video">Vídeo</a>
+      <a href="#rapido">Abertura rápida</a>
       <a href="#musica">Música</a>
-      <a href="#atualizacoes">Atualizações</a>
-      <a href="#seguranca">Segurança</a>
+      <a href="#recursos">Recursos</a>
     </nav>
     <div class="nav-cta">
       <a class="pill ghost" href="https://github.com/LucsLabsStudios/refrata" target="_blank" rel="noopener">
@@ -46,8 +46,9 @@
       <div class="hero-copy">
         <p class="eyebrow">LucsLabs Studios · grátis e de código aberto</p>
         <h1>Todo o motor do VLC, <em>refratado.</em></h1>
-        <p class="lead">Um player de vídeo e música para Windows que toca praticamente qualquer arquivo, com
-          uma interface nova: capas em 3D, vidro fosco sobre o vídeo e controles que respondem na hora.</p>
+        <p class="lead">Filmes, séries, músicas, streams e playlists: o player multimídia para Windows que toca
+          praticamente qualquer arquivo, com vidro fosco sobre o vídeo, prévia com Espaço direto no Explorer e
+          controles que respondem na hora.</p>
         <div class="cta-row">
           <a class="btn-orb" href="#download" data-download>
             <span class="orb" aria-hidden="true">
@@ -64,7 +65,10 @@
       <figure class="hero-shot">
         <div class="window">
           <div class="window-bar"><i></i><i></i><i></i><span>Refrata</span></div>
-          <img src="/img/music-player.webp" alt="Player de música do Refrata: carrossel de capas em 3D sobre um fundo laranja desfocado e um dock de vidro com os controles" width="1440" height="900" fetchpriority="high">
+          <img src="/img/video-player.webp" alt="Player de vídeo do Refrata: o título do filme em letras grandes e os controles em vidro fosco sobre a imagem" width="1440" height="900" fetchpriority="high">
+        </div>
+        <div class="window mini-window" aria-hidden="true">
+          <img src="/img/music-player.webp" alt="" width="1440" height="900" loading="lazy">
         </div>
       </figure>
     </section>
@@ -81,6 +85,60 @@
       </div>
     </section>
 
+
+    <!-- ======================================================= video -->
+    <section class="section split" id="video">
+      <div class="split-copy">
+        <p class="eyebrow">Vídeo</p>
+        <h2>O filme em primeiro plano.<br><span class="dim">Os controles, só quando precisa.</span></h2>
+        <p class="lead">Vidro fosco de verdade sobre a imagem, título grande e uma barra de busca que mostra o tempo
+          antes do clique. Quando você assiste, tudo some.</p>
+        <ul class="ticks">
+          <li>Legendas e faixas de áudio com um clique, ou arraste um .srt na janela</li>
+          <li>Brilho, contraste, saturação e enquadramento ao vivo</li>
+          <li>Repita um trecho com <kbd>L</kbd> (A-B) e mantenha sempre no topo com <kbd>T</kbd></li>
+          <li>Velocidade de 0,25× a 4×, quadro a quadro, captura de tela</li>
+        </ul>
+      </div>
+      <figure class="split-shot">
+        <img src="/img/video-adjust.webp" alt="Painel Imagem aberto sobre o vídeo, com brilho, contraste, saturação, gama, matiz e enquadramento" width="1440" height="900" loading="lazy">
+      </figure>
+    </section>
+
+    <!-- ======================================================= quick -->
+    <section class="section split reverse" id="rapido">
+      <div class="split-copy">
+        <p class="eyebrow">Abertura rápida</p>
+        <h2>Aperte <span class="keycap">Espaço</span>.<br><span class="dim">Veja sem abrir nada.</span></h2>
+        <p class="lead">Selecione um vídeo ou música no Explorer ou na área de trabalho e aperte Espaço: a prévia
+          aparece na hora, flutuando. Espaço de novo fecha, as setas passam pelos arquivos da pasta.</p>
+        <ul class="ticks">
+          <li>Arquivo aberto pelo Explorer começa num player compacto e flutuante</li>
+          <li><kbd>Enter</kbd> leva para o app completo, continuando do mesmo ponto</li>
+          <li>Opção de ficar na bandeja e iniciar com o Windows, para tudo abrir instantâneo</li>
+        </ul>
+      </div>
+      <figure class="split-shot quick-shot">
+        <div class="desk" aria-hidden="true">
+          <div class="desk-files">
+            <span class="file"></span><span class="file sel"></span><span class="file"></span><span class="file"></span>
+          </div>
+          <span class="keycap big press">Espaço</span>
+        </div>
+        <img class="quick-card" src="/img/quick-preview.webp" alt="Janela de prévia do Refrata flutuando com um vídeo, o nome do arquivo e 3 de 4 na pasta" width="1280" height="720" loading="lazy">
+      </figure>
+    </section>
+
+    <!-- ======================================================= library -->
+    <section class="section" id="biblioteca">
+      <p class="eyebrow">Biblioteca</p>
+      <h2>Tudo o que você tem,<br><span class="dim">organizado sozinho.</span></h2>
+      <div class="duo">
+        <img src="/img/home-videos.webp" alt="Tela inicial do Refrata com o destaque Assistido recentemente e o miniplayer" width="1440" height="900" loading="lazy">
+        <img src="/img/videos-grid.webp" alt="Grade de vídeos da biblioteca com miniaturas e duração" width="1440" height="900" loading="lazy">
+      </div>
+    </section>
+
     <!-- ======================================================= features -->
     <section class="section" id="recursos">
       <p class="eyebrow">Recursos</p>
@@ -88,8 +146,8 @@
       <div class="grid">
         <article class="card">
           <div class="knob"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H4z M8 20h8" /></svg></div>
-          <h3>Vídeo com vidro fosco</h3>
-          <p>Controles em vidro de verdade sobre o filme, título grande e barra de busca com prévia de tempo. Somem sozinhos quando você assiste.</p>
+          <h3>Toca praticamente tudo</h3>
+          <p>O mesmo motor do VLC: MKV, MP4, AVI, HEVC, FLAC, Opus, streams HLS e RTSP. Sem instalar nenhum codec.</p>
         </article>
         <article class="card">
           <div class="knob"><svg viewBox="0 0 24 24"><path d="M5 9v6 M9 6v12 M13 9v6 M17 4v16 M21 10v4" /></svg></div>
@@ -103,8 +161,8 @@
         </article>
         <article class="card">
           <div class="knob"><svg viewBox="0 0 24 24"><path d="M4 7h11 M4 12h11 M4 17h7 M18 14v6 M15 17h6" /></svg></div>
-          <h3>Fila e playlists</h3>
-          <p>A seguir, tocar em seguida, aleatório e repetir. Abre M3U, M3U8, PLS e XSPF.</p>
+          <h3>Fila, playlists e trechos</h3>
+          <p>A seguir, tocar em seguida, aleatório e repetir. Abre M3U, PLS e XSPF, e repete um trecho A-B com uma tecla.</p>
         </article>
         <article class="card">
           <div class="knob"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" /><path d="M4 12h16 M12 4c2.5 2.5 2.5 13.5 0 16 M12 4c-2.5 2.5-2.5 13.5 0 16" /></svg></div>
@@ -123,7 +181,7 @@
     <section class="section music" id="musica">
       <div class="music-copy">
         <p class="eyebrow">Modo música</p>
-        <h2>Suas capas,<br>em primeiro plano.</h2>
+        <h2>Música com<br>as capas na frente.</h2>
         <p class="lead">Um clique toca. Outro pausa. As capas giram em 3D, o fundo pega as cores do disco e o
           progresso corre em volta do botão.</p>
         <ul class="ticks">

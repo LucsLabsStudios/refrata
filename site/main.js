@@ -40,11 +40,11 @@ const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)").matc
 
 // reveal while scrolling: native scroll-driven CSS when available, IntersectionObserver otherwise.
 // Items in the same group get an index so they arrive one after the other.
-document.querySelectorAll(".grid, .steps, .policy, .ticks").forEach((group) => {
+document.querySelectorAll(".grid, .steps, .policy, .ticks, .duo, .split-copy").forEach((group) => {
   [...group.children].forEach((el, i) => el.style.setProperty("--i", i));
 });
 const revealables = document.querySelectorAll(
-  ".section > .eyebrow, .section > h2, .grid > *, .steps > *, .policy > *, .music-copy > *, .music-visual, .download, .formats");
+  ".section > .eyebrow, .section > h2, .grid > *, .steps > *, .policy > *, .music-copy > *, .music-visual, .split-copy > *, .split-shot, .duo > *, .download, .formats");
 const native = CSS.supports("animation-timeline: view()");
 if (!reduce) {
   revealables.forEach((el) => el.classList.add("reveal"));
@@ -60,14 +60,17 @@ if (!reduce) {
 
 // hero window tilts toward the pointer, smoothed every frame (lerp), idle when settled
 const win = document.querySelector(".hero-shot .window");
+const tilt = document.querySelectorAll(".hero-shot .window");
 if (win && finePointer && !reduce) {
   const rest = { x: 4, y: -9 };
   let target = { ...rest }, cur = { ...rest }, raf = 0;
   const tick = () => {
     cur.x += (target.x - cur.x) * 0.08;
     cur.y += (target.y - cur.y) * 0.08;
-    win.style.setProperty("--rx", cur.x.toFixed(3) + "deg");
-    win.style.setProperty("--ry", cur.y.toFixed(3) + "deg");
+    for (const w of tilt) {
+      w.style.setProperty("--rx", cur.x.toFixed(3) + "deg");
+      w.style.setProperty("--ry", cur.y.toFixed(3) + "deg");
+    }
     raf = Math.abs(target.x - cur.x) + Math.abs(target.y - cur.y) > 0.01 ? requestAnimationFrame(tick) : 0;
   };
   const kick = () => { if (!raf) raf = requestAnimationFrame(tick); };
