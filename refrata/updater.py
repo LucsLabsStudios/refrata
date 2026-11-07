@@ -67,6 +67,10 @@ class Updater(QObject):
         super().__init__(parent)
         self._settings = settings
         self._net = QNetworkAccessManager(self)
+        # GitHub answers every asset download with a 302 to its file servers. Follow it here, on
+        # the manager: setting RedirectPolicyAttribute per request through PySide stores the enum
+        # in a form Qt does not recognise, which silently turned redirects off (1.1.0 bug).
+        self._net.setRedirectPolicy(QNetworkRequest.RedirectPolicy.NoLessSafeRedirectPolicy)
         self._url = os.environ.get("REFRATA_UPDATE_URL") or API_LATEST
         self._kind = install_kind()
         self._state = "idle"     # idle checking uptodate available downloading ready installing error
@@ -232,15 +236,18 @@ class Updater(QObject):
     def _request(self, url):
         req = QNetworkRequest(QUrl(url))
         req.setRawHeader(b"User-Agent", f"Refrata/{__version__}".encode())
-        req.setAttribute(QNetworkRequest.Attribute.RedirectPolicyAttribute,
-                         QNetworkRequest.RedirectPolicy.NoLessSafeRedirectPolicy)
         return req
+
+    @staticmethod
+    def _http_ok(reply) -> bool:
+        status = reply.attribute(QNetworkRequest.Attribute.HttpStatusCodeAttribute)
+        return reply.error() == QNetworkReply.NetworkError.NoError and (status is None or int(status) == 200)
 
     def _on_sha(self, reply):
         reply.deleteLater()
         text = bytes(reply.readAll()).decode("utf8", "replace").strip()
         m = re.search(r"\b[0-9a-fA-F]{64}\b", text)
-        if reply.error() != QNetworkReply.NetworkError.NoError or not m:
+        if not self._http_ok(reply) or not m:
             self._set("error", "Não foi possível conferir a assinatura do download")
             return
         self._asset["sha256"] = m.group(0).lower()
@@ -290,11 +297,13 @@ class Updater(QObject):
         self._file.close()
         part = self._target.with_suffix(".part")
         reply.deleteLater()
-        if reply.error() != QNetworkReply.NetworkError.NoError:
+        got = part.stat().st_size if part.exists() else 0
+        expected = int(self._asset.get("size") or 0)
+        if not self._http_ok(reply) or got == 0 or (expected and got != expected):
             part.unlink(missing_ok=True)
             cancelled = reply.error() == QNetworkReply.NetworkError.OperationCanceledError
             self._set("available" if cancelled else "error",
-                      "" if cancelled else "O download falhou. Tente de novo.")
+                      "" if cancelled else "O download falhou ou veio incompleto. Tente de novo.")
             return
         if self._hash.hexdigest().lower() != self._asset["sha256"]:
             part.unlink(missing_ok=True)

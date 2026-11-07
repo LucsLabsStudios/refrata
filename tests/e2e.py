@@ -181,6 +181,16 @@ def start_http(root: Path) -> int:
         def log_message(self, *a):
             pass
 
+        def do_GET(self):
+            # /download/<name> answers 302 like GitHub release assets do
+            if self.path.startswith("/download/"):
+                self.send_response(302)
+                self.send_header("Location", "/" + self.path[len("/download/"):])
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+            super().do_GET()
+
     srv = socketserver.ThreadingTCPServer(("127.0.0.1", 0), functools.partial(Quiet, directory=str(root)))
     srv.daemon_threads = True
     threading.Thread(target=srv.serve_forever, daemon=True).start()
@@ -1619,7 +1629,7 @@ def t47_in_app_update_check_download_verify_install():
         (rel / "latest.json").write_text(json.dumps({
             "tag_name": tag, "body": "Notas de teste", "html_url": base + "/page",
             "assets": [{"name": "Refrata-Setup-9.9.9.exe", "size": len(blob), "digest": "sha256:" + digest,
-                        "browser_download_url": base + "/Refrata-Setup-9.9.9.exe"}]}), "utf8")
+                        "browser_download_url": base + "/download/Refrata-Setup-9.9.9.exe"}]}), "utf8")
 
     up._url = base + "/latest.json"
     up._kind = "installer"
@@ -1663,6 +1673,18 @@ def t47_in_app_update_check_download_verify_install():
         pump(0.4)  # the pill re-sizes to the error text before the click
         ui_click("updateDismiss")
         wait(lambda: banner.property("opacity") < 0.05, 2, "banner can be dismissed")
+
+        # a broken download is reported as such (never as a checksum problem)
+        up._set("idle")
+        publish("v9.9.9", sha)
+        data = json.loads((rel / "latest.json").read_text("utf8"))
+        data["assets"][0]["browser_download_url"] = base + "/download/missing.exe"
+        (rel / "latest.json").write_text(json.dumps(data), "utf8")
+        up.checkNow()
+        wait(lambda: up.state == "available", 5)
+        up.download()
+        wait(lambda: up.state == "error", 10, "missing asset fails")
+        check("download falhou" in up.error, "missing asset reads as a failed download", up.error)
 
         # same version → up to date, no banner
         publish("v" + up.current, sha)
