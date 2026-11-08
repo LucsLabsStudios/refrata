@@ -139,10 +139,8 @@ def write_keys():
     """refrata/_keys.py from the environment (git-ignored): API keys stay out of the public repo."""
     key = os.environ.get("REFRATA_OPENSUBTITLES_KEY", "").strip()
     (ROOT / "refrata" / "_keys.py").write_text(
-        "# written by tools/build.py from REFRATA_OPENSUBTITLES_KEY; not in git
-"
-        f"OPENSUBTITLES = {key!r}
-", encoding="utf8")
+        "# written by tools/build.py from REFRATA_OPENSUBTITLES_KEY; not in git\n"
+        f"OPENSUBTITLES = {key!r}\n", encoding="utf8")
     log("OpenSubtitles key: " + ("set" if key else "not set (online subtitle search hidden)"))
 
 
