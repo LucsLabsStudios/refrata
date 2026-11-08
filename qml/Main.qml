@@ -45,17 +45,6 @@ Window {
         if (win.visibility === Window.Hidden) win.show()
         appctl.activateWindow(win)
     }
-    // A single media file from Explorer goes to the quick player (when that option is on) — but
-    // only while the app itself is not on screen. With the full app open, the file plays there,
-    // replacing what was playing, instead of a second player floating over the first.
-    function openFromExplorer(paths) {
-        if (win.visible) return false
-        if (paths.length === 1 && settings.value("quickOpen") && appctl.isMedia(paths[0]) && !appctl.isPlaylist(paths[0])) {
-            quick.open(paths[0], quicklook.siblings(paths[0]), "compact")
-            return true
-        }
-        return false
-    }
     // nothing visible and not living in the tray: leave
     function quitIfIdle() {
         if (!win.visible && !quick.visible && !tray.background) Qt.quit()
@@ -95,7 +84,9 @@ Window {
         function onOpenRequested(paths) {
             if (!paths.length) return
             if (paths.length === 1 && appctl.isSubtitle(paths[0]) && player.hasMedia) player.addSubtitle(paths[0])
-            else if (!win.openFromExplorer(paths)) { win.playPaths(paths, 0); win.showMain() }
+            // a double-click in Explorer means "play it": straight to the full app, never the
+            // quick player (that one is only for Space on a selected file)
+            else { win.playPaths(paths, 0); win.showMain() }
         }
     }
 

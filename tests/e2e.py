@@ -1408,17 +1408,19 @@ def t41_second_launch_hands_files_to_running_instance():
          "handed-over file plays here")
     check(not quick.isVisible(), "no quick player over the open app")
     stop_playback()
-    # app off screen: the same hand-over opens the quick player
+    # app off screen (in the tray): a double-click brings the full app back and plays there; the
+    # quick player is only for Space
     with main_hidden():
         child = subprocess.Popen(_child_cmd(str(C.fx["tone_c"])), env=dict(os.environ),
                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         wait(lambda: child.poll() is not None, 30, "second launch exits after handing over")
-        wait(lambda: quick.isVisible() and Path(quick.property("path")) == C.fx["tone_c"], 10,
-             "with the app hidden, the file opens in the quick player")
-        pump(0.5)
-        check(not C.parts.win.isVisible(), "the app window stays in the tray behind the quick player")
-        QMetaObject.invokeMethod(quick, "close")
-        wait(lambda: not quick.isVisible(), 2)
+        wait(lambda: C.parts.win.isVisible() and e.queue and Path(e.queue[0]["path"]) == C.fx["tone_c"], 10,
+             "with the app in the tray, the file opens in the full app")
+        pump(0.3)
+        check(not quick.isVisible(), "no quick player on a double-click")
+        stop_playback()
+        C.parts.win.close()
+        pump(0.4)
         # a plain relaunch (no file) brings the window back
         reply = local_request(inst.name, json.dumps({"open": []}).encode("utf8") + b"\n")
         check(reply.startswith(b"ok"), "plain relaunch acknowledged")
@@ -1458,10 +1460,11 @@ def t42_command_line_files_route_to_the_ui():
     quick = C.parts.qml.rootObjects()[0].findChild(QWindow, "quickPlayer")
     with main_hidden():
         ctl.handOver([str(C.fx["video"])])
-        wait(lambda: quick.isVisible() and quick.property("mode") == "compact", 5, "video from argv opens the quick player")
-        check(e.state not in ("playing", "loading"), "the main player waits for the expand")
-        QMetaObject.invokeMethod(quick, "close")
-        wait(lambda: not quick.isVisible(), 2)
+        wait(lambda: C.parts.win.isVisible() and e.state == "playing" and win().property("playerOpen") is True, 10,
+             "video from argv opens in the full app")
+        check(not quick.isVisible(), "never the quick player for argv files")
+    stop_playback()
+    win().setProperty("playerOpen", False)
     ctl.handOver([str(C.fx["video"])])
     wait(lambda: e.state == "playing" and win().property("playerOpen") is True, 10, "with the app open, the video plays in it")
     check(not quick.isVisible(), "no quick player over the open app")
@@ -1869,12 +1872,24 @@ def t48_quick_player_preview_compact_and_background():
     wkey(quick, Qt.Key.Key_Escape)
     wait(lambda: not quick.isVisible(), 2, "Esc closes")
 
-    # files from Explorer → compact quick player; Space pauses there; expand hands over to Refrata
+    # a double-clicked file from Explorer goes straight to the full app, even with Refrata hidden
+    # in the tray: the quick player is only for Space
     tray.background = True       # keeps the app alive while its window is hidden
     C.parts.win.hide()
     pump(0.2)
-    ok = QMetaObject.invokeMethod(root, "openFromExplorer", Q_RETURN_ARG("QVariant"), Q_ARG("QVariant", [video]))
-    check(ok is True, "a single file from Explorer opens in the quick player")
+    C.parts.ctl.handOver([video])
+    wait(lambda: C.parts.win.isVisible() and e.currentPath == video and e.state == "playing", 8,
+         "a double-clicked file opens in the full app")
+    check(win().property("playerOpen") is True, "it opens on the full player")
+    pump(0.3)
+    check(not quick.isVisible(), "the quick player stays closed on a double-click")
+    win().setProperty("playerOpen", False)
+    stop_playback()
+    C.parts.win.hide()
+    pump(0.2)
+
+    # compact mode still works when asked for: Space pauses there; expand hands over to Refrata
+    QMetaObject.invokeMethod(quick, "open", Q_ARG("QVariant", video), Q_ARG("QVariant", sib), Q_ARG("QVariant", "compact"))
     wait(lambda: quick.isVisible() and quick.property("mode") == "compact", 3, "compact quick player")
     wait(lambda: quick.findChild(QObject, "quickSeek").property("value") > 1200, 8, "compact plays")
     pump(0.35)
@@ -1891,20 +1906,13 @@ def t48_quick_player_preview_compact_and_background():
     wait(lambda: not quick.isVisible(), 2, "quick player leaves after expanding")
     check(win().property("playerOpen") is True and C.parts.win.isVisible(), "full player is shown")
     tray.background = False
-    # the reported bug: with the app open on a video, a second file from Explorer must play in
-    # the app (replacing the old one), not in a quick player floating over it
-    ok = QMetaObject.invokeMethod(root, "openFromExplorer", Q_RETURN_ARG("QVariant"), Q_ARG("QVariant", [video2]))
-    check(ok is False and not quick.isVisible(), "with the app open, Explorer files go to the app")
-    QMetaObject.invokeMethod(root, "playPaths", Q_ARG("QVariant", [video2]), Q_ARG("QVariant", 0))
+    # with the app open on a video, a second file from Explorer replaces it in the app, never a
+    # quick player floating over it
+    C.parts.ctl.handOver([video2])
     wait(lambda: e.currentPath == video2 and e.state == "playing", 8, "the new file replaces the old one in the app")
+    check(not quick.isVisible(), "no quick player over the open app")
     win().setProperty("playerOpen", False)
     stop_playback()
-    settings_off = C.parts.settings
-    settings_off.setValue("quickOpen", False)
-    with main_hidden():
-        ok = QMetaObject.invokeMethod(root, "openFromExplorer", Q_RETURN_ARG("QVariant"), Q_ARG("QVariant", [video]))
-        check(ok is False and not quick.isVisible(), "the quick player can be turned off")
-    settings_off.setValue("quickOpen", True)
 
     # background mode: closing the window keeps the app (and the preview) alive in the tray
     from PySide6.QtWidgets import QApplication

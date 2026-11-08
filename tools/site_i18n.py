@@ -87,9 +87,9 @@ PIECES = [
     ("No Explorer ou na área de trabalho, selecione um vídeo ou uma música e aperte Espaço. A prévia aparece flutuando na hora, e Espaço de novo fecha. As setas passam pelos outros arquivos da pasta, como quem folheia um álbum.",
      "In File Explorer or on the desktop, select a video or a song and press Space. A floating preview appears instantly; press Space again to close it. The arrow keys flip through the rest of the folder, like leafing through an album.",
      "En el Explorador de archivos o en el escritorio, selecciona un vídeo o una canción y pulsa Espacio. La vista previa aparece flotando al instante, y Espacio otra vez la cierra. Las flechas recorren los demás archivos de la carpeta, como quien hojea un álbum."),
-    ("<li>Duplo clique num arquivo abre um player compacto, sem carregar o app inteiro</li>",
-     "<li>Double-click a file to open a compact player, without loading the whole app</li>",
-     "<li>Un doble clic en un archivo abre un reproductor compacto, sin cargar toda la aplicación</li>"),
+    ("<li>A prévia é só no Espaço: com duplo clique, o arquivo abre direto no player completo</li>",
+     "<li>The preview is Space only: double-click and the file opens straight in the full player</li>",
+     "<li>La vista previa es solo con Espacio: con doble clic, el archivo se abre directo en el reproductor completo</li>"),
     ("<li>Quer a tela cheia? <kbd>Enter</kbd> leva para o app completo, no mesmo segundo</li>",
      "<li>Want the big screen? <kbd>Enter</kbd> takes it to the full app, at the same second</li>",
      "<li>¿Quieres pantalla completa? <kbd>Intro</kbd> lo lleva a la aplicación completa, en el mismo segundo</li>"),
@@ -274,6 +274,9 @@ PIECES = [
     (">Reportar um bug</a>", ">Report a bug</a>", ">Informar de un error</a>"),
 ]
 
+# app screenshots (site/img/<name>.webp in Portuguese, site/img/<code>/<name>.webp translated)
+SHOTS = ("home-videos", "videos-grid", "video-player", "video-adjust", "quick-preview", "music-player", "music-library")
+
 # Portuguese words that must not survive in a translated page (visible text only)
 PT_WORDS = re.compile(r"\b(você|não|também|então|vídeos e músicas|arquivo|aperte|baixar|Ajustes|lançamento)\b", re.I)
 
@@ -295,6 +298,11 @@ def build():
         page = re.sub(r"\s*<!-- lang:redirect -->.*?<!-- /lang:redirect -->", "", page, flags=re.S)
         page = page.replace('data-lang="pt" aria-current="true"', 'data-lang="pt"')
         page = page.replace(f'data-lang="{code}"', f'data-lang="{code}" aria-current="true"')
+        # app screenshots exist per language (site/img/<code>/), showing the app in that language
+        for shot in SHOTS:
+            if not (SITE / "img" / code / f"{shot}.webp").exists():
+                sys.exit(f"{code}: missing screenshot img/{code}/{shot}.webp")
+            page = page.replace(f'src="/img/{shot}.webp"', f'src="/img/{code}/{shot}.webp"')
         visible = re.sub(r"<script.*?</script>|<[^>]+>", " ", page, flags=re.S)
         # "ajustes" is Spanish too ("tus ajustes")
         left = sorted(set(m.group(0).lower() for m in PT_WORDS.finditer(visible)) - ({"ajustes"} if code == "es" else set()))

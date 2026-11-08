@@ -50,7 +50,6 @@ from refrata.updater import Updater  # noqa: E402
 from refrata.quicklook import QuickLook  # noqa: E402
 from refrata.tray import Tray  # noqa: E402
 from refrata.i18n import I18n  # noqa: E402
-from refrata.media import is_media_path  # noqa: E402
 
 ROOT = app_root()
 
@@ -270,10 +269,9 @@ def main():
         if send_to_running(files):
             os._exit(0)
 
-    # a single media file from Explorer opens in the quick player; --background starts in the tray
-    from refrata.settings import Settings as _S  # noqa: PLC0415
-    quick_open = bool(_S().value("quickOpen", True)) if files else False
-    hidden = args.background or (quick_open and len(files) == 1 and is_media_path(files[0]))
+    # files from Explorer (double-click) open in the full app; only Space in Explorer uses the quick
+    # player. --background starts in the tray
+    hidden = args.background
     parts = build(sys.argv, args.page, args.panel, args.theme, instance_name="" if single else None,
                   start_hidden=hidden and not args.screenshot)
     engine, library, win, app = parts.engine, parts.library, parts.win, parts.app
