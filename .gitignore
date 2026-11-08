@@ -11,6 +11,7 @@ __pycache__/
 venv/
 
 # local-only
+/refrata/_keys.py
 /installer/store.json
 *.pfx
 *.p12

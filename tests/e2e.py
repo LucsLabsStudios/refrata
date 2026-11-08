@@ -32,6 +32,8 @@ TMP = Path(os.environ.get("REFRATA_E2E_TMP") or tempfile.mkdtemp(prefix="refrata
 os.environ["REFRATA_E2E_TMP"] = str(TMP)
 os.environ["REFRATA_DATA"] = str(TMP / "data")
 os.environ["REFRATA_NO_HOOK"] = "1"   # no system-wide keyboard hook while the battery types
+# no Windows media session either: it would take the person's keyboard media keys during the run
+os.environ.setdefault("REFRATA_NO_MEDIAKEYS", "1")
 # the battery checks Portuguese text: "auto" resolves to Portuguese whatever the Windows language
 os.environ["REFRATA_LANG"] = "pt"
 (TMP / "data").mkdir(parents=True, exist_ok=True)

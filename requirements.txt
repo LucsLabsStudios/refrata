@@ -1,2 +1,12 @@
 PySide6==6.8.1
 python-vlc==3.0.21203
+# links from YouTube, Vimeo… (Streams page); keep it current: sites change often
+yt-dlp==2026.10.26
+# Windows media overlay + keyboard media keys (SystemMediaTransportControls)
+winrt-runtime==4.1.0
+winrt-Windows.Foundation==4!10.0.28000.2957
+winrt-Windows.Foundation.Collections==4!10.0.28000.2957
+winrt-Windows.Media==4!10.0.28000.2957
+winrt-Windows.Media.Playback==4!10.0.28000.2957
+winrt-Windows.Storage==4!10.0.28000.2957
+winrt-Windows.Storage.Streams==4!10.0.28000.2957

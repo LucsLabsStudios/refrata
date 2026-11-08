@@ -101,21 +101,23 @@ passo está em [docs/SIGNING.md](docs/SIGNING.md).
 | Idiomas | 14 idiomas (português, inglês, espanhol, francês, alemão, italiano, russo, polonês, turco, indonésio, hindi, chinês, japonês e coreano), trocados na hora em Ajustes; o automático segue o Windows. Textos em `i18n/*.json`, conferidos com `python tools/i18n.py check` |
 | Biblioteca | Varredura das pastas (Vídeos/Músicas por padrão), miniaturas geradas pelo libVLC, duração e tags, busca, ordenação, cache |
 | Início | Saudação em "big text", destaque *Continue assistindo*, estatísticas, recentes, adicionados, músicas |
-| Player | Vídeo com controles em vidro fosco, título gigante, ±10 s, barra de busca com prévia de tempo, auto-ocultar |
-| Faixas | Troca de faixa de áudio e legenda, legenda externa (botão ou arrastar `.srt`), atraso de áudio/legenda |
-| Áudio | Volume até 150 %, mudo, equalizador de 10 bandas + pré-amp + 18 presets |
-| Imagem | Brilho, contraste, saturação, gama, matiz; ajustar / preencher / esticar |
+| Player | Vídeo com controles em vidro fosco, título gigante, ±10 s, barra de busca com prévia de tempo, auto-ocultar; imagem até 4K em resolução nativa (NV12 direto no quadro do Qt, conversão de cor na GPU) |
+| Faixas | Troca de faixa de áudio e legenda, legenda externa (botão ou arrastar `.srt`), atraso de áudio/legenda, busca de legendas no OpenSubtitles (pelo hash do arquivo), tamanho/cor/fundo da legenda, codificação (Windows-1252, 1250, 1251, GB18030, Shift_JIS…) |
+| Capítulos | Marcas na barra de tempo, lista de capítulos, `Shift+N/P` |
+| Áudio | Volume até 150 %, mudo, equalizador de 10 bandas + pré-amp + 18 presets, normalizar volume, escolha da saída de áudio (alto-falantes, fone, HDMI) |
+| Imagem | Brilho, contraste, saturação, gama, matiz; ajustar / preencher / esticar; girar 90°, espelhar, proporção (16:9, 4:3, 21:9, 1:1), zoom, desentrelaçar |
 | Fila | A seguir (painel lateral e página), reordenar, remover, tocar em seguida, aleatório, repetir 1/todos |
 | Extras | Velocidade 0,25×–4×, timer de sono, captura de quadro, avanço quadro a quadro, continuar de onde parou, repetir um trecho (A-B), sempre no topo |
 | Abertura rápida | Prévia com Espaço no Explorer e na área de trabalho (estilo QuickLook), duplo clique abre direto no player completo (ou no player rápido, se você ativar nos Ajustes), modo em segundo plano na bandeja e iniciar com o Windows |
-| Rede | HTTP/HLS/RTSP/RTMP/… pela página Streams |
+| Rede | Links do YouTube, Vimeo e outros sites (yt-dlp), HTTP/HLS/RTSP/RTMP/SMB… pela página Streams; transmitir para Chromecast |
 | Playlists | M3U/M3U8, PLS, XSPF |
-| Windows | Instância única, "Abrir com", Apps padrão, diálogos nativos de arquivo/pasta, barra de título tingida |
-| Robustez | Itens com defeito são pulados automaticamente; aviso se uma mídia não abre |
+| Windows | Instância única, "Abrir com", Apps padrão, diálogos nativos de arquivo/pasta, barra de título tingida, teclas de mídia do teclado e painel de mídia do Windows |
+| Informações | Codec, resolução, fps, bitrate, canais e quadros descartados de cada arquivo (`I`), com cópia para a área de transferência |
+| Robustez | Itens com defeito são pulados automaticamente; aviso se uma mídia não abre; configurações e cache corrompidos são ignorados sem travar; fila e biblioteca com milhares de itens |
 
 Atalhos: `Espaço` play/pausa · `F` tela cheia · `←/→` ±10 s · `↑/↓` volume · `M` mudo ·
-`N/P` próximo/anterior · `[ ] =` velocidade · `S` captura · `E` quadro a quadro · `L` trecho A-B · `T` sempre no topo ·
-`Ctrl+O` abrir · `Ctrl+L` streams · `Esc` sair/fechar.
+`N/P` próximo/anterior · `Shift+N/P` capítulo · `[ ] =` velocidade · `S` captura · `E` quadro a quadro · `L` trecho A-B · `T` sempre no topo ·
+`I` informações · `R` girar · `Ctrl+O` abrir · `Ctrl+L` streams · `Esc` sair/fechar.
 
 ## Identidade visual
 
@@ -127,7 +129,10 @@ Studios. Paleta, regras e como regerar os assets estão em [docs/BRAND.md](docs/
 ```
 main.py               boot, instância única, --selftest
 refrata/vlcpath.py    localiza o libVLC (embutido → vendor → sistema)
-refrata/engine.py     libVLC: reprodução, fila, faixas, EQ, ajustes; vídeo via vmem → QVideoSink
+refrata/engine.py     libVLC: reprodução, fila, faixas, EQ, ajustes, capítulos, Chromecast; vídeo NV12 via vmem → QVideoSink
+refrata/websites.py   links de sites (YouTube, Vimeo…) resolvidos com yt-dlp
+refrata/subsearch.py  legendas do OpenSubtitles.com (chave em REFRATA_OPENSUBTITLES_KEY no build)
+refrata/mediakeys.py  teclas de mídia e painel de mídia do Windows (SMTC, via pywinrt)
 refrata/library.py    varredura, modelos filtráveis, miniaturas (thread com libVLC próprio)
 refrata/settings.py   preferências + histórico/posições (%LOCALAPPDATA%\Refrata)
 refrata/single.py     instância única (QLocalServer por usuário)
@@ -153,9 +158,12 @@ nativa do VLC tradicional.
 ## Testes
 
 ```powershell
-python tests/e2e.py                          # bateria completa (49 testes, ~5 min)
+python tests/e2e.py                          # bateria completa (50 testes, ~5 min)
 python tests/e2e.py -k t37,t40               # filtro por nome
 dist\Refrata\Refrata.exe --selftest --log r.log --report r.json   # a mesma bateria dentro do pacote
+python tests/robust.py                       # robustez: ~40 cenários, cada um num processo do app
+python tests/robust.py -k quit,corrupt       # filtro por nome
+python tests/robust.py --exe dist\Refrata\Refrata.exe   # a mesma suíte no pacote
 python tools/test_installer.py               # instala, testa a cópia instalada, abre via registro, desinstala
 python tools/test_msix.py                    # o mesmo para o pacote MSIX (veja docs/STORE.md)
 ```
@@ -166,6 +174,28 @@ HTTP local). Ela testa engine, biblioteca, configurações, playlists, rede, cli
 em todos os controles, teclado, painéis, tela cheia, arrastar-e-soltar, **os diálogos nativos do
 Windows** (operados de verdade por `tests/windialogs.py`), a instância única com um segundo
 processo real, o cartão Sobre e o encerramento. **Qualquer aviso Qt/QML reprova o teste.**
+
+A suíte de robustez (`tests/robust.py`) roda cada cenário num processo próprio do Refrata, que
+sai pelo caminho real de encerramento. Cada um precisa sair com código 0, sem `crash.log`, sem
+aviso Qt/QML e com `settings.json` válido:
+
+- **fechar em cada estado:** carregando, tocando, pausado, no fim, modo música, tela cheia, player
+  rápido, durante a varredura e as miniaturas, no meio de buscas rápidas, com stream HTTP;
+- **estresse:** próximo/anterior sem parar, abrir arquivos durante o carregamento, fila de 1000
+  itens, biblioteca de 2620 arquivos, arquivos apagados e renomeados durante o uso, memória em
+  200 trocas de faixa;
+- **dados corrompidos:** `settings.json` ilegível, vazio, com tipos e formatos errados; cache da
+  biblioteca inválido; arquivos de dados somente leitura;
+- **formatos** (gerados com o próprio libVLC em `tests/formats.py`): MP4, MOV, MKV, OGV, AVI, TS,
+  MPEG-2, HEVC, 4K, vertical, 1366×768, só vídeo, MP3, OGG, Opus, M4A, FLAC, 5.1, WAV mono; legendas
+  SRT, VTT, ASS e Latin-1; arquivos vazios, cortados, sem extensão, com extensão errada; nomes com
+  acentos, japonês, emoji e caminhos acima de 260 caracteres;
+- **recursos:** estilo de legenda (medido nos pixels do quadro), normalizador, saída de áudio,
+  capítulos, girar/proporção/zoom, desentrelaçar, informações, transmissão, teclas de mídia,
+  links de sites (simulados e um YouTube real), legendas online (API simulada);
+- **layout:** os 14 idiomas em todas as páginas, Ajustes e painéis sem texto cortado, e o mesmo em
+  150 % de escala com a janela no tamanho mínimo;
+- **macaco:** cliques e teclas aleatórios (com semente) por 2 minutos, sem aviso nem travamento.
 
 Dá para usar o PC enquanto a bateria roda. Se outro app roubar o foco, o teste reativa a janela
 antes de mandar teclas e avisa no final.

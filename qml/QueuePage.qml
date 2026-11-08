@@ -8,7 +8,7 @@ ListView {
     clip: true
     boundsBehavior: Flickable.StopAtBounds
     ScrollBar.vertical: ScrollBar {}
-    model: player.queue
+    model: player.queueModel
     spacing: 4
 
     header: Column {
@@ -21,10 +21,10 @@ ListView {
             width: parent.width
             eyebrow: qsTr("Reprodução")
             title: qsTr("A seguir")
-            subtitle: player.queue.length ? qsTr("%n item(ns) na fila", "", player.queue.length) : qsTr("A fila está vazia")
+            subtitle: player.queueCount ? qsTr("%n item(ns) na fila", "", player.queueCount) : qsTr("A fila está vazia")
             IconButton { icon: "shuffle"; tip: qsTr("Aleatório"); checked: player.shuffle; size: 44; iconSize: 15; bg: theme.surface2; onClicked: player.toggleShuffle() }
             IconButton { icon: player.repeat === 2 ? "repeat1" : "repeat"; tip: [qsTr("Repetir: desligado"), qsTr("Repetir: tudo"), qsTr("Repetir: um")][player.repeat]; checked: player.repeat > 0; size: 44; iconSize: 15; bg: theme.surface2; onClicked: player.cycleRepeat() }
-            PillButton { objectName: "queueClear"; text: qsTr("Limpar fila"); icon: "delete"; variant: "outline"; h: 44; enabled: player.queue.length > 0; onClicked: player.clearQueue() }
+            PillButton { objectName: "queueClear"; text: qsTr("Limpar fila"); icon: "delete"; variant: "outline"; h: 44; enabled: player.queueCount > 0; onClicked: player.clearQueue() }
         }
     }
 
@@ -101,7 +101,7 @@ ListView {
             opacity: hh.hovered ? 1 : 0
             Behavior on opacity { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
             IconButton { icon: "up"; size: 36; iconSize: 12; enabled: index > 0; onClicked: player.moveItem(index, index - 1) }
-            IconButton { icon: "down"; size: 36; iconSize: 12; enabled: index < player.queue.length - 1; onClicked: player.moveItem(index, index + 1) }
+            IconButton { icon: "down"; size: 36; iconSize: 12; enabled: index < player.queueCount - 1; onClicked: player.moveItem(index, index + 1) }
             IconButton { objectName: "queueRemove_" + index; icon: "close"; size: 36; iconSize: 12; onClicked: player.removeAt(index) }
         }
         MouseArea {
@@ -122,7 +122,7 @@ ListView {
     }
 
     Column {
-        visible: player.queue.length === 0
+        visible: player.queueCount === 0
         anchors.centerIn: parent
         spacing: 16
         Icon { anchors.horizontalCenter: parent.horizontalCenter; name: "playlist"; size: 56; color: theme.textFaint }

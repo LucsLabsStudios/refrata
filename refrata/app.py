@@ -113,6 +113,10 @@ class AppController(QObject):
     def clipboardText(self):
         return QGuiApplication.clipboard().text().strip()
 
+    @Slot(str)
+    def copyText(self, text):
+        QGuiApplication.clipboard().setText(text)
+
     @Slot(str, result=bool)
     def isSubtitle(self, url):
         p = QUrl(url).toLocalFile() if url.startswith("file:") else url

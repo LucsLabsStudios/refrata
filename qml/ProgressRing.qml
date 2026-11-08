@@ -12,7 +12,11 @@ Item {
 
     Shape {
         anchors.fill: parent
-        preferredRendererType: Shape.CurveRenderer
+        // Qt 6.8's CurveRenderer leaks memory every time the shape changes (~0.3 MB per track
+        // change in music mode): the geometry renderer, multisampled for smooth edges
+        preferredRendererType: Shape.GeometryRenderer
+        layer.enabled: true
+        layer.samples: 4
         ShapePath {
             strokeColor: root.trackColor; strokeWidth: root.thickness
             fillColor: "transparent"; capStyle: ShapePath.RoundCap

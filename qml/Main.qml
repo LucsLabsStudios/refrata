@@ -135,16 +135,20 @@ Window {
     Shortcut { sequence: "Ctrl+Right"; onActivated: player.skip(60000) }
     Shortcut { sequence: "Up"; onActivated: { player.volume = player.volume + 5; toast.show(qsTr("Volume %1%").arg(player.volume)) } }
     Shortcut { sequence: "Down"; onActivated: { player.volume = player.volume - 5; toast.show(qsTr("Volume %1%").arg(player.volume)) } }
-    Shortcut { sequence: "M"; onActivated: { player.toggleMute(); toast.show(player.muted ? "Sem som" : "Som ativado") } }
+    Shortcut { sequence: "M"; onActivated: { player.toggleMute(); toast.show(player.muted ? qsTr("Sem som") : qsTr("Som ativado")) } }
     Shortcut { sequence: "N"; onActivated: player.next() }
     Shortcut { sequence: "P"; onActivated: player.previous() }
     Shortcut { sequence: "S"; onActivated: player.snapshot() }
     Shortcut { sequence: "L"; onActivated: { player.cycleLoop(); pv.poke() } }
     Shortcut { sequence: "T"; onActivated: win.alwaysOnTop = !win.alwaysOnTop }
     Shortcut { sequence: "E"; onActivated: player.frameStep() }
+    Shortcut { sequence: "I"; onActivated: if (win.playerOpen) pv.togglePanel("info") }
+    Shortcut { sequence: "R"; onActivated: if (win.playerOpen && !player.isAudio) { pv.rotate(90); toast.show(qsTr("Girado %1°").arg(pv.videoRotation)) } }
+    Shortcut { sequence: "Shift+N"; onActivated: if (player.chapters.length) { player.nextChapter(); pv.poke() } }
+    Shortcut { sequence: "Shift+P"; onActivated: if (player.chapters.length) { player.previousChapter(); pv.poke() } }
     Shortcut { sequence: "]"; onActivated: { player.rate = player.rate + 0.25; toast.show(qsTr("Velocidade %1×").arg(player.rate)) } }
     Shortcut { sequence: "["; onActivated: { player.rate = player.rate - 0.25; toast.show(qsTr("Velocidade %1×").arg(player.rate)) } }
-    Shortcut { sequence: "="; onActivated: { player.rate = 1; toast.show("Velocidade normal") } }
+    Shortcut { sequence: "="; onActivated: { player.rate = 1; toast.show(qsTr("Velocidade normal")) } }
     Shortcut { sequence: "Ctrl+O"; onActivated: openDialog.open() }
     Shortcut { sequence: "Ctrl+L"; onActivated: { win.playerOpen = false; win.page = 4 } }
     Shortcut { sequence: "Ctrl+,"; onActivated: { win.playerOpen = false; win.page = 5 } }

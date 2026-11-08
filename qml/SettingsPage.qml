@@ -100,7 +100,9 @@ Flickable {
                         text: modelData.name
                         variant: "outline"; h: 36; fontSize: 13
                         checked: i18n.language === modelData.code
-                        onClicked: i18n.language = modelData.code
+                        // after the click finishes: switching rebuilds these very buttons (their
+                        // labels are translated), and doing it inside the click event froze the app
+                        onClicked: { var c = modelData.code; Qt.callLater(function () { i18n.language = c }) }
                     }
                 }
             }
@@ -117,8 +119,54 @@ Flickable {
                 Toggle { objectName: "toggleAutoplay"; checked: settings.autoplay; onToggled: (on) => settings.autoplay = on }
             }
             SettingRow {
-                title: qsTr("Decodificação por hardware"); desc: qsTr("Usa a GPU para decodificar vídeo. Vale ao reiniciar o app.")
+                title: qsTr("Decodificação por hardware"); desc: qsTr("Usa a GPU para decodificar vídeo. Desligue se um vídeo aparecer com falhas.")
                 Toggle { objectName: "toggleHwdec"; checked: settings.hwdec; onToggled: (on) => settings.hwdec = on }
+            }
+        }
+
+        Card {
+            objectName: "soundSubsCard"
+            title: qsTr("Som e legendas")
+            SettingRow {
+                title: qsTr("Normalizar volume"); desc: qsTr("Equilibra diálogos baixos e explosões altas.")
+                Toggle { objectName: "settingsNormalize"; checked: player.normalize; onToggled: (on) => player.setNormalize(on) }
+            }
+            SettingRow { title: qsTr("Saída de áudio"); desc: qsTr("Onde o som toca: alto-falantes, fone de ouvido, TV pelo HDMI.") }
+            Flow {
+                width: parent.width; spacing: 8; bottomPadding: 6
+                Repeater {
+                    model: player.audioDevices
+                    PillButton { objectName: "settingsDev_" + index; text: modelData.name; variant: "outline"; h: 36; fontSize: 13; checked: player.audioDevice === modelData.id; onClicked: player.setAudioDevice(modelData.id) }
+                }
+                PillButton { text: qsTr("Atualizar lista"); icon: "refresh"; variant: "outline"; h: 36; fontSize: 13; onClicked: player.refreshAudioDevices() }
+            }
+            SettingRow { title: qsTr("Aparência da legenda"); desc: qsTr("Tamanho, cor e fundo do texto das legendas.") }
+            Flow {
+                width: parent.width; spacing: 8; bottomPadding: 6
+                Repeater {
+                    model: [{ k: "subSize", v: "small", t: qsTr("Pequena") }, { k: "subSize", v: "normal", t: qsTr("Normal") },
+                            { k: "subSize", v: "large", t: qsTr("Grande") }, { k: "subSize", v: "huge", t: qsTr("Enorme") }]
+                    PillButton { objectName: "settings_" + modelData.k + "_" + modelData.v; text: modelData.t; variant: "outline"; h: 36; fontSize: 13; checked: player.subtitleStyle[modelData.k] === modelData.v; onClicked: player.setSubtitleStyle(modelData.k, modelData.v) }
+                }
+                Item { width: 12; height: 1 }
+                Repeater {
+                    model: [{ k: "subColor", v: "white", t: qsTr("Branca") }, { k: "subColor", v: "yellow", t: qsTr("Amarela") },
+                            { k: "subBackground", v: "outline", t: qsTr("Contorno") }, { k: "subBackground", v: "box", t: qsTr("Fundo escuro") },
+                            { k: "subBackground", v: "none", t: qsTr("Sem contorno") }]
+                    PillButton { objectName: "settings_" + modelData.k + "_" + modelData.v; text: modelData.t; variant: "outline"; h: 36; fontSize: 13; checked: player.subtitleStyle[modelData.k] === modelData.v; onClicked: player.setSubtitleStyle(modelData.k, modelData.v) }
+                }
+            }
+            SettingRow { title: qsTr("Codificação das legendas"); desc: qsTr("Se os acentos aparecerem trocados por símbolos, escolha a do idioma da legenda.") }
+            Flow {
+                width: parent.width; spacing: 8; bottomPadding: 6
+                Repeater {
+                    model: [{ v: "", t: qsTr("Automática") }, { v: "UTF-8", t: "UTF-8" },
+                            { v: "Windows-1252", t: qsTr("Ocidental (Windows-1252)") }, { v: "Windows-1250", t: qsTr("Europa Central (Windows-1250)") },
+                            { v: "Windows-1251", t: qsTr("Cirílico (Windows-1251)") }, { v: "Windows-1253", t: qsTr("Grego (Windows-1253)") },
+                            { v: "Windows-1254", t: qsTr("Turco (Windows-1254)") }, { v: "GB18030", t: qsTr("Chinês simplificado (GB18030)") },
+                            { v: "Shift_JIS", t: qsTr("Japonês (Shift_JIS)") }, { v: "EUC-KR", t: qsTr("Coreano (EUC-KR)") }]
+                    PillButton { objectName: "subEnc_" + (modelData.v || "auto"); text: modelData.t; variant: "outline"; h: 36; fontSize: 13; checked: player.subtitleStyle.subEncoding === modelData.v; onClicked: player.setSubtitleStyle("subEncoding", modelData.v) }
+                }
             }
         }
 
@@ -221,7 +269,9 @@ Flickable {
                         ["M", qsTr("Silenciar")], ["N / P", qsTr("Próximo / anterior")],
                         ["[  /  ]", qsTr("Velocidade − / +")], ["S", qsTr("Capturar quadro")],
                         ["E", qsTr("Avançar um quadro")], ["L", qsTr("Repetir um trecho (A-B)")],
-                        ["T", qsTr("Sempre no topo")], ["Ctrl + O", qsTr("Abrir arquivos")],
+                        ["T", qsTr("Sempre no topo")], ["I", qsTr("Informações da mídia")],
+                        ["R", qsTr("Girar o vídeo 90°")], ["Shift + N / P", qsTr("Próximo / anterior capítulo")],
+                        ["Ctrl + O", qsTr("Abrir arquivos")],
                         ["Ctrl + L", qsTr("Abrir stream de rede")], ["Esc", qsTr("Sair da tela cheia / fechar")],
                     ]
                     Row {
@@ -230,7 +280,7 @@ Flickable {
                             width: 150; height: 32; radius: 10; color: theme.surface2
                             Text { anchors.centerIn: parent; text: modelData[0]; color: theme.text; font.pixelSize: 13; font.weight: Font.DemiBold }
                         }
-                        Text { anchors.verticalCenter: parent.verticalCenter; text: modelData[1]; color: theme.textDim; font.pixelSize: 14; width: 220 }
+                        Text { anchors.verticalCenter: parent.verticalCenter; text: modelData[1]; color: theme.textDim; font.pixelSize: 14; width: 240; wrapMode: Text.WordWrap }
                     }
                 }
             }

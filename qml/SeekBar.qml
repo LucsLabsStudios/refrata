@@ -9,7 +9,13 @@ Item {
     property color accent: theme.accent
     property real loopA: -1     // ms; the A-B stretch is shown on the track
     property real loopB: -1
+    property var chapters: []   // [{time, name}]: ticks on the track, the name in the bubble
     property bool dragging: ma.pressed
+    function chapterAt(ms) {
+        var name = ""
+        for (var i = 0; i < chapters.length; i++) if (ms >= chapters[i].time) name = chapters[i].name
+        return name
+    }
     signal seekRequested(real ms)
     signal scrub(real ms)
 
@@ -36,6 +42,16 @@ Item {
             width: parent.width * root.frac
             height: parent.height; radius: parent.radius
             color: root.accent
+        }
+        Repeater {
+            model: root.to > 0 ? root.chapters : []
+            Rectangle {
+                objectName: "chapterMark_" + index
+                visible: modelData.time > 0
+                x: parent.width * Math.min(1, modelData.time / root.to) - 1
+                width: 2; height: parent.height
+                color: Qt.rgba(0, 0, 0, 0.55)
+            }
         }
         Rectangle {
             objectName: "loopRange"
@@ -68,7 +84,9 @@ Item {
         Text {
             id: bt
             anchors.centerIn: parent
-            text: U.time((ma.pressed ? root.dragValue : Math.max(0, Math.min(1, ma.mouseX / root.width)) * root.to))
+            readonly property real at: ma.pressed ? root.dragValue : Math.max(0, Math.min(1, ma.mouseX / root.width)) * root.to
+            readonly property string chapter: root.chapters.length ? root.chapterAt(at) : ""
+            text: U.time(at) + (chapter ? "  ·  " + chapter : "")
             color: "#141416"; font.pixelSize: 12; font.weight: Font.DemiBold
             font.features: { "tnum": 1 }
         }

@@ -86,20 +86,33 @@ Flickable {
                 text: qsTr("%n resultado(s) para “%1”", "", library.searchModel.count).arg(search.text.trim())
                 color: theme.textDim; font.pixelSize: 16
             }
+            // a big library can match thousands of files on one letter: build cards for the first
+            // ones only (each card has a picture and effects), more on request
+            property int limit: 60
+            Connections { target: search; function onTextChanged() { results.limit = 60 } }
+            id: results
             Flow {
                 width: parent.width
                 spacing: 24
                 Repeater {
-                    model: page.searching ? library.searchModel : null
+                    model: page.searching ? Math.min(library.searchModel.count, results.limit) : 0
                     MediaCard {
+                        readonly property var it: { library.revision; search.text; library.searchModel.count; return library.searchModel.get(index) }
                         width: Math.floor((content.width - 24 * 3) / 4)
-                        path: model.path; title: model.title; thumb: model.thumb; duration: model.duration
-                        audio: model.kind === "audio"
-                        subtitle: model.kind === "audio" ? (model.artist || qsTr("Música")) : model.folder
-                        onPlay: page.playPaths([model.path], 0)
-                        onMenu: (x, y) => page.menu(model.path, x, y)
+                        path: it.path || ""; title: it.title || ""; thumb: it.thumb || ""; duration: it.duration || 0
+                        audio: it.kind === "audio"
+                        subtitle: it.kind === "audio" ? (it.artist || qsTr("Música")) : (it.folder || "")
+                        onPlay: page.playPaths([it.path], 0)
+                        onMenu: (x, y) => page.menu(it.path, x, y)
                     }
                 }
+            }
+            PillButton {
+                objectName: "searchMore"
+                visible: library.searchModel.count > results.limit
+                text: qsTr("Mostrar mais resultados")
+                variant: "outline"; h: 40; fontSize: 14
+                onClicked: results.limit += 60
             }
         }
 
@@ -290,7 +303,7 @@ Flickable {
             title: qsTr("Reproduzidos recentemente")
             actionText: qsTr("Limpar")
             onAction: settings.clearHistory()
-            model: page.history
+            model: settings.historyModel
             delegate: MediaCard {
                 width: 300
                 readonly property var info: { library.revision; return library.info(modelData.path) }

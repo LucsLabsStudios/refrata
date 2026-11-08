@@ -223,8 +223,14 @@ class Thumbnailer(threading.Thread):
         return media
 
     def _process(self, it):
+        media = self._parse(it["path"])
+        try:
+            self._process_media(it, media)
+        finally:
+            media.release()   # python-vlc never frees Media objects on its own
+
+    def _process_media(self, it, media):
         path = it["path"]
-        media = self._parse(path)
         res = {"duration": max(0, media.get_duration())}
         if it["kind"] == "audio":
             for key, meta in (("tagTitle", vlc.Meta.Title), ("artist", vlc.Meta.Artist), ("album", vlc.Meta.Album)):
@@ -237,8 +243,12 @@ class Thumbnailer(threading.Thread):
             self._on_result(path, res)
             return
         target = _thumb_path(path, it["mtime"])
-        if not target.exists():
-            self._grab(media, res["duration"], target)
+        if not target.exists() or not res["duration"]:
+            # some containers (MPEG-PS .mpg/.vob, raw streams) only reveal their length while
+            # playing: the grab reports it
+            length = self._grab(media, res["duration"], target)
+            if not res["duration"] and length > 0:
+                res["duration"] = length
         if target.exists():
             res["thumb"] = QUrl.fromLocalFile(str(target)).toString()
         self._on_result(path, res)
@@ -266,9 +276,11 @@ class Thumbnailer(threading.Thread):
         t0 = time.time()
         while not got.is_set() and not self._halt.is_set() and time.time() - t0 < 7:
             got.wait(0.1)
+        length = max(0, mp.get_length())
         mp.stop()
         mp.release()
         del renderer
+        return length
 
 
 class Library(QObject):
@@ -305,15 +317,35 @@ class Library(QObject):
 
     # ---------------------------------------------------------------- cache
     def _load_cache(self):
+        """Path → metadata. Anything that is not that shape (old format, hand edits, a crash
+        mid-write) is dropped entry by entry; the scan simply reads those files again."""
         try:
-            return json.loads(CACHE_FILE.read_text(encoding="utf8"))
+            raw = json.loads(CACHE_FILE.read_text(encoding="utf8"))
         except Exception:
             return {}
+        if not isinstance(raw, dict):
+            return {}
+        out = {}
+        for path, c in raw.items():
+            if not (isinstance(path, str) and isinstance(c, dict)):
+                continue
+            ok = (isinstance(c.get("mtime", 0), (int, float)) and isinstance(c.get("duration", 0), (int, float))
+                  and all(isinstance(c.get(k, ""), str) for k in ("thumb", "artist", "album", "tagTitle")))
+            if ok:
+                out[path] = c
+        return out
 
     def _save_cache(self):
         tmp = CACHE_FILE.with_suffix(".tmp")
-        tmp.write_text(json.dumps(self._cache, ensure_ascii=False), encoding="utf8")
-        os.replace(tmp, CACHE_FILE)
+        try:
+            tmp.write_text(json.dumps(self._cache, ensure_ascii=False), encoding="utf8")
+            os.replace(tmp, CACHE_FILE)
+        except OSError as exc:
+            print("library cache not saved:", exc)
+            try:
+                tmp.unlink(missing_ok=True)
+            except OSError:
+                pass
 
     # ----------------------------------------------------------------- scan
     @Slot()

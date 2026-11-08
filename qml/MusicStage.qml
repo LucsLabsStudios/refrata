@@ -48,7 +48,7 @@ Item {
             value: {
                 var parts = []
                 if (stage.curAlbum) parts.push(stage.curAlbum)
-                if (player.queue.length > 1) parts.push(qsTr("%1 de %2").arg(player.currentIndex + 1).arg(player.queue.length))
+                if (player.queueCount > 1) parts.push(qsTr("%1 de %2").arg(player.currentIndex + 1).arg(player.queueCount))
                 return parts.join("  ·  ")
             }
             visible: text !== ""
@@ -93,7 +93,7 @@ Item {
                 var c = cards.itemAt(i)
                 if (!c || !c.visible || c.z <= bestZ) continue
                 var q = c.mapFromItem(carousel, pt.x, pt.y)
-                if (q.x >= 0 && q.y >= 0 && q.x <= c.width && q.y <= c.height) { best = i; bestZ = c.z }
+                if (q.x >= 0 && q.y >= 0 && q.x <= c.width && q.y <= c.height) { best = c.qi; bestZ = c.z }
             }
             hoverIndex = best
         }
@@ -105,23 +105,29 @@ Item {
         }
         onPosChanged: if (hoverIndex >= 0 || carouselHover.hovered) pickHover()
 
+        // Nine fixed card slots around the current position, not one card per queue item: a
+        // queue of thousands costs the same as a queue of ten. Slot k shows queue item base + k.
+        readonly property int base: Math.round(pos) - 4
         Repeater {
             id: cards
-            model: player.queue
+            model: 9
             delegate: Item {
                 id: card
-                objectName: "mcard_" + index
-                readonly property real d: index - carousel.pos
+                readonly property int qi: carousel.base + index      // position in the queue
+                readonly property bool exists: qi >= 0 && qi < player.queueCount
+                objectName: "mcard_" + qi
+                readonly property var m: { player.queueRevision; return exists ? player.queueItem(qi) : ({ path: "", title: "", audio: true }) }
+                readonly property real d: qi - carousel.pos
                 readonly property real ad: Math.abs(d)
                 readonly property bool near: ad < 3.4
-                readonly property bool cur: index === player.currentIndex
-                readonly property var info: near ? stage.infoFor(modelData.path) : ({})
-                readonly property string art: near ? stage.artFor(index, modelData.path) : ""
-                readonly property bool hovered: carousel.hoverIndex === index
+                readonly property bool cur: qi === player.currentIndex
+                readonly property var info: near && exists ? stage.infoFor(card.m.path) : ({})
+                readonly property string art: near && exists ? stage.artFor(qi, card.m.path) : ""
+                readonly property bool hovered: carousel.hoverIndex === qi
                 // library items carry the tag title in `title`; files outside the library keep the queue's
-                readonly property string title: cur ? stage.curTitle : (info.title || modelData.title || "")
+                readonly property string title: cur ? stage.curTitle : (info.title || card.m.title || "")
                 readonly property string artist: cur ? stage.curArtist : (info.artist || "")
-                visible: near && opacity > 0
+                visible: exists && near && opacity > 0
                 width: carousel.cardW
                 height: carousel.cardW + 96
                 readonly property real off: carousel.cardW * (0.64 * Math.min(ad, 1) + 0.38 * Math.max(0, Math.min(ad, 3) - 1))
@@ -141,7 +147,7 @@ Item {
                 }
                 // tied to `near`, not `visible`: an item hidden with its parent reports visible=false,
                 // so the shadow layers were rebuilt in the first frame of every player open
-                layer.enabled: near
+                layer.enabled: near && exists
                 layer.effect: MultiEffect {
                     shadowEnabled: true; shadowBlur: 1.0; shadowOpacity: 0.55
                     shadowVerticalOffset: 22; shadowColor: "black"; autoPaddingEnabled: true
@@ -183,12 +189,12 @@ Item {
                             GradientStop { position: 1; color: Qt.hsla((parent.h + 0.08) % 1, 0.75, 0.28, 1) }
                         }
                         visible: coverImg.status !== Image.Ready
-                        Icon { anchors.centerIn: parent; name: modelData.audio === false ? "film" : "music"; size: parent.width * 0.26; color: Qt.rgba(1, 1, 1, 0.55) }
+                        Icon { anchors.centerIn: parent; name: card.m.audio === false ? "film" : "music"; size: parent.width * 0.26; color: Qt.rgba(1, 1, 1, 0.55) }
                     }
                     RoundedImage { id: coverImg; anchors.fill: parent; radius: 22; source: card.art; sourceWidth: 760 }
                     // hover affordance: what a click will do (play this one / pause / resume)
                     Rectangle {
-                        objectName: "mcardPlay_" + index
+                        objectName: "mcardPlay_" + card.qi
                         anchors.centerIn: parent
                         width: Math.min(76, parent.width * 0.24); height: width; radius: width / 2
                         color: Qt.rgba(1, 1, 1, 0.94)
@@ -244,7 +250,7 @@ Item {
                     gesturePolicy: TapHandler.ReleaseWithinBounds
                     onTapped: {
                         if (card.cur) player.togglePlay()
-                        else player.playAt(index)
+                        else player.playAt(card.qi)
                         if (stage.pv) stage.pv.poke()
                     }
                 }
@@ -254,7 +260,7 @@ Item {
         // empty queue (should not happen in music mode, but never show a blank stage)
         Text {
             anchors.centerIn: parent
-            visible: player.queue.length === 0
+            visible: player.queueCount === 0
             text: qsTr("Nada tocando")
             color: Qt.rgba(1, 1, 1, 0.6)
             font.pixelSize: 18

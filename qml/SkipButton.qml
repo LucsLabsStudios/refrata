@@ -26,7 +26,11 @@ Item {
             transform: Scale { origin.x: root.size * 0.25; xScale: root.forward ? 1 : -1 }
             Shape {
                 anchors.fill: parent
-                preferredRendererType: Shape.CurveRenderer
+                // Qt 6.8's CurveRenderer leaks memory every time the shape changes (~0.3 MB per track
+                // change in music mode): the geometry renderer, multisampled for smooth edges
+                preferredRendererType: Shape.GeometryRenderer
+                layer.enabled: true
+                layer.samples: 4
                 ShapePath {
                     strokeColor: "white"; strokeWidth: 2; fillColor: "transparent"; capStyle: ShapePath.RoundCap
                     startX: root.size * 0.25; startY: 1

@@ -8,5 +8,6 @@
   "há %n min": { "one": "há %n min", "other": "há %n min" },
   "há %n h": { "one": "há %n h", "other": "há %n h" },
   "há %n dia(s)": { "one": "há %n dia", "other": "há %n dias" },
-  "%n item(ns) adicionado(s) à fila": { "one": "%n item adicionado à fila", "other": "%n itens adicionados à fila" }
+  "%n item(ns) adicionado(s) à fila": { "one": "%n item adicionado à fila", "other": "%n itens adicionados à fila" },
+  "%n canal(is)": { "one": "%n canal", "other": "%n canais" }
 }

@@ -26,7 +26,7 @@ Flickable {
             width: parent.width
             eyebrow: qsTr("Rede")
             title: qsTr("Streams")
-            subtitle: qsTr("HTTP, HLS, RTSP, RTMP, MMS, UDP, FTP, SMB… tudo o que o VLC abre.")
+            subtitle: qsTr("Links do YouTube, Vimeo e outros sites, além de HTTP, HLS, RTSP, RTMP, SMB… tudo o que o VLC abre.")
         }
 
         Rectangle {
@@ -39,7 +39,7 @@ Flickable {
                 anchors.fill: parent
                 anchors.margins: 36
                 spacing: 22
-                Text { text: qsTr("Cole um endereço de rede"); color: theme.text; font.family: theme.displayFont; font.pixelSize: 28; font.weight: Font.DemiBold }
+                Text { text: qsTr("Cole um link ou endereço de rede"); color: theme.text; font.family: theme.displayFont; font.pixelSize: 28; font.weight: Font.DemiBold }
                 Row {
                     width: parent.width
                     spacing: 12
@@ -60,7 +60,7 @@ Flickable {
                             selectByMouse: true; clip: true
                             selectionColor: theme.accent
                             onAccepted: page.submit()
-                            Text { visible: !field.text; text: qsTr("https://exemplo.com/video.m3u8"); color: theme.textFaint; font.pixelSize: 18; anchors.verticalCenter: parent.verticalCenter }
+                            Text { visible: !field.text; text: qsTr("https://www.youtube.com/watch?v=…  ou  https://exemplo.com/video.m3u8"); color: theme.textFaint; font.pixelSize: 18; anchors.verticalCenter: parent.verticalCenter }
                         }
                     }
                     PillButton { id: pasteBtn; objectName: "pasteBtn"; text: qsTr("Colar"); variant: "outline"; h: 60; fontSize: 15; onClicked: field.text = appctl.clipboardText() }

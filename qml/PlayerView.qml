@@ -6,7 +6,23 @@ import "Utils.js" as U
 Item {
     id: pv
     property bool fullscreen: false
-    property string panel: ""          // tracks | speed | eq | adjust | sleep
+    property string panel: ""          // tracks | speed | eq | adjust | sleep | chapters | info
+    // picture geometry, per file (a new file starts straight): rotation in 90° steps, mirror,
+    // zoom and a forced aspect ratio ("" = the video's own)
+    property int videoRotation: 0
+    property bool videoMirror: false
+    property real videoZoom: 1
+    property string videoAspect: ""
+    property string geometryPath: ""
+    // languages for the online subtitle search: the app's language first, then English
+    property string subLanguages: {
+        var m = { pt: "pt-br,pt-pt", en: "en", es: "es", fr: "fr", de: "de", it: "it", ru: "ru", pl: "pl", tr: "tr",
+                  id: "id", hi: "hi", zh: "zh-cn", ja: "ja", ko: "ko" }
+        var first = m[i18n.current] || "en"
+        return first === "en" ? "en" : first + ",en"
+    }
+    function resetGeometry() { videoRotation = 0; videoMirror = false; videoZoom = 1; videoAspect = "" }
+    function rotate(deg) { videoRotation = ((videoRotation + deg) % 360 + 360) % 360; poke() }
     property bool queueOpen: false
     property int fillMode: VideoOutput.PreserveAspectFit
     property bool controlsVisible: true
@@ -36,6 +52,9 @@ Item {
     Connections {
         target: player
         function onStateChanged() { if (!player.playing) pv.controlsVisible = true; else hideTimer.restart() }
+        function onMediaChanged() {
+            if (player.currentPath !== pv.geometryPath) { pv.geometryPath = player.currentPath; pv.resetGeometry() }
+        }
     }
 
     Rectangle { anchors.fill: parent; color: "black" }
@@ -63,13 +82,35 @@ Item {
         // or it leaks above the player's top edge while the sheet slides
         clip: true
 
-        VideoOutput {
-            id: video
+        Item {
+            id: videoBox
+            objectName: "videoBox"
             anchors.fill: parent
-            fillMode: pv.fillMode
             visible: !player.isAudio
-            Component.onCompleted: player.addSink(video.videoSink)
-            Component.onDestruction: player.removeSink(video.videoSink)
+            // a forced aspect ratio: the picture is stretched into a box of that shape, fitted
+            // (or cropped, with "Preencher") to the window
+            readonly property real forced: {
+                var a = pv.videoAspect.split(":")
+                return a.length === 2 && +a[1] > 0 ? (+a[0]) / (+a[1]) : 0
+            }
+            readonly property bool crop: pv.fillMode === VideoOutput.PreserveAspectCrop
+            VideoOutput {
+                id: video
+                objectName: "videoOutput"
+                anchors.centerIn: parent
+                width: videoBox.forced > 0 ? (videoBox.crop ? Math.max(parent.width, parent.height * videoBox.forced)
+                                                          : Math.min(parent.width, parent.height * videoBox.forced))
+                                           : parent.width
+                height: videoBox.forced > 0 ? width / videoBox.forced : parent.height
+                fillMode: videoBox.forced > 0 ? VideoOutput.Stretch : pv.fillMode
+                orientation: pv.videoRotation
+                transform: Scale {
+                    origin.x: video.width / 2; origin.y: video.height / 2
+                    xScale: pv.videoZoom * (pv.videoMirror ? -1 : 1); yScale: pv.videoZoom
+                }
+                Component.onCompleted: player.addSink(video.videoSink)
+                Component.onDestruction: player.removeSink(video.videoSink)
+            }
         }
 
         // music mode: the cover as a blurred, breathing colour field
@@ -80,6 +121,17 @@ Item {
             art: { library.revision; return player.artwork || library.thumbFor(player.currentPath) }
             seed: player.title
         }
+    }
+
+    Column {
+        objectName: "castingBanner"
+        anchors.centerIn: parent
+        anchors.verticalCenterOffset: -60
+        visible: player.castingTo !== ""
+        spacing: 14
+        Icon { anchors.horizontalCenter: parent.horizontalCenter; name: "cast"; size: 56; color: "white" }
+        Text { anchors.horizontalCenter: parent.horizontalCenter; text: qsTr("Transmitindo para %1").arg(player.castingTo); color: "white"; font.family: theme.displayFont; font.pixelSize: 28; font.weight: Font.DemiBold }
+        Text { anchors.horizontalCenter: parent.horizontalCenter; text: qsTr("Os controles daqui comandam a TV."); color: Qt.rgba(1, 1, 1, 0.65); font.pixelSize: 15 }
     }
 
     // loading spinner: only for loads that take a moment (no flash on every track change);
@@ -186,6 +238,8 @@ Item {
                         }
                     }
                     IconButton { objectName: "pvOnTop"; icon: "pin"; motion: "drop"; onMedia: true; size: 44; iconSize: 16; checked: pv.alwaysOnTop; tip: pv.alwaysOnTop ? qsTr("Sempre no topo: ligado (T)") : qsTr("Sempre no topo (T)"); onClicked: pv.toggleOnTop() }
+                    IconButton { objectName: "pvCast"; icon: "cast"; onMedia: true; size: 44; iconSize: 16; checked: pv.panel === "cast" || player.castingTo !== ""; tip: player.castingTo ? qsTr("Transmitindo para %1").arg(player.castingTo) : qsTr("Transmitir para a TV"); onClicked: { player.startCastDiscovery(); pv.togglePanel("cast") } }
+                    IconButton { objectName: "pvInfo"; icon: "info"; onMedia: true; size: 44; iconSize: 16; checked: pv.panel === "info"; tip: qsTr("Informações da mídia (I)"); onClicked: pv.togglePanel("info") }
                     IconButton { objectName: "pvReveal"; icon: "explorer"; onMedia: true; size: 44; iconSize: 16; tip: qsTr("Mostrar no Explorer"); enabled: player.currentPath.indexOf("://") < 0; onClicked: appctl.reveal(player.currentPath) }
                 }
             }
@@ -290,7 +344,7 @@ Item {
                     var p = player.currentPath
                     if (p && p.indexOf("://") < 0) parts.push(p.split(".").pop().toUpperCase())
                     if (player.videoWidth > 0 && !player.isAudio) parts.push(player.videoWidth + " × " + player.videoHeight)
-                    if (player.queue.length > 1) parts.push(qsTr("%1 de %2").arg(player.currentIndex + 1).arg(player.queue.length))
+                    if (player.queueCount > 1) parts.push(qsTr("%1 de %2").arg(player.currentIndex + 1).arg(player.queueCount))
                     return parts.join("   ·   ")
                 }
                 color: Qt.rgba(1, 1, 1, 0.7)
@@ -319,6 +373,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     value: pvClock.value; to: Math.max(1, player.length)
                     loopA: player.loopA; loopB: player.loopB
+                    chapters: player.chapters
                     enabled: player.seekable
                     onSeekRequested: (ms) => player.seek(ms)
                 }
@@ -349,6 +404,7 @@ Item {
                     PillButton { objectName: "pvSpeed"; variant: "glass"; icon: "speed"; text: player.rate.toFixed(2).replace(/\.?0+$/, "") + "×"; h: 44; checked: pv.panel === "speed"; onClicked: pv.togglePanel("speed") }
                     PillButton { objectName: "pvEq"; variant: "glass"; icon: "eq"; text: bottom.compact ? "" : qsTr("Equalizador"); h: 44; checked: pv.panel === "eq"; onClicked: pv.togglePanel("eq") }
                     PillButton { objectName: "pvAdjust"; variant: "glass"; icon: "brightness"; text: bottom.compact ? "" : qsTr("Imagem"); h: 44; visible: !player.isAudio; checked: pv.panel === "adjust"; onClicked: pv.togglePanel("adjust") }
+                    PillButton { objectName: "pvChapters"; variant: "glass"; icon: "chapters"; visible: player.chapters.length > 0; text: bottom.compact ? "" : qsTr("Capítulos"); h: 44; checked: pv.panel === "chapters"; onClicked: pv.togglePanel("chapters") }
                     PillButton { objectName: "pvSleep"; variant: "glass"; icon: "timer"; text: player.sleepMinutes > 0 ? qsTr("%1 min").arg(player.sleepMinutes) : (bottom.compact ? "" : qsTr("Timer")); h: 44; checked: pv.panel === "sleep"; onClicked: pv.togglePanel("sleep") }
                 }
                 Row {
@@ -411,7 +467,8 @@ Item {
         x: player.isAudio ? Math.max(32, (pv.width - (pv.queueOpen ? queuePanel.width + 32 : 0) - width) / 2) : 48 + 120
         anchors.bottom: parent.bottom
         anchors.bottomMargin: player.isAudio ? musicStage.dockBottom + musicStage.dockH + 16 : 36 + 48 + 16
-        width: pv.panel === "eq" ? 620 : pv.panel === "tracks" ? 640 : pv.panel === "adjust" ? 460 : 420
+        width: Math.min(pv.width - 96, pv.panel === "eq" ? 620 : pv.panel === "tracks" ? 680 : pv.panel === "adjust" ? 780
+               : pv.panel === "info" ? 560 : pv.panel === "chapters" ? 460 : pv.panel === "subs" ? 640 : 420)
         height: panelLoader.item ? panelLoader.item.implicitHeight + 56 : 100
         radius: 28
         backdrop: backdrop
@@ -425,7 +482,9 @@ Item {
             width: parent.width - 56
             sourceComponent: pv.panel === "tracks" ? tracksPanel : pv.panel === "speed" ? speedPanel
                              : pv.panel === "eq" ? eqPanel : pv.panel === "adjust" ? adjustPanel
-                             : pv.panel === "sleep" ? sleepPanel : null
+                             : pv.panel === "sleep" ? sleepPanel : pv.panel === "chapters" ? chaptersPanel
+                             : pv.panel === "info" ? infoPanel : pv.panel === "cast" ? castPanel
+                             : pv.panel === "subs" ? subsPanel : null
         }
     }
 
@@ -447,6 +506,17 @@ Item {
                 Item { width: 1; height: 8 }
                 Caption { text: qsTr("ATRASO DO ÁUDIO") }
                 Stepper { value: player.audioDelay; onChanged: (v) => player.setAudioDelay(v) }
+                Item { width: 1; height: 8 }
+                Caption { text: qsTr("SAÍDA DE ÁUDIO") }
+                ListView {
+                    objectName: "audioDevices"
+                    width: parent.width
+                    height: Math.min(contentHeight, 42 * 4)
+                    clip: true
+                    boundsBehavior: Flickable.StopAtBounds
+                    model: player.audioDevices
+                    delegate: TrackItem { objectName: "adev_" + index; width: ListView.view.width; text: modelData.name; selected: modelData.id === player.audioDevice; onClicked: player.setAudioDevice(modelData.id) }
+                }
             }
             Column {
                 id: sc
@@ -454,7 +524,9 @@ Item {
                 spacing: 6
                 Row {
                     width: parent.width
-                    PanelTitle { text: qsTr("Legendas"); width: parent.width - addSub.width }
+                    spacing: 6
+                    PanelTitle { text: qsTr("Legendas"); width: parent.width - addSub.width - (findSub.visible ? findSub.width + 6 : 0) - 6; elide: Text.ElideRight }
+                    Chip { id: findSub; objectName: "findSubBtn"; visible: subsearch.available && player.currentPath !== ""; text: qsTr("Buscar online"); onClicked: { pv.panel = "subs"; subsearch.find(pv.subLanguages) } }
                     Chip { id: addSub; objectName: "addSubBtn"; text: qsTr("+ Arquivo"); onClicked: pv.loadSubtitle() }
                 }
                 Item { width: 1; height: 6 }
@@ -466,6 +538,23 @@ Item {
                 Item { width: 1; height: 8 }
                 Caption { text: qsTr("SINCRONIA DA LEGENDA") }
                 Stepper { value: player.subtitleDelay; onChanged: (v) => player.setSubtitleDelay(v) }
+                Item { width: 1; height: 8 }
+                Caption { text: qsTr("APARÊNCIA DA LEGENDA") }
+                Flow {
+                    width: parent.width; spacing: 6
+                    Repeater {
+                        model: [{ v: "small", t: qsTr("Pequena") }, { v: "normal", t: qsTr("Normal") }, { v: "large", t: qsTr("Grande") }, { v: "huge", t: qsTr("Enorme") }]
+                        Chip { objectName: "subSize_" + modelData.v; height: 32; text: modelData.t; selected: player.subtitleStyle.subSize === modelData.v; onClicked: player.setSubtitleStyle("subSize", modelData.v) }
+                    }
+                }
+                Flow {
+                    width: parent.width; spacing: 6
+                    Repeater {
+                        model: [{ k: "subColor", v: "white", t: qsTr("Branca") }, { k: "subColor", v: "yellow", t: qsTr("Amarela") },
+                                { k: "subBackground", v: "outline", t: qsTr("Contorno") }, { k: "subBackground", v: "box", t: qsTr("Fundo escuro") }]
+                        Chip { objectName: modelData.k + "_" + modelData.v; height: 32; text: modelData.t; selected: player.subtitleStyle[modelData.k] === modelData.v; onClicked: player.setSubtitleStyle(modelData.k, modelData.v) }
+                    }
+                }
             }
         }
     }
@@ -500,6 +589,17 @@ Item {
                 PanelTitle { text: bottom.compact ? "" : qsTr("Equalizador"); width: parent.width - eqSw.width }
                 Toggle { id: eqSw; objectName: "eqToggle"; checked: player.eqEnabled; onToggled: (on) => player.setEqEnabled(on) }
             }
+            Row {
+                width: parent.width
+                spacing: 12
+                Toggle { id: normSw; objectName: "normalizeToggle"; anchors.verticalCenter: parent.verticalCenter; checked: player.normalize; onToggled: (on) => player.setNormalize(on) }
+                Column {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width - normSw.width - 12
+                    Text { text: qsTr("Normalizar volume"); color: "white"; font.pixelSize: 14; font.weight: Font.DemiBold }
+                    Text { width: parent.width; wrapMode: Text.WordWrap; text: qsTr("Equilibra diálogos baixos e explosões altas."); color: Qt.rgba(1, 1, 1, 0.6); font.pixelSize: 12 }
+                }
+            }
             Flow {
                 width: parent.width
                 spacing: 6
@@ -530,40 +630,211 @@ Item {
 
     Component {
         id: adjustPanel
-        Column {
-            spacing: 14
-            Row {
-                width: parent.width
-                PanelTitle { text: bottom.compact ? "" : qsTr("Imagem"); width: parent.width - rs.width }
-                Chip { id: rs; objectName: "adjReset"; text: qsTr("Restaurar"); onClicked: player.resetAdjust() }
-            }
-            Repeater {
-                model: [
-                    { key: "brightness", label: qsTr("Brilho"), from: 0, to: 2, center: 1 },
-                    { key: "contrast", label: qsTr("Contraste"), from: 0, to: 2, center: 1 },
-                    { key: "saturation", label: qsTr("Saturação"), from: 0, to: 3, center: 1 },
-                    { key: "gamma", label: qsTr("Gama"), from: 0.1, to: 3, center: 1 },
-                    { key: "hue", label: qsTr("Matiz"), from: -180, to: 180, center: 0 },
-                ]
+        Row {
+            spacing: 28
+            Column {
+                width: 400
+                spacing: 14
                 Row {
-                    spacing: 12
-                    Text { width: 90; anchors.verticalCenter: parent.verticalCenter; text: modelData.label; color: "white"; font.pixelSize: 14 }
-                    MiniSlider {
-                        objectName: "adj_" + modelData.key
-                        width: 250; anchors.verticalCenter: parent.verticalCenter
-                        from: modelData.from; to: modelData.to; center: modelData.center
-                        value: player.adjust[modelData.key]; onMedia: true
-                        onMoved: (v) => player.setAdjust(modelData.key, v)
+                    width: parent.width
+                    PanelTitle { text: bottom.compact ? "" : qsTr("Imagem"); width: parent.width - rs.width }
+                    Chip { id: rs; objectName: "adjReset"; text: qsTr("Restaurar"); onClicked: { player.resetAdjust(); pv.resetGeometry() } }
+                }
+                Repeater {
+                    model: [
+                        { key: "brightness", label: qsTr("Brilho"), from: 0, to: 2, center: 1 },
+                        { key: "contrast", label: qsTr("Contraste"), from: 0, to: 2, center: 1 },
+                        { key: "saturation", label: qsTr("Saturação"), from: 0, to: 3, center: 1 },
+                        { key: "gamma", label: qsTr("Gama"), from: 0.1, to: 3, center: 1 },
+                        { key: "hue", label: qsTr("Matiz"), from: -180, to: 180, center: 0 },
+                    ]
+                    Row {
+                        spacing: 12
+                        Text { width: 90; anchors.verticalCenter: parent.verticalCenter; text: modelData.label; color: "white"; font.pixelSize: 14; elide: Text.ElideRight }
+                        MiniSlider {
+                            objectName: "adj_" + modelData.key
+                            width: 240; anchors.verticalCenter: parent.verticalCenter
+                            from: modelData.from; to: modelData.to; center: modelData.center
+                            value: player.adjust[modelData.key]; onMedia: true
+                            onMoved: (v) => player.setAdjust(modelData.key, v)
+                        }
+                        Text { width: 40; anchors.verticalCenter: parent.verticalCenter; horizontalAlignment: Text.AlignRight; text: player.adjust[modelData.key].toFixed(modelData.key === "hue" ? 0 : 2); color: Qt.rgba(1, 1, 1, 0.6); font.pixelSize: 12; font.features: { "tnum": 1 } }
                     }
-                    Text { width: 40; anchors.verticalCenter: parent.verticalCenter; horizontalAlignment: Text.AlignRight; text: player.adjust[modelData.key].toFixed(modelData.key === "hue" ? 0 : 2); color: Qt.rgba(1, 1, 1, 0.6); font.pixelSize: 12; font.features: { "tnum": 1 } }
+                }
+                Caption { text: qsTr("ENQUADRAMENTO") }
+                Segmented {
+                    onMedia: true
+                    options: [{ text: qsTr("Ajustar"), value: VideoOutput.PreserveAspectFit }, { text: qsTr("Preencher"), value: VideoOutput.PreserveAspectCrop }, { text: qsTr("Esticar"), value: VideoOutput.Stretch }]
+                    value: pv.fillMode
+                    onPicked: (v) => pv.fillMode = v
                 }
             }
-            Caption { text: qsTr("ENQUADRAMENTO") }
-            Segmented {
-                onMedia: true
-                options: [{ text: qsTr("Ajustar"), value: VideoOutput.PreserveAspectFit }, { text: qsTr("Preencher"), value: VideoOutput.PreserveAspectCrop }, { text: qsTr("Esticar"), value: VideoOutput.Stretch }]
-                value: pv.fillMode
-                onPicked: (v) => pv.fillMode = v
+            Column {
+                width: 296
+                spacing: 10
+                Item { width: 1; height: 40 }
+                Caption { text: qsTr("GIRAR E ESPELHAR") }
+                Flow {
+                    width: parent.width; spacing: 6
+                    Chip { objectName: "rotateLeft"; height: 32; text: "↺ 90°"; onClicked: pv.rotate(-90) }
+                    Chip { objectName: "rotateRight"; height: 32; text: "↻ 90°"; onClicked: pv.rotate(90) }
+                    Chip { objectName: "mirror"; height: 32; text: qsTr("Espelhar"); selected: pv.videoMirror; onClicked: pv.videoMirror = !pv.videoMirror }
+                }
+                Caption { text: qsTr("PROPORÇÃO") }
+                Flow {
+                    width: parent.width; spacing: 6
+                    Repeater {
+                        model: [{ v: "", t: qsTr("Original") }, { v: "16:9", t: "16:9" }, { v: "4:3", t: "4:3" }, { v: "21:9", t: "21:9" }, { v: "1:1", t: "1:1" }]
+                        Chip { objectName: "aspect_" + (modelData.v || "auto"); height: 32; text: modelData.t; selected: pv.videoAspect === modelData.v; onClicked: pv.videoAspect = modelData.v }
+                    }
+                }
+                Caption { text: qsTr("ZOOM") }
+                Flow {
+                    width: parent.width; spacing: 6
+                    Repeater {
+                        model: [1, 1.25, 1.5, 2]
+                        Chip { objectName: "zoom_" + modelData; height: 32; text: Math.round(modelData * 100) + "%"; selected: Math.abs(pv.videoZoom - modelData) < 0.01; onClicked: pv.videoZoom = modelData }
+                    }
+                }
+                Caption { text: qsTr("DESENTRELAÇAR") }
+                Segmented {
+                    onMedia: true
+                    options: [{ text: qsTr("Automático"), value: "auto" }, { text: qsTr("Ligado"), value: "on" }, { text: qsTr("Desligado"), value: "off" }]
+                    value: player.deinterlace
+                    onPicked: (v) => player.setDeinterlace(v)
+                }
+            }
+        }
+    }
+
+    Component {
+        id: chaptersPanel
+        Column {
+            spacing: 6
+            PanelTitle { text: qsTr("Capítulos") }
+            Item { width: 1; height: 6 }
+            ListView {
+                width: parent.width
+                height: Math.min(contentHeight, 42 * 8)
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+                model: player.chapters
+                delegate: TrackItem {
+                    objectName: "chapter_" + index
+                    width: ListView.view.width
+                    text: U.time(modelData.time) + "    " + modelData.name
+                    selected: index === player.chapter
+                    onClicked: player.setChapter(index)
+                }
+            }
+        }
+    }
+
+    Component {
+        id: infoPanel
+        Column {
+            id: ip
+            spacing: 10
+            property var info: player.mediaInfo()
+            Timer { interval: 1000; running: true; repeat: true; onTriggered: ip.info = player.mediaInfo() }
+            function size(b) { return b >= 1073741824 ? (b / 1073741824).toFixed(2) + " GB" : (b / 1048576).toFixed(1) + " MB" }
+            readonly property var lines: {
+                var i = ip.info, out = []
+                out.push([qsTr("Arquivo"), i.path ? i.path.split(/[\\/]/).pop() : "—"])
+                if (i.container) out.push([qsTr("Formato"), i.container + (i.size ? "  ·  " + ip.size(i.size) : "")])
+                if (i.length > 0) out.push([qsTr("Duração"), U.time(i.length) + (i.bitrate ? "  ·  " + i.bitrate + " kbit/s" : "")])
+                for (var k = 0; k < i.tracks.length; k++) {
+                    var t = i.tracks[k]
+                    if (t.type === "video")
+                        out.push([qsTr("Vídeo"), t.codec.toUpperCase() + "  ·  " + t.width + " × " + t.height + (t.fps ? "  ·  " + t.fps.toFixed(t.fps % 1 ? 2 : 0) + " fps" : "")])
+                    else if (t.type === "audio")
+                        out.push([qsTr("Áudio"), t.codec.toUpperCase() + "  ·  " + qsTr("%n canal(is)", "", t.channels) + "  ·  " + (t.rate / 1000) + " kHz" + (t.language ? "  ·  " + t.language : "")])
+                    else if (t.type === "text")
+                        out.push([qsTr("Legenda"), t.codec.toUpperCase() + (t.language ? "  ·  " + t.language : "")])
+                }
+                if (i.videoSize) out.push([qsTr("Na tela"), i.videoSize + "  ·  " + qsTr("%1 quadros, %2 descartados").arg(i.displayed).arg(i.dropped)])
+                return out
+            }
+            Row {
+                width: parent.width
+                PanelTitle { text: qsTr("Informações da mídia"); width: parent.width - cp.width }
+                Chip {
+                    id: cp; objectName: "infoCopy"; text: qsTr("Copiar")
+                    onClicked: {
+                        var s = []
+                        for (var j = 0; j < ip.lines.length; j++) s.push(ip.lines[j][0] + ": " + ip.lines[j][1])
+                        appctl.copyText(s.join("\n"))
+                    }
+                }
+            }
+            Item { width: 1; height: 4 }
+            Repeater {
+                model: ip.lines
+                Row {
+                    width: ip.width
+                    spacing: 12
+                    Text { width: 110; text: modelData[0]; color: Qt.rgba(1, 1, 1, 0.55); font.pixelSize: 13; elide: Text.ElideRight }
+                    Text { width: parent.width - 122; text: modelData[1]; color: "white"; font.pixelSize: 13; wrapMode: Text.Wrap; font.features: { "tnum": 1 } }
+                }
+            }
+        }
+    }
+
+    Component {
+        id: castPanel
+        Column {
+            spacing: 6
+            PanelTitle { text: qsTr("Transmitir") }
+            Text { width: parent.width; wrapMode: Text.WordWrap; text: qsTr("Aparelhos Chromecast na mesma rede Wi-Fi aparecem aqui."); color: Qt.rgba(1, 1, 1, 0.6); font.pixelSize: 13 }
+            Item { width: 1; height: 6 }
+            TrackItem { objectName: "castLocal"; text: qsTr("Este computador"); selected: player.castingTo === ""; onClicked: player.setRenderer(-1) }
+            Repeater {
+                model: player.renderers
+                TrackItem { objectName: "cast_" + index; text: modelData.name; selected: player.castingTo === modelData.name; onClicked: player.setRenderer(index) }
+            }
+            Row {
+                visible: player.renderers.length === 0
+                spacing: 10
+                leftPadding: 12; topPadding: 6
+                Item {
+                    width: 14; height: 14
+                    anchors.verticalCenter: parent.verticalCenter
+                    RotationAnimation on rotation { from: 0; to: 360; duration: 900; loops: Animation.Infinite; running: pv.panel === "cast" }
+                    Rectangle { width: 5; height: 5; radius: 2.5; color: theme.accent; x: 4.5 }
+                }
+                Text { text: qsTr("Procurando aparelhos na rede…"); color: Qt.rgba(1, 1, 1, 0.7); font.pixelSize: 13 }
+            }
+        }
+    }
+
+    Component {
+        id: subsPanel
+        Column {
+            spacing: 8
+            Row {
+                width: parent.width
+                PanelTitle { text: qsTr("Legendas online"); width: parent.width - back.width }
+                Chip { id: back; text: qsTr("Voltar"); onClicked: pv.panel = "tracks" }
+            }
+            Text { width: parent.width; wrapMode: Text.WordWrap; text: qsTr("Do OpenSubtitles.com. As marcadas com ✓ foram feitas para este arquivo."); color: Qt.rgba(1, 1, 1, 0.6); font.pixelSize: 13 }
+            Text {
+                visible: subsearch.status !== ""
+                width: parent.width; wrapMode: Text.WordWrap
+                text: subsearch.status; color: "white"; font.pixelSize: 14; topPadding: 6
+            }
+            ListView {
+                objectName: "subResults"
+                width: parent.width
+                height: Math.min(contentHeight, 42 * 7)
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+                model: subsearch.results
+                delegate: TrackItem {
+                    objectName: "subResult_" + index
+                    width: ListView.view.width
+                    text: (modelData.exact ? "✓  " : "") + modelData.language.toUpperCase() + "   " + modelData.name
+                    onClicked: subsearch.fetch(index)
+                }
             }
         }
     }
@@ -604,14 +875,14 @@ Item {
         MouseArea { anchors.fill: parent; hoverEnabled: true; onPositionChanged: pv.poke() }
 
         Text { x: 24; y: 24; text: qsTr("A seguir"); color: "white"; font.family: theme.displayFont; font.pixelSize: 26; font.weight: Font.DemiBold }
-        Text { anchors.right: parent.right; anchors.rightMargin: 24; y: 34; text: qsTr("%n item(ns)", "", player.queue.length); color: Qt.rgba(1, 1, 1, 0.55); font.pixelSize: 13 }
+        Text { anchors.right: parent.right; anchors.rightMargin: 24; y: 34; text: qsTr("%n item(ns)", "", player.queueCount); color: Qt.rgba(1, 1, 1, 0.55); font.pixelSize: 13 }
         ListView {
             id: ql
             anchors.fill: parent
             anchors.topMargin: 72; anchors.margins: 12
             clip: true
             spacing: 4
-            model: player.queue
+            model: player.queueModel
             currentIndex: player.currentIndex
             delegate: Rectangle {
                 objectName: "qitem_" + index

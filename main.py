@@ -51,6 +51,8 @@ from refrata.quicklook import QuickLook  # noqa: E402
 from refrata.tray import Tray  # noqa: E402
 from refrata.i18n import I18n  # noqa: E402
 from refrata.media import is_media_path  # noqa: E402
+from refrata.mediakeys import MediaKeys  # noqa: E402
+from refrata.subsearch import SubtitleSearch  # noqa: E402
 
 ROOT = app_root()
 
@@ -98,6 +100,8 @@ class AppParts:
     tray: Tray
     i18n: I18n
     instance: InstanceServer | None = None
+    mediakeys: object = None   # Windows media keys / overlay (refrata/mediakeys.py)
+    subsearch: object = None   # online subtitles (refrata/subsearch.py)
 
     def find(self, name: str) -> QObject:
         obj = self.win.findChild(QObject, name)
@@ -116,15 +120,22 @@ class AppParts:
         return obj
 
     def cleanup(self):
-        # persist everything first; releasing libVLC is the risky part
+        # persist everything first; releasing libVLC is the risky part. Each step runs even if
+        # an earlier one failed: a step that throws must not leave the hook installed or libVLC
+        # running into the process teardown.
+        steps = [self.quicklook.shutdown, self.tray.shutdown, self.engine.save_state, self.settings.save,
+                 self.library.shutdown, self.engine.shutdown]
         if self.instance:
-            self.instance.close()
-        self.quicklook.shutdown()
-        self.tray.shutdown()
-        self.engine.save_state()
-        self.settings.save()
-        self.library.shutdown()
-        self.engine.shutdown()
+            steps.insert(0, self.instance.close)
+        if self.mediakeys is not None:
+            steps.insert(0, self.mediakeys.shutdown)
+        if self.subsearch is not None:
+            steps.insert(0, self.subsearch.shutdown)
+        for step in steps:
+            try:
+                step()
+            except Exception as exc:
+                print(f"shutdown step {getattr(step, '__qualname__', step)} failed: {exc!r}")
 
 
 def package_family() -> str:
@@ -164,6 +175,11 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
     # the translator goes in first: everything built after it (engine messages, tray menu) speaks it
     i18n = I18n(settings)
     theme = Theme(settings)
+    # scripts the Latin UI fonts lack go straight to the Windows font made for them, instead of
+    # Qt walking every installed font (slow, and old bitmap fonts like Fixedsys fail in DirectWrite)
+    for fam in {theme.textFont, theme.displayFont}:
+        QFont.insertSubstitutions(fam, ["Nirmala UI", "Microsoft YaHei UI", "Yu Gothic UI", "Malgun Gothic",
+                                        "Segoe UI Symbol", "Segoe UI Emoji"])
     f = QFont(theme.textFont)
     f.setPixelSize(14)
     app.setFont(f)
@@ -197,6 +213,8 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
     ctx.setContextProperty("quicklook", quicklook)
     ctx.setContextProperty("tray", tray)
     ctx.setContextProperty("i18n", i18n)
+    subsearch = SubtitleSearch(engine, DATA_DIR, app)
+    ctx.setContextProperty("subsearch", subsearch)
     i18n.attach(qml)
     ctx.setContextProperty("startHidden", bool(start_hidden))
     ctx.setContextProperty("startPage", page)
@@ -215,7 +233,9 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
         instance.received.connect(ctl.handOver)
         instance.activateRequested.connect(lambda: QTimer.singleShot(0, lambda: root.showMain()))
     tray.showRequested.connect(lambda: QTimer.singleShot(0, lambda: root.showMain()))
-    return AppParts(app, qml, win, settings, theme, engine, library, ctl, updater, quicklook, tray, i18n, instance)
+    mediakeys = MediaKeys(engine, library, app)
+    return AppParts(app, qml, win, settings, theme, engine, library, ctl, updater, quicklook, tray, i18n, instance,
+                    mediakeys, subsearch)
 
 
 def hard_exit(code: int = 0):
@@ -264,6 +284,7 @@ def main():
     ap.add_argument("--size", default="1440x900")
     ap.add_argument("--theme", default="")
     ap.add_argument("--selftest", action="store_true")
+    ap.add_argument("--scenario", default="")    # one robustness scenario (tests/robust.py)
     ap.add_argument("-k", default="")
     ap.add_argument("--report", default="")
     ap.add_argument("--log", default="")
@@ -279,6 +300,10 @@ def main():
     if args.selftest:
         from tests import e2e
         e2e.run(args.k, report=args.report or None)  # exits the process
+        return
+    if args.scenario:
+        from tests import robust
+        robust.child(args.scenario)  # exits the process
         return
 
     files = _norm_args(args.files)

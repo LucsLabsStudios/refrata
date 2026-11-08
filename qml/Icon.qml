@@ -21,7 +21,7 @@ Text {
         "stop": "", "headphones": "", "film": "", "drag": "",
         "theme": "", "color": "", "explorer": "", "subtitle": "",
         "picture": "", "clock": "", "audio": ""
-        , "mail": "", "apps": "", "download": "", "sync": "", "pin": "", "loop": ""
+        , "mail": "", "apps": "", "download": "", "sync": "", "pin": "", "loop": "", "cast": "", "rotate": "", "chapters": ""
     })
     text: glyphs[name] || ""
     font.family: theme.iconFont
