@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -138,7 +139,11 @@ EXE_MANIFEST = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 def write_keys():
     """refrata/_keys.py from the environment (git-ignored): API keys stay out of the public repo."""
     key = os.environ.get("REFRATA_OPENSUBTITLES_KEY", "").strip()
-    (ROOT / "refrata" / "_keys.py").write_text(
+    path = ROOT / "refrata" / "_keys.py"
+    if not key and path.exists():  # keep a key saved there by hand
+        m = re.search(r"OPENSUBTITLES\s*=\s*['\"]([^'\"]*)['\"]", path.read_text(encoding="utf8"))
+        key = m.group(1).strip() if m else ""
+    path.write_text(
         "# written by tools/build.py from REFRATA_OPENSUBTITLES_KEY; not in git\n"
         f"OPENSUBTITLES = {key!r}\n", encoding="utf8")
     log("OpenSubtitles key: " + ("set" if key else "not set (online subtitle search hidden)"))
