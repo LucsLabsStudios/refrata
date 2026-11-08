@@ -197,6 +197,13 @@ specifically requested by the user or the person installing or operating it. The
 check only reads the public GitHub releases of this repository and can be turned off in
 **Ajustes › Atualizações**.
 
+## Contribuições
+
+O Refrata é código aberto, mas **não aceita pull requests**: todo o código do repositório oficial é
+escrito pelo mantenedor, porque cada atualização chega automaticamente a todos os apps instalados.
+Bugs, sugestões e dúvidas são bem-vindos nas [Issues](https://github.com/LucsLabsStudios/refrata/issues),
+e forks continuam liberados pela GPL 3.0. Detalhes em [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Licença
 
 Refrata © LucsLabs Studios, software livre sob a **GNU GPL 3.0** ([LICENSE](LICENSE)). Inclui o

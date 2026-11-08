@@ -1,0 +1,29 @@
+# The official repository does not take code contributions (see CONTRIBUTING.md).
+# Closes every pull request opened by someone outside the repository with a pointer to Issues.
+# pull_request_target runs in the base repository's context and never checks out the PR's code.
+name: close pull requests
+
+on:
+  pull_request_target:
+    types: [opened, reopened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  close:
+    if: >-
+      github.event.pull_request.author_association != 'OWNER' &&
+      github.event.pull_request.author_association != 'MEMBER' &&
+      github.event.pull_request.author_association != 'COLLABORATOR'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close with a note
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh pr close "$PR" --repo "$REPO" --comment "Obrigado pelo interesse! O repositório oficial do Refrata não aceita pull requests: todo o código é escrito pelo mantenedor (veja o CONTRIBUTING.md). Descreva a sua sugestão ou correção numa issue que ela será avaliada para uma próxima versão. Forks continuam liberados pela GPL 3.0.
+
+          Thanks for your interest! Refrata's official repository does not accept pull requests (see CONTRIBUTING.md). Please describe your suggestion or fix in an issue instead. Forks are welcome under the GPL 3.0."
