@@ -407,6 +407,9 @@ class Engine(QObject):
         self._rendererEvent.connect(self._on_renderer, Qt.ConnectionType.QueuedConnection)
         self._resolve_token = None
         self._resolving = False
+        self._switching = 0                  # cast switches running on a worker thread
+        self._switch_lock = threading.Lock()
+        self._switchDone.connect(self._on_switch_done, Qt.ConnectionType.QueuedConnection)
         self._resolved.connect(self._on_resolved, Qt.ConnectionType.QueuedConnection)
         self._deinterlace = "auto"
         self._devices: list[dict] = []
@@ -1086,6 +1089,7 @@ class Engine(QObject):
 
     # ---------------------------------------------------------- web pages (yt-dlp)
     _resolved = Signal(int, object, str)
+    _switchDone = Signal()
 
     def _resolve_async(self, index, e):
         token = object()
@@ -1178,8 +1182,10 @@ class Engine(QObject):
                 media.add_option(f":start-time={start / 1000:.2f}")
         for uri in self._ext_subs.get(e["path"], []):
             media.slaves_add(vlc.MediaSlaveType.subtitle, 4, uri)   # 4 = highest priority
-        self._mp.set_media(media)
-        media.release()   # the player holds its own reference
+        casting = self._cast_ptr is not None
+        if not casting:
+            self._mp.set_media(media)
+            media.release()   # the player holds its own reference
         self._meta = {"title": e["title"], "artist": "", "album": "", "artwork": ""}
         self._audio_tracks, self._sub_tracks, self._tracks_polled = [], [], 0
         if self._chapters or self._chapter != -1:
@@ -1202,12 +1208,12 @@ class Engine(QObject):
         if self._state != "loading":
             self._state = "loading"   # the old track's "playing" must not linger on the new one
             self.stateChanged.emit()
-        self._mp.play()
-        self._mp.audio_set_volume(self._volume)
-        self._mp.set_rate(self._rate)
-        if self._eq_enabled:
-            self._mp.set_equalizer(self._eq)
-        self._apply_adjust()
+        if casting:
+            # with a Chromecast, libVLC only lets go of the previous file once the TV answers:
+            # switch off the UI thread so the app never freezes waiting for it
+            self._switch_on_worker(media)
+        else:
+            self._start_playback()
         self._settings.add_history(e["path"], e["title"])
         self.mediaChanged.emit()
         self.currentIndexChanged.emit()
@@ -1232,6 +1238,32 @@ class Engine(QObject):
         nxt = self._next_index(auto=True)
         if nxt is not None and nxt != self._index:
             self._play_soon(nxt)
+
+    def _start_playback(self):
+        self._mp.play()
+        self._mp.audio_set_volume(self._volume)
+        self._mp.set_rate(self._rate)
+        if self._eq_enabled:
+            self._mp.set_equalizer(self._eq)
+        self._apply_adjust()
+
+    def _switch_on_worker(self, media):
+        self._switching += 1
+
+        def work():
+            with self._switch_lock:   # one switch at a time, in order
+                try:
+                    self._mp.set_media(media)
+                    media.release()
+                    self._start_playback()
+                except Exception as exc:
+                    print("cast switch:", exc)
+                finally:
+                    self._switchDone.emit()
+        threading.Thread(target=work, daemon=True, name="cast-switch").start()
+
+    def _on_switch_done(self):
+        self._switching = max(0, self._switching - 1)
 
     def _play_soon(self, index):
         """Next item after the event loop turns; skipped if the queue changed meanwhile (the person
@@ -1355,6 +1387,8 @@ class Engine(QObject):
 
     # ---------------------------------------------------------------- polling
     def _tick(self):
+        if self._switching:
+            return   # a cast switch holds libVLC's player lock: asking now would freeze the UI
         st = self._mp.get_state()
         mapping = {
             vlc.State.Opening: "loading",

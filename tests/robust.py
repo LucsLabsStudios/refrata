@@ -953,6 +953,30 @@ def feature_cast_panel_and_quit_while_searching():
     check(e.discovering, "search restarted on the new libVLC instance")
 
 
+@scenario(timeout=90)
+def feature_switch_while_casting_path():
+    """Track changes while casting run on a worker thread (no real TV: the flag alone takes the
+    same path while the picture stays on this PC)."""
+    e = eng()
+    e._cast_ptr = 1        # pretend a cast target is active
+    files = [str(H.fx[k]) for k in ("video", "tone_a", "video2", "tone_long")]
+    e.openFiles(files)
+    playing_media()
+    worst = 0.0
+    for i in range(30):
+        t = time.time()
+        (e.next if i % 3 else e.previous)()
+        pump(0.05)
+        worst = max(worst, time.time() - t)
+    wait(lambda: e._switching == 0, 10, "switches finish")
+    playing_media(timeout=10)
+    check(worst < 1.0, "the UI never waits on a switch", f"{worst:.2f}s")
+    e.playAt(2)
+    wait(lambda: e._switching == 0 and e.currentIndex == 2, 8)
+    playing_media(video=True)
+    e._cast_ptr = None
+
+
 @scenario(timeout=60)
 def feature_mediakeys_overlay():
     """The Windows media session mirrors Refrata (only this scenario turns it on, briefly; no
@@ -1278,7 +1302,8 @@ def layout_smallest_window_at_150_percent():
 # ============================================================ scenario: monkey
 MONKEY_DENY = ("Open", "AddFolder", "addSubBtn", "pvReveal", "aboutContact", "aboutSource", "aboutChip_",
                "toggleAutostart", "toggleAutoUpdate", "toggleBackground", "toggleQuickLook", "update",
-               "settingsAddFolder", "rescanBtn", "adev_", "settingsDev_")
+               "settingsAddFolder", "rescanBtn", "adev_", "settingsDev_",
+               "cast_")   # never cast to a real TV on the person's network
 
 
 @scenario(timeout=900)
@@ -1417,8 +1442,9 @@ def run_one(sc: Scenario, fixtures: dict, exe: str | None, work: Path, extra_env
         code = proc.returncode
         out_text = proc.stdout.decode("utf8", "replace")
     except subprocess.TimeoutExpired as exc:
+        # subprocess.run has already killed this scenario's own process (never kill by image
+        # name: the person's own Refrata.exe may be running)
         code, out_text = "timeout", (exc.stdout or b"").decode("utf8", "replace")
-        subprocess.run(["taskkill", "/F", "/T", "/IM", Path(cmd[0]).name], capture_output=True) if exe else None
     took = time.time() - t0
     res = {"name": sc.name, "took": round(took, 1), "code": code, "problems": [], "notes": []}
     rf = base / "result.json"
