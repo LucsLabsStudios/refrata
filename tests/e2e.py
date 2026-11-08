@@ -1872,8 +1872,9 @@ def t48_quick_player_preview_compact_and_background():
     wkey(quick, Qt.Key.Key_Escape)
     wait(lambda: not quick.isVisible(), 2, "Esc closes")
 
-    # a double-clicked file from Explorer goes straight to the full app, even with Refrata hidden
-    # in the tray: the quick player is only for Space
+    # by default a double-clicked file from Explorer goes straight to the full app, even with
+    # Refrata hidden in the tray; the quick player is only for Space
+    check(C.parts.settings.value("quickOpen") is False, "'open files in the quick player' is off by default")
     tray.background = True       # keeps the app alive while its window is hidden
     C.parts.win.hide()
     pump(0.2)
@@ -1888,9 +1889,12 @@ def t48_quick_player_preview_compact_and_background():
     C.parts.win.hide()
     pump(0.2)
 
-    # compact mode still works when asked for: Space pauses there; expand hands over to Refrata
-    QMetaObject.invokeMethod(quick, "open", Q_ARG("QVariant", video), Q_ARG("QVariant", sib), Q_ARG("QVariant", "compact"))
-    wait(lambda: quick.isVisible() and quick.property("mode") == "compact", 3, "compact quick player")
+    # with the option on, the double-click starts in the compact quick player instead: Space pauses
+    # there; expand hands over to Refrata
+    C.parts.settings.setValue("quickOpen", True)
+    C.parts.ctl.handOver([video])
+    wait(lambda: quick.isVisible() and quick.property("mode") == "compact", 3, "option on: compact quick player")
+    check(not C.parts.win.isVisible(), "option on: the full app stays hidden")
     wait(lambda: quick.findChild(QObject, "quickSeek").property("value") > 1200, 8, "compact plays")
     pump(0.35)
     soft_focus(quick, "compact focus")
@@ -1906,11 +1910,12 @@ def t48_quick_player_preview_compact_and_background():
     wait(lambda: not quick.isVisible(), 2, "quick player leaves after expanding")
     check(win().property("playerOpen") is True and C.parts.win.isVisible(), "full player is shown")
     tray.background = False
-    # with the app open on a video, a second file from Explorer replaces it in the app, never a
+    # with the app open on a video (option still on), a second file from Explorer replaces it in the app, never a
     # quick player floating over it
     C.parts.ctl.handOver([video2])
     wait(lambda: e.currentPath == video2 and e.state == "playing", 8, "the new file replaces the old one in the app")
     check(not quick.isVisible(), "no quick player over the open app")
+    C.parts.settings.setValue("quickOpen", False)
     win().setProperty("playerOpen", False)
     stop_playback()
 
@@ -2109,7 +2114,14 @@ def run(filter_text="", report=None):
             "results": [{"name": n, "ok": good, "detail": d} for n, good, d in RESULTS],
         }, indent=2, ensure_ascii=False), encoding="utf8")
     sys.stdout.flush()
-    os._exit(0 if ok == len(selected) else 1)
+    # shut down like the real app does (main.py runs this on aboutToQuit): unhook the Space hook,
+    # stop the quick player and release libVLC, so no native thread is still running mid-teardown
+    if C.parts:
+        try:
+            C.parts.cleanup()
+        except Exception:
+            traceback.print_exc()
+    main.hard_exit(0 if ok == len(selected) else 1)
 
 
 if __name__ == "__main__":

@@ -1018,5 +1018,10 @@ class Engine(QObject):
     def shutdown(self):
         self._poll.stop()
         self._sinks.clear()
-        self._mp.stop()
-        self._mp.release()
+        # the app is leaving: a libVLC fault here (it can hit one after Windows invalidates the
+        # audio device) must not cut the rest of the shutdown short
+        try:
+            self._mp.stop()
+            self._mp.release()
+        except OSError as exc:
+            print("libVLC shutdown:", exc)

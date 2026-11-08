@@ -162,6 +162,8 @@
   "Abertura rápida": "快速打开",
   "Prévia com Espaço no Explorer": "在文件资源管理器中按空格预览",
   "Selecione um vídeo ou música no Explorer ou na área de trabalho e aperte Espaço. Espaço ou Esc fecha; ← → passa pelos arquivos da pasta.": "在文件资源管理器或桌面上选中视频或歌曲，按空格键即可预览。按空格或 Esc 关闭；← → 切换文件夹中的文件。",
+  "Abrir arquivos no player rápido": "用快速播放器打开文件",
+  "Um vídeo ou música aberto pelo Explorer começa numa janela compacta e flutuante; ⤢ leva para o app completo.": "从文件资源管理器打开的视频或歌曲会先在小巧的悬浮窗口中播放；点 ⤢ 可转到完整应用。",
   "Manter em segundo plano": "保持在后台运行",
   "Ao fechar a janela, o Refrata fica na bandeja do Windows, e a prévia e os arquivos abrem na hora.": "关闭窗口后，Refrata 会留在通知区域，预览和打开文件都能瞬间完成。",
   "Iniciar com o Windows": "开机时启动",

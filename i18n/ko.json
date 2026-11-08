@@ -162,6 +162,8 @@
   "Abertura rápida": "빠른 열기",
   "Prévia com Espaço no Explorer": "파일 탐색기에서 스페이스로 미리 보기",
   "Selecione um vídeo ou música no Explorer ou na área de trabalho e aperte Espaço. Espaço ou Esc fecha; ← → passa pelos arquivos da pasta.": "파일 탐색기나 바탕 화면에서 동영상이나 음악을 선택하고 스페이스 키를 누르세요. 스페이스나 Esc로 닫고, ← →로 폴더 안의 파일을 넘겨 볼 수 있어요.",
+  "Abrir arquivos no player rápido": "빠른 플레이어로 파일 열기",
+  "Um vídeo ou música aberto pelo Explorer começa numa janela compacta e flutuante; ⤢ leva para o app completo.": "파일 탐색기에서 연 동영상이나 음악은 작은 플로팅 창에서 시작돼요. ⤢를 누르면 전체 앱으로 열려요.",
   "Manter em segundo plano": "백그라운드에서 계속 실행",
   "Ao fechar a janela, o Refrata fica na bandeja do Windows, e a prévia e os arquivos abrem na hora.": "창을 닫아도 Refrata가 알림 영역에 남아 있어서 미리 보기와 파일이 바로 열려요.",
   "Iniciar com o Windows": "Windows 시작 시 실행",

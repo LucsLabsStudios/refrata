@@ -162,6 +162,8 @@
   "Abertura rápida": "Quick open",
   "Prévia com Espaço no Explorer": "Space to preview in File Explorer",
   "Selecione um vídeo ou música no Explorer ou na área de trabalho e aperte Espaço. Espaço ou Esc fecha; ← → passa pelos arquivos da pasta.": "Select a video or song in File Explorer or on the desktop and press Space. Space or Esc closes it; ← → steps through the folder.",
+  "Abrir arquivos no player rápido": "Open files in the quick player",
+  "Um vídeo ou música aberto pelo Explorer começa numa janela compacta e flutuante; ⤢ leva para o app completo.": "A video or song opened from File Explorer starts in a small floating window; ⤢ takes it to the full app.",
   "Manter em segundo plano": "Keep running in the background",
   "Ao fechar a janela, o Refrata fica na bandeja do Windows, e a prévia e os arquivos abrem na hora.": "Closing the window keeps Refrata in the system tray, so previews and files open instantly.",
   "Iniciar com o Windows": "Start with Windows",

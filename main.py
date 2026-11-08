@@ -50,6 +50,7 @@ from refrata.updater import Updater  # noqa: E402
 from refrata.quicklook import QuickLook  # noqa: E402
 from refrata.tray import Tray  # noqa: E402
 from refrata.i18n import I18n  # noqa: E402
+from refrata.media import is_media_path  # noqa: E402
 
 ROOT = app_root()
 
@@ -217,6 +218,25 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
     return AppParts(app, qml, win, settings, theme, engine, library, ctl, updater, quicklook, tray, i18n, instance)
 
 
+def hard_exit(code: int = 0):
+    """Leave without any native teardown. Everything is saved by now; what remains is libVLC's and
+    Qt Multimedia's DLL detach code, which can crash at exit (seen after Windows invalidates the
+    audio device mid-session: AUDCLNT_E_DEVICE_INVALIDATED). ExitProcess (os._exit) runs that
+    detach code; TerminateProcess does not."""
+    for s in (sys.stdout, sys.stderr):
+        try:
+            s.flush()
+        except Exception:
+            pass
+    if sys.platform == "win32":
+        import ctypes
+        k32 = ctypes.windll.kernel32
+        k32.GetCurrentProcess.restype = ctypes.c_void_p
+        k32.TerminateProcess.argtypes = [ctypes.c_void_p, ctypes.c_uint]
+        k32.TerminateProcess(k32.GetCurrentProcess(), code & 0xFFFFFFFF)
+    os._exit(code)
+
+
 def _norm_args(files: list[str]) -> list[str]:
     return [os.path.abspath(x) if os.path.exists(x) else x for x in files]
 
@@ -269,9 +289,10 @@ def main():
         if send_to_running(files):
             os._exit(0)
 
-    # files from Explorer (double-click) open in the full app; only Space in Explorer uses the quick
-    # player. --background starts in the tray
-    hidden = args.background
+    # a single media file from Explorer opens in the quick player; --background starts in the tray
+    from refrata.settings import Settings as _S  # noqa: PLC0415
+    quick_open = bool(_S().value("quickOpen", False)) if files else False
+    hidden = args.background or (quick_open and len(files) == 1 and is_media_path(files[0]))
     parts = build(sys.argv, args.page, args.panel, args.theme, instance_name="" if single else None,
                   start_hidden=hidden and not args.screenshot)
     engine, library, win, app = parts.engine, parts.library, parts.win, parts.app
@@ -302,10 +323,8 @@ def main():
 
     app.aboutToQuit.connect(parts.cleanup)
     code = app.exec()
-    sys.stdout.flush()
-    sys.stderr.flush()
-    # libVLC worker threads may still call back into Python; skip interpreter teardown.
-    os._exit(code)
+    # libVLC worker threads may still call back into Python; skip interpreter and DLL teardown.
+    hard_exit(code)
 
 
 if __name__ == "__main__":

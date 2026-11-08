@@ -7,8 +7,8 @@ import "Utils.js" as U
 // Floating quick player.
 //  mode "preview": Space on a file in Explorer (QuickLook-style). Space / Esc closes, ← → browse
 //                  the folder, Enter opens it in Refrata at the same point.
-//  mode "compact": a small floating player where Space pauses and ⤢ expands to the app. Nothing
-//                  opens it today: double-clicked files go straight to the full app.
+//  mode "compact": with Ajustes › "Abrir arquivos no player rápido" on (off by default), a file
+//                  opened from Explorer plays here first; Space pauses, ⤢ expands to the app.
 // It plays with its own QtMultimedia player, so whatever Refrata is playing is left untouched.
 Window {
     id: qw

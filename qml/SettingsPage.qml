@@ -148,6 +148,11 @@ Flickable {
                 Toggle { objectName: "toggleQuickLook"; checked: quicklook.enabled; onToggled: (on) => quicklook.enabled = on }
             }
             SettingRow {
+                title: qsTr("Abrir arquivos no player rápido")
+                desc: qsTr("Um vídeo ou música aberto pelo Explorer começa numa janela compacta e flutuante; ⤢ leva para o app completo.")
+                Toggle { objectName: "toggleQuickOpen"; checked: settings.value("quickOpen"); onToggled: (on) => settings.setValue("quickOpen", on) }
+            }
+            SettingRow {
                 title: qsTr("Manter em segundo plano")
                 desc: qsTr("Ao fechar a janela, o Refrata fica na bandeja do Windows, e a prévia e os arquivos abrem na hora.")
                 Toggle { objectName: "toggleBackground"; checked: tray.background; onToggled: (on) => tray.background = on }

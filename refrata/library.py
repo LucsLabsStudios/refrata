@@ -256,7 +256,9 @@ class Thumbnailer(threading.Thread):
                     img.save(str(target), "JPG", 82)
                 got.set()
 
-        FrameRenderer(mp, 960, on_frame)
+        # keep the renderer referenced until the player is released: libVLC calls its ctypes
+        # callbacks from its own threads, and a collected callback is a crash
+        renderer = FrameRenderer(mp, 960, on_frame)
         start = duration * 0.18 / 1000 if duration > 4000 else 0
         media.add_option(f":start-time={start:.1f}")
         mp.set_media(media)
@@ -266,6 +268,7 @@ class Thumbnailer(threading.Thread):
             got.wait(0.1)
         mp.stop()
         mp.release()
+        del renderer
 
 
 class Library(QObject):

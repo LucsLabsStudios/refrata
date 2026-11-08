@@ -107,7 +107,7 @@ passo está em [docs/SIGNING.md](docs/SIGNING.md).
 | Imagem | Brilho, contraste, saturação, gama, matiz; ajustar / preencher / esticar |
 | Fila | A seguir (painel lateral e página), reordenar, remover, tocar em seguida, aleatório, repetir 1/todos |
 | Extras | Velocidade 0,25×–4×, timer de sono, captura de quadro, avanço quadro a quadro, continuar de onde parou, repetir um trecho (A-B), sempre no topo |
-| Abertura rápida | Prévia com Espaço no Explorer e na área de trabalho (estilo QuickLook), duplo clique abre direto no player completo, modo em segundo plano na bandeja e iniciar com o Windows |
+| Abertura rápida | Prévia com Espaço no Explorer e na área de trabalho (estilo QuickLook), duplo clique abre direto no player completo (ou no player rápido, se você ativar nos Ajustes), modo em segundo plano na bandeja e iniciar com o Windows |
 | Rede | HTTP/HLS/RTSP/RTMP/… pela página Streams |
 | Playlists | M3U/M3U8, PLS, XSPF |
 | Windows | Instância única, "Abrir com", Apps padrão, diálogos nativos de arquivo/pasta, barra de título tingida |

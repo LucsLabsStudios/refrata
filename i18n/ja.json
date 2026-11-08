@@ -162,6 +162,8 @@
   "Abertura rápida": "クイックオープン",
   "Prévia com Espaço no Explorer": "エクスプローラーでスペースキーでプレビュー",
   "Selecione um vídeo ou música no Explorer ou na área de trabalho e aperte Espaço. Espaço ou Esc fecha; ← → passa pelos arquivos da pasta.": "エクスプローラーやデスクトップで動画や音楽を選んでスペースキーを押すとプレビューできます。スペースか Esc で閉じ、← → でフォルダー内のファイルを切り替えます。",
+  "Abrir arquivos no player rápido": "ファイルをクイックプレーヤーで開く",
+  "Um vídeo ou música aberto pelo Explorer começa numa janela compacta e flutuante; ⤢ leva para o app completo.": "エクスプローラーから開いた動画や音楽は、小さなフローティングウィンドウで再生されます。⤢ でフル画面のアプリに切り替えます。",
   "Manter em segundo plano": "バックグラウンドで実行し続ける",
   "Ao fechar a janela, o Refrata fica na bandeja do Windows, e a prévia e os arquivos abrem na hora.": "ウィンドウを閉じても Refrata は通知領域に残るため、プレビューやファイルがすぐに開きます。",
   "Iniciar com o Windows": "Windows の起動時に開始",

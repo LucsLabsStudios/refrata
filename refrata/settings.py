@@ -35,6 +35,7 @@ DEFAULTS = {
     "folders": [str(Path.home() / "Videos"), str(Path.home() / "Music")],
     "snapshotDir": str(Path.home() / "Pictures" / "Refrata"),
     "language": "pt-BR",
+    "quickOpen": False,       # files from Explorer start in the quick player (off: full app)
     "quickLook": True,        # Space preview in Explorer
     "background": False,      # close to the tray
     "language": "auto",       # auto (Windows language) or a code from refrata/i18n.py
@@ -56,6 +57,12 @@ class Settings(QObject):
             self._history = raw.get("history", [])
         except Exception:
             pass
+        # Up to 1.3.0 "quickOpen" defaulted to on, and every default gets written to settings.json, so
+        # old installs carry quickOpen=true without anyone choosing it. Reset it once to the new
+        # default (off: a double-click opens the full app); a later choice in Ajustes sticks.
+        if not self._data.get("quickOpenReset"):
+            self._data["quickOpen"] = False
+            self._data["quickOpenReset"] = True
         self._save_timer = QTimer(self)
         self._save_timer.setSingleShot(True)
         self._save_timer.setInterval(800)
