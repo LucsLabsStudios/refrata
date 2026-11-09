@@ -14,6 +14,16 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
+from refrata import trace  # noqa: E402  (REFRATA_TRACE: startup timeline)
+
+trace.mark("python ready")
+# Opening a file while Refrata runs: hand it over before Qt and libVLC load (refrata/fastlaunch.py)
+if __name__ == "__main__":
+    from refrata.fastlaunch import try_hand_over
+    FAST_ID = try_hand_over()   # exits here when the running Refrata took the file
+else:
+    FAST_ID = ""
+
 if __name__ == "__main__":
     # `import main` (tests) must see this very module, not a second copy
     sys.modules.setdefault("main", sys.modules[__name__])
@@ -56,11 +66,12 @@ from refrata.updater import Updater  # noqa: E402
 from refrata.quicklook import QuickLook  # noqa: E402
 from refrata.tray import Tray  # noqa: E402
 from refrata.i18n import I18n  # noqa: E402
-from refrata.media import is_media_path  # noqa: E402
+from refrata.media import SUB_EXT, is_audio_path, is_media_path  # noqa: E402
 from refrata.mediakeys import MediaKeys  # noqa: E402
 from refrata.subsearch import SubtitleSearch  # noqa: E402
 
 ROOT = app_root()
+trace.mark("imports done (Qt, libVLC, app modules)")
 
 # Every Qt/QML warning goes through here; tests install a collector.
 QT_MESSAGES: list[str] = []
@@ -173,7 +184,7 @@ def _vlc_version() -> str:
 
 
 def build(argv=None, page="", panel="", theme_name="", instance_name: str | None = "", start_hidden=False,
-          instance=None) -> AppParts:
+          instance=None, preopen=None) -> AppParts:
     """instance_name: "" = default per-user name, None = no single-instance server."""
     redirect_native_stderr(DATA_DIR / "native.log")
     QGuiApplication.setApplicationName("Refrata")
@@ -182,6 +193,7 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
     app = QGuiApplication.instance() or QApplication(argv or sys.argv)
     app.setWindowIcon(QIcon(str(ROOT / "assets" / "icon.ico")))
 
+    trace.mark("build: QApplication")
     settings = Settings()
     if theme_name:
         settings.setValue("theme", theme_name)
@@ -196,8 +208,16 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
     f = QFont(theme.textFont)
     f.setPixelSize(14)
     app.setFont(f)
+    trace.mark("build: settings, translations, theme")
     engine = Engine(settings)
+    trace.mark("build: engine (libVLC instance)")
+    if preopen:
+        # libVLC opens the file on its own threads while the interface below is built (~2 s): the
+        # first picture is ready when the window is, instead of a second or so after it
+        engine.openFiles(preopen, 0)
+        trace.mark("build: file handed to libVLC")
     library = Library(settings)
+    trace.mark("build: library")
     ctl = AppController()
     updater = Updater(settings)
     updater.quitRequested.connect(app.quit)
@@ -224,6 +244,7 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
         "contact": "lucslabs.studios@gmail.com",
     })
 
+    trace.mark("build: updater, preview, tray, associations, shortcuts")
     qml = QQmlApplicationEngine()
     ctx = qml.rootContext()
     ctx.setContextProperty("settings", settings)
@@ -244,7 +265,9 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
     ctx.setContextProperty("startPage", page)
     ctx.setContextProperty("startPanel", panel)
     ctx.setContextProperty("assetsUrl", QUrl.fromLocalFile(str(ROOT / "assets") + "/").toString())
+    trace.mark("build: QML context")
     qml.load(QUrl.fromLocalFile(str(ROOT / "qml" / "Main.qml")))
+    trace.mark("build: QML loaded (window created)")
     if not qml.rootObjects():
         raise RuntimeError("Main.qml failed to load:\n" + "\n".join(QT_MESSAGES))
     root = qml.rootObjects()[0]
@@ -266,6 +289,7 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
         mediakeys.openRequested.connect(ctl.handOver)
     else:
         mediakeys = MediaKeys(engine, library, app)
+    trace.mark("build: media keys, instance server")
     return AppParts(app, qml, win, settings, theme, engine, library, ctl, updater, quicklook, tray, i18n, instance,
                     mediakeys, subsearch, assoc, keys)
 
@@ -358,7 +382,7 @@ def main():
         # listening right away (requests wait until the window is ready; the QApplication is reused)
         QApplication(sys.argv)
         from refrata.single import claim_or_hand_over  # noqa: PLC0415
-        early = claim_or_hand_over(files)
+        early = claim_or_hand_over(files, msg_id=FAST_ID)
         if early is None:
             close_splash()
             os._exit(0)
@@ -367,8 +391,13 @@ def main():
     from refrata.settings import Settings as _S  # noqa: PLC0415
     quick_open = bool(_S().value("quickOpen", False)) if files else False
     hidden = args.background or (quick_open and len(files) == 1 and is_media_path(files[0]))
+    # the full app opening files: start them before the interface is built (see build)
+    from refrata.app import expand_paths  # noqa: PLC0415
+    preopen = expand_paths(files) if files and not hidden else []
+    if len(files) == 1 and os.path.splitext(files[0])[1].lower() in SUB_EXT:
+        preopen = []   # a subtitle alone goes through the app (it needs a playing video)
     parts = build(sys.argv, args.page, args.panel, args.theme, instance_name="" if single else None,
-                  start_hidden=hidden and not args.screenshot, instance=early)
+                  start_hidden=hidden and not args.screenshot, instance=early, preopen=preopen)
     engine, library, win, app = parts.engine, parts.library, parts.win, parts.app
     if hidden or args.screenshot:
         close_splash()
@@ -382,6 +411,7 @@ def main():
             def close(self):
                 if not self.done:
                     self.done = True
+                    trace.mark("first window frame on screen")
                     close_splash()
                     win.frameSwapped.disconnect(self.close)
         splash = _Splash(app)
@@ -392,12 +422,21 @@ def main():
         win.setWidth(w)
         win.setHeight(h)
 
+    trace.mark("window built, starting library scan and update check")
+    if parts.quicklook.active:
+        # the Space preview's link to Explorer, ready before the first Space (refrata/quicklook.py)
+        from refrata.quicklook import warm_up  # noqa: PLC0415
+        QTimer.singleShot(2500, warm_up)
     library.rescan()
     if not args.screenshot:
         parts.updater.start()
     if args.screenshot:
         engine.toggleMute()  # automated captures stay silent
-    if files:
+    if preopen:
+        # already opening (build): only show it the way the app does for files it is handed
+        if not engine.isAudio and not is_audio_path(preopen[0]):
+            parts.win.setProperty("playerOpen", True)
+    elif files:
         parts.ctl.handOver(files)
 
     if args.screenshot:

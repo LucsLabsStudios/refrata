@@ -36,6 +36,14 @@ Window {
         }
     }
     function isAudioPath(p) { return /\.(mp3|flac|wav|m4a|aac|ogg|opus|wma|alac|aiff|ape|mka|mid|midi|amr|ac3|dts)$/i.test(p) }
+    // the other pages are built in the background once the window has settled (see PageSlot)
+    property bool pagesWarm: false
+    Timer { interval: 1500; running: true; onTriggered: win.pagesWarm = true }
+    function showAbout() {
+        win.page = 5   // builds the settings page at once if it was not yet
+        if (settingsSlot.item) settingsSlot.item.showAbout()
+    }
+
     function playPaths(paths, index) {
         if (!paths || paths.length === 0) return
         player.openFiles(paths, index || 0)
@@ -82,7 +90,7 @@ Window {
         restyle()
         var pages = { home: 0, videos: 1, music: 2, queue: 3, network: 4, settings: 5 }
         if (startPanel === "queue") pv.queueOpen = true
-        else if (startPanel === "about") Qt.callLater(settingsPage.showAbout)
+        else if (startPanel === "about") Qt.callLater(win.showAbout)
         else if (startPanel) pv.panel = startPanel
         if (startPage === "player") playerOpen = true
         else if (startPage in pages) page = pages[startPage]
@@ -187,7 +195,7 @@ Window {
             current: win.page
             onNavigate: (i) => win.page = i
             onOpenFiles: openDialog.open()
-            onAboutRequested: { win.page = 5; settingsPage.showAbout() }
+            onAboutRequested: win.showAbout()
         }
 
         Item {
@@ -195,8 +203,25 @@ Window {
             anchors.left: sidebar.right; anchors.right: parent.right
             anchors.top: parent.top; anchors.bottom: parent.bottom
 
+            // A page is built the first time it is shown, or in the background shortly after the
+            // window is up (win.pagesWarm): opening the app builds only the page on screen.
             component PageSlot: Item {
+                id: slot
                 property int index: 0
+                property Component page: null      // pages given this way are built on demand
+                readonly property Item item: lazy.item
+                readonly property bool wanted: win.page === index || win.pagesWarm
+                property bool everWanted: false
+                onWantedChanged: if (wanted) everWanted = true
+                Component.onCompleted: if (wanted) everWanted = true
+                Loader {
+                    id: lazy
+                    anchors.fill: parent
+                    active: slot.page !== null && slot.everWanted
+                    // in the background, unless it is the page being opened (then at once)
+                    asynchronous: win.page !== slot.index
+                    sourceComponent: slot.page
+                }
                 anchors.fill: parent
                 opacity: win.page === index ? 1 : 0
                 visible: opacity > 0.01
@@ -222,34 +247,37 @@ Window {
             }
             PageSlot {
                 index: 1
-                VideosPage {
-                    objectName: "videosPage"
-                    anchors.fill: parent
-                    onPlayPaths: (p, i) => win.playPaths(p, i)
-                    onMenu: (path, x, y) => menu.openAt(path, x, y)
-                    onOpenFolder: addFolderDialog.open()
+                page: Component {
+                    VideosPage {
+                        objectName: "videosPage"
+                        onPlayPaths: (p, i) => win.playPaths(p, i)
+                        onMenu: (path, x, y) => menu.openAt(path, x, y)
+                        onOpenFolder: addFolderDialog.open()
+                    }
                 }
             }
             PageSlot {
                 index: 2
-                MusicPage {
-                    objectName: "musicPage"
-                    anchors.fill: parent
-                    onPlayPaths: (p, i) => win.playPaths(p, i)
-                    onMenu: (path, x, y) => menu.openAt(path, x, y)
+                page: Component {
+                    MusicPage {
+                        objectName: "musicPage"
+                        onPlayPaths: (p, i) => win.playPaths(p, i)
+                        onMenu: (path, x, y) => menu.openAt(path, x, y)
+                    }
                 }
             }
             PageSlot {
                 index: 3
-                QueuePage { objectName: "queuePage"; anchors.fill: parent; onOpenPlayer: win.playerOpen = !player.isAudio || win.playerOpen }
+                page: Component { QueuePage { objectName: "queuePage"; onOpenPlayer: win.playerOpen = !player.isAudio || win.playerOpen } }
             }
             PageSlot {
                 index: 4
-                NetworkPage { objectName: "networkPage"; anchors.fill: parent; onOpenUrl: (u) => { player.openUrl(u); win.playerOpen = true } }
+                page: Component { NetworkPage { objectName: "networkPage"; onOpenUrl: (u) => { player.openUrl(u); win.playerOpen = true } } }
             }
             PageSlot {
+                id: settingsSlot
                 index: 5
-                SettingsPage { id: settingsPage; objectName: "settingsPage"; anchors.fill: parent; onAddFolder: addFolderDialog.open(); onNotify: (text) => toast.show(text) }
+                page: Component { SettingsPage { objectName: "settingsPage"; onAddFolder: addFolderDialog.open(); onNotify: (text) => toast.show(text) } }
             }
 
             UpdateBanner {

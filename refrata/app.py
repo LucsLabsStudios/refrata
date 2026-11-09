@@ -168,20 +168,25 @@ class AppController(QObject):
     @Slot(list, result=list)
     def expand(self, urls):
         """Turn dropped files/folders into a flat, sorted list of media paths."""
-        out = []
-        for u in urls:
-            p = QUrl(u).toLocalFile() if str(u).startswith("file:") else str(u)
-            if "://" not in p:
-                # QUrl gives forward slashes; libVLC rejects mixed separators on Windows
-                p = os.path.normpath(p)
-            if os.path.isdir(p):
-                for root, _dirs, files in os.walk(p):
-                    for f in sorted(files):
-                        fp = os.path.join(root, f)
-                        if is_media_path(fp):
-                            out.append(fp)
-            elif is_playlist(p):
-                out.extend(read_playlist(p))
-            elif is_media_path(p) or "://" in p:
-                out.append(p)
-        return out
+        return expand_paths(urls)
+
+
+def expand_paths(urls) -> list[str]:
+    """Files, folders, playlists or URLs (as paths or file:// URLs) -> a flat, sorted list of media."""
+    out = []
+    for u in urls:
+        p = QUrl(u).toLocalFile() if str(u).startswith("file:") else str(u)
+        if "://" not in p:
+            # QUrl gives forward slashes; libVLC rejects mixed separators on Windows
+            p = os.path.normpath(p)
+        if os.path.isdir(p):
+            for root, _dirs, files in os.walk(p):
+                for f in sorted(files):
+                    fp = os.path.join(root, f)
+                    if is_media_path(fp):
+                        out.append(fp)
+        elif is_playlist(p):
+            out.extend(read_playlist(p))
+        elif is_media_path(p) or "://" in p:
+            out.append(p)
+    return out

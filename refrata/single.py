@@ -13,8 +13,6 @@ claim_or_hand_over() decides which one a launch is, before anything heavy loads:
 """
 from __future__ import annotations
 
-import getpass
-import hashlib
 import json
 import os
 import time
@@ -28,8 +26,8 @@ MAX_MESSAGE = 4 * 1024 * 1024
 
 
 def server_name(tag: str = "") -> str:
-    who = f"{getpass.getuser()}|{os.environ.get('REFRATA_DATA', '')}|{tag}"
-    return "Refrata-" + hashlib.sha1(who.encode("utf8")).hexdigest()[:16]
+    from .fastlaunch import server_name as name   # one definition: the fast path must find the same pipe
+    return name(tag)
 
 
 def send_to_running(args: list[str], name: str | None = None, timeout_ms: int = 800, ack_ms: int = 5000,
@@ -54,13 +52,13 @@ def send_to_running(args: list[str], name: str | None = None, timeout_ms: int = 
     return bool(ok)
 
 
-def claim_or_hand_over(files: list[str], name: str | None = None, wait_s: float = 25.0):
+def claim_or_hand_over(files: list[str], name: str | None = None, wait_s: float = 25.0, msg_id: str = ""):
     """The primary gets back an InstanceServer, already listening and holding requests until
     release(); a later launch hands `files` over and gets None (it should exit)."""
     from .settings import DATA_DIR
     lock = QLockFile(str(DATA_DIR / f"{name or server_name()}.lock"))
     lock.setStaleLockTime(0)   # stale only when its process is gone
-    msg_id = uuid.uuid4().hex   # the same request, if it has to be sent twice, counts once
+    msg_id = msg_id or uuid.uuid4().hex   # the same request, if it has to be sent twice, counts once
     deadline = time.monotonic() + wait_s
     while True:
         if send_to_running(files, name, msg_id=msg_id):

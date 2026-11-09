@@ -121,14 +121,39 @@ def media_siblings(path: str) -> list[str]:
     return out or [path]
 
 
+_SHELL = None
+
+
+def _shell_windows():
+    """Explorer's ShellWindows, through one Shell.Application kept for the app's life: a fresh one per
+    Space cost ~100 ms before anything could be read (23 ms with it reused). Made again if Explorer
+    restarted and the old one stopped answering."""
+    global _SHELL
+    from PySide6.QtAxContainer import QAxObject   # needs a QApplication; imported lazily
+    for _ in range(2):
+        if _SHELL is None or _SHELL.isNull():
+            _SHELL = QAxObject("Shell.Application")
+        windows = _SHELL.querySubObject("Windows()") if not _SHELL.isNull() else None
+        if windows is not None and not windows.isNull():
+            return windows
+        _SHELL = None
+    return None
+
+
+def warm_up():
+    """Make the first Space as fast as the next ones (called once the app has settled)."""
+    try:
+        w = _shell_windows()
+        if w is not None:
+            w.property("Count")
+    except Exception:
+        pass
+
+
 def selected_items(top_hwnd: int, kind: str, tab_title: str = "") -> list[str]:
     """Paths selected in the Explorer window `top_hwnd` (its active tab), or on the desktop."""
-    from PySide6.QtAxContainer import QAxObject   # needs a QApplication; imported lazily
-    shell = QAxObject("Shell.Application")
-    if shell.isNull():
-        return []
-    windows = shell.querySubObject("Windows()")
-    if windows is None or windows.isNull():
+    windows = _shell_windows()
+    if windows is None:
         return []
     doc = None
     if kind == "desktop":

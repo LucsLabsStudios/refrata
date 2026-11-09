@@ -585,6 +585,7 @@ class Engine(QObject):
         self._eq_preamp = 0.0
 
         self._audio_off = False
+        self._first_video_frame = True   # for REFRATA_TRACE (refrata/trace.py)
         self._hw_item = ""            # path decoding on the GPU right now
         self._spu_wanted = None       # subtitle to select once a software reopen is up
         self._sw_paths: set[str] = set()   # items that showed subtitles: software from then on
@@ -1008,6 +1009,10 @@ class Engine(QObject):
                 return   # decoded before the visible size was known: would show the padding rows
         first = self._frames_seen == 0
         self._frames_seen += 1
+        if first and self._first_video_frame:
+            self._first_video_frame = False
+            from . import trace
+            trace.mark("first video frame")
         if not self._visible_checked:
             # padded picture? libVLC knows the visible size once the vout runs (UI thread call)
             try:

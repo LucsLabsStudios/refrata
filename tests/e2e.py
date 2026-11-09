@@ -226,9 +226,18 @@ def t01_app_boots_without_qml_warnings():
         check(main.VLC_DIR is not None and app_dir in Path(main.VLC_DIR).parents,
               "packaged build uses its bundled libVLC, not a system VLC", str(main.VLC_DIR))
         check(C.parts.ctl.about.get("vlcBundled") is True, "About reports the bundled engine")
+    # pages other than the one on screen are built in the background once the window settles
+    wait(lambda: win().property("pagesWarm"), 5, "background pages started")
+
+    def found(name):
+        try:
+            C.parts.find(name)
+            return True
+        except LookupError:
+            return False
     for name in ["sidebar", "homePage", "videosPage", "musicPage", "queuePage", "networkPage",
                  "settingsPage", "miniPlayer", "playerView", "mediaMenu", "toast", "dropArea"]:
-        C.parts.find(name)
+        wait(lambda: found(name), 5, f"{name} is built")
 
 
 @test
@@ -1728,8 +1737,14 @@ def t47_in_app_update_check_download_verify_install():
         check(target.exists() and hashlib.sha256(target.read_bytes()).hexdigest() == sha,
               "downloaded file matches the published SHA-256")
         check(abs(up.progress - 1.0) < 1e-6, "progress reaches 100%")
+        pump(0.5)  # the pill re-sizes to "Reiniciar e atualizar" before the click (it missed mid-animation)
         ui_click("updateAction")   # "Reiniciar e atualizar"
-        wait(lambda: dry.exists(), 3, "installer launched")
+        try:
+            wait(lambda: dry.exists(), 3, "installer launched")
+        except Exception:
+            act = C.parts.find("updateAction")
+            raise AssertionError(f"installer not launched: state={up.state} error={up.error!r} "
+                                 f"button={act.property('text')!r} visible={act.isVisible()}")
         cmd = json.loads(dry.read_text("utf8"))
         check(cmd["exe"] == str(target) and "/VERYSILENT" in cmd["args"] and "/relaunch=1" in cmd["args"],
               "setup runs silently and relaunches the app", str(cmd["args"]))
