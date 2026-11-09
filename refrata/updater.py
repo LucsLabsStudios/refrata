@@ -256,12 +256,11 @@ class Updater(QObject):
 
     @staticmethod
     def _trusted_url(url: str) -> bool:
-        """Installers come over HTTPS from GitHub (release assets redirect to its CDN). The tests'
-        local server is allowed through REFRATA_UPDATE_URL."""
-        if os.environ.get("REFRATA_UPDATE_URL"):
-            return True
+        """Installers come over HTTPS from GitHub (release assets redirect to its CDN)."""
         u = QUrl(url)
         host = u.host().lower()
+        if os.environ.get("REFRATA_UPDATE_URL") or (os.environ.get("REFRATA_E2E_TMP") and host in ("127.0.0.1", "localhost")):
+            return True   # the test batteries' local release server
         return u.scheme() == "https" and (host == "github.com" or host.endswith(".github.com")
                                           or host.endswith(".githubusercontent.com"))
 

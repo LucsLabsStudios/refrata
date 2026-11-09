@@ -1664,6 +1664,11 @@ def t47_in_app_update_check_download_verify_install():
     up = C.parts.updater
     check(U.parse_version("v1.10.2") > U.parse_version("1.9.9") and U.parse_version("1.1") == (1, 1, 0),
           "version comparison is numeric")
+    trusted = U.Updater._trusted_url
+    check(trusted("https://github.com/LucsLabsStudios/refrata/releases/download/v1/Refrata-Setup-1.exe")
+          and trusted("https://objects.githubusercontent.com/x") and not trusted("http://github.com/x")
+          and not trusted("https://github.com.evil.example/x") and not trusted("https://evil.example/x"),
+          "installers only come over https from GitHub")
     rel = TMP / "release"
     rel.mkdir(exist_ok=True)
     blob = os.urandom(400_000)
