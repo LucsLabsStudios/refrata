@@ -172,7 +172,8 @@ def _vlc_version() -> str:
         return "?"
 
 
-def build(argv=None, page="", panel="", theme_name="", instance_name: str | None = "", start_hidden=False) -> AppParts:
+def build(argv=None, page="", panel="", theme_name="", instance_name: str | None = "", start_hidden=False,
+          instance=None) -> AppParts:
     """instance_name: "" = default per-user name, None = no single-instance server."""
     redirect_native_stderr(DATA_DIR / "native.log")
     QGuiApplication.setApplicationName("Refrata")
@@ -249,12 +250,14 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
     root = qml.rootObjects()[0]
     win = shiboken6.wrapInstance(shiboken6.getCppPointer(root)[0], QQuickWindow)
 
-    instance = None
-    if instance_name is not None:
+    if instance is None and instance_name is not None:
         instance = InstanceServer(instance_name or None, app)
         instance.listen()
+    if instance is not None:
+        instance.setParent(app)
         instance.received.connect(ctl.handOver)
         instance.activateRequested.connect(lambda: QTimer.singleShot(0, lambda: root.showMain()))
+        instance.release()   # requests that came in while the window was being built
     tray.showRequested.connect(lambda: QTimer.singleShot(0, lambda: root.showMain()))
     if sys.platform.startswith("linux"):
         from refrata.mpris import Mpris   # the Linux media keys / media widget (MPRIS2 over D-Bus)
@@ -349,10 +352,14 @@ def main():
 
     files = _norm_args(args.files)
     single = not (args.screenshot or args.new_window)
+    early = None
     if single:
-        # hand the files to a running instance and leave (the QGuiApplication is reused by build)
+        # one Refrata per user: hand the files to the running one and leave, or become it and start
+        # listening right away (requests wait until the window is ready; the QApplication is reused)
         QApplication(sys.argv)
-        if send_to_running(files):
+        from refrata.single import claim_or_hand_over  # noqa: PLC0415
+        early = claim_or_hand_over(files)
+        if early is None:
             close_splash()
             os._exit(0)
 
@@ -361,7 +368,7 @@ def main():
     quick_open = bool(_S().value("quickOpen", False)) if files else False
     hidden = args.background or (quick_open and len(files) == 1 and is_media_path(files[0]))
     parts = build(sys.argv, args.page, args.panel, args.theme, instance_name="" if single else None,
-                  start_hidden=hidden and not args.screenshot)
+                  start_hidden=hidden and not args.screenshot, instance=early)
     engine, library, win, app = parts.engine, parts.library, parts.win, parts.app
     if hidden or args.screenshot:
         close_splash()
