@@ -507,7 +507,7 @@ class Engine(QObject):
     videoSizeChanged = Signal()
     message = Signal(str)
     _frameReady = Signal(object, int)
-    _endReached = Signal()
+    _endReached = Signal(int)   # the media generation that ended
     _errorReached = Signal()
 
     @property
@@ -639,7 +639,9 @@ class Engine(QObject):
         self._mp: vlc.MediaPlayer = self._vlc.media_player_new()
         self._renderer = make_renderer(self._mp, self._on_vlc_frame)
         em = self._mp.event_manager()
-        em.event_attach(vlc.EventType.MediaPlayerEndReached, lambda e: self._endReached.emit())
+        # stamped with the item it belongs to: an end that lands just as the next item starts (a
+        # video finishing as the person presses Next) must not end the new one too
+        em.event_attach(vlc.EventType.MediaPlayerEndReached, lambda e: self._endReached.emit(self._media_gen))
         em.event_attach(vlc.EventType.MediaPlayerEncounteredError, lambda e: self._errorReached.emit())
         dev = self._settings.value("audioDevice", "")
         if dev:
@@ -1467,7 +1469,9 @@ class Engine(QObject):
         rev = self._qrev
         QTimer.singleShot(0, lambda: rev == self._qrev and 0 <= index < len(self._queue) and self._play_index(index))
 
-    def _on_end(self):
+    def _on_end(self, gen=None):
+        if gen is not None and gen != self._media_gen:
+            return   # the previous item's end, delivered after the switch
         # libVLC "ends" files it could not read at all (a text file named .mkv): nothing was
         # shown, no clock, no duration. That is an error for the user, not a finished song.
         if self._frames_seen == 0 and self._time <= 0 and self._length <= 0 and self._mp.get_length() <= 0:
