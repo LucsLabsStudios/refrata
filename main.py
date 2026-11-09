@@ -32,7 +32,7 @@ if __name__ == "__main__":
 # another Python thread busy (library scan, yt-dlp, thumbnails) each pass waited up to the default
 # 5 ms GIL switch interval; at 1 ms a 4K60 video under that load went from ~3 to ~20 frames a second
 # (tools/perf.py). Lower than that, the threads spend their time handing the GIL back and forth.
-sys.setswitchinterval(0.001)
+sys.setswitchinterval(float(os.environ.get("REFRATA_SWITCH_INTERVAL", "0.001")))
 
 # --selftest must isolate the data dir before refrata.settings computes DATA_DIR
 if "--selftest" in sys.argv and not os.environ.get("REFRATA_E2E_TMP"):
@@ -48,7 +48,7 @@ QT_PRELOADED = preload_qt()
 os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
 
 import shiboken6  # noqa: E402
-from PySide6.QtCore import QObject, QTimer, QUrl, Slot, qInstallMessageHandler  # noqa: E402
+from PySide6.QtCore import QLoggingCategory, QObject, QTimer, QUrl, Slot, qInstallMessageHandler  # noqa: E402
 from PySide6.QtGui import QFont, QGuiApplication, QIcon  # noqa: E402
 # QApplication (widgets): the tray icon and Explorer's COM automation (QuickLook-style preview) need it
 from PySide6.QtWidgets import QApplication  # noqa: E402
@@ -104,6 +104,10 @@ def _qt_log(mode, ctx, msg):
 
 
 qInstallMessageHandler(_qt_log)
+# The font fallback note is logged from the render thread while the GUI thread waits for it in
+# sync; reaching the Python handler there needs the GIL, which the GUI thread may hold (a grab, a
+# synthetic key in tests): a deadlock. Silenced at the category, it never leaves Qt.
+QLoggingCategory.setFilterRules("qt.text.font.db.info=false\nqt.text.font.db.debug=false")
 
 
 @dataclass

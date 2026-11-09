@@ -48,6 +48,16 @@ Pendência
 - Atualizações dependem só da conta do GitHub. Recomendado: assinar o manifesto com uma chave Ed25519 guardada
   fora do repositório e conferir no app. A assinatura de código (SignPath) tira o aviso do SmartScreen.
 
+### Abertura e instância única (1.4.5)
+
+- **Entrega antes do Qt** (`refrata/fastlaunch.py`): um segundo `Refrata.exe` tenta entregar os arquivos ao que já está aberto por um pipe nomeado (Windows) ou socket Unix, só com a biblioteca padrão, antes de importar o Qt. Leva ~0,2 s.
+- **Uma instância por usuário** (`refrata/single.py`): um `QLockFile` escolhe o primário; o servidor local escuta antes de a interface ser montada e segura os pedidos até `release()`. Cada pedido leva um id, então reenvios não abrem o arquivo duas vezes.
+- **Pré-abertura**: `build(preopen=...)` entrega o arquivo ao libVLC antes de carregar o QML; o vídeo fica pronto junto com a janela.
+- **Páginas preguiçosas**: só a página visível carrega na abertura; as outras carregam em segundo plano 1,5 s depois.
+- **Pré-visualização (espaço)**: o objeto `Shell.Application` do Explorador fica em cache e é aquecido depois da abertura (~125 → ~23 ms por toque).
+- **Linha do tempo**: `REFRATA_TRACE=1` imprime cada etapa da abertura (`refrata/trace.py`).
+- **Travamento raro**: o aviso de fonte (`qt.text.font.db`) vinha da thread de renderização e passava pelo tratador de mensagens em Python, que precisa da GIL; se a thread da interface estivesse esperando a renderização com a GIL presa, as duas paravam. A categoria agora é silenciada no próprio Qt.
+
 ## 3. Rust: o que foi medido
 
 `native/` é um módulo Rust (PyO3 + maturin) com os callbacks de cada quadro (lock/unlock/display) e um pool de
