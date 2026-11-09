@@ -779,7 +779,7 @@ def t26_player_view_panels_and_controls():
         e.openFiles([str(C.fx["video"])])
         wait(lambda: e.state == "playing", 8)
     win().setProperty("playerOpen", True)
-    wait(lambda: pv.property("y") == 0, 3, "player slid in")
+    wait(lambda: abs(pv.property("y")) < 0.5, 8, "player slid in")
     pump(0.3)
     for name in ["tracks", "speed", "eq", "adjust", "sleep"]:
         call(pv, "togglePanel", name)
@@ -811,7 +811,9 @@ def t27_controls_autohide_and_mouse():
         e.openFiles([str(C.fx["video"])])
         wait(lambda: e.state == "playing", 8)
     win().setProperty("playerOpen", True)
-    wait(lambda: pv.property("y") == 0, 3, "player visible")
+    # the sheet slides up; without a GPU (CI, WSL) the animation can take a few seconds or stop a
+    # fraction of a pixel short
+    wait(lambda: abs(pv.property("y")) < 0.5, 8, "player visible")
     call(pv, "poke")
     check(pv.property("controlsVisible") is True, "controls visible after activity")
     wait(lambda: pv.property("controlsVisible") is False, 6, "controls auto-hide while playing")
@@ -991,7 +993,9 @@ def open_player_with(paths, index=0):
     wait(lambda: e.state == "playing" and (e.isAudio or e._frames_seen > 2), 10, "media playing")
     win().setProperty("playerOpen", True)
     pv = C.parts.find("playerView")
-    wait(lambda: pv.property("y") == 0, 3, "player visible")
+    # the sheet slides up; without a GPU (CI, WSL) the animation can take a few seconds or stop a
+    # fraction of a pixel short
+    wait(lambda: abs(pv.property("y")) < 0.5, 8, "player visible")
     call(pv, "poke")
     pump(0.3)
     return pv
