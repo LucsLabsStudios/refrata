@@ -327,7 +327,6 @@
   "Este computador": "PC ini",
   "Procurando aparelhos na rede…": "Mencari perangkat di jaringan…",
   "Usa a GPU para decodificar vídeo. Desligue se um vídeo aparecer com falhas.": "Memakai GPU untuk mendekode video. Matikan jika video tampil rusak.",
-  "Som e legendas": "Suara dan subtitle",
   "Saída de áudio": "Output audio",
   "Onde o som toca: alto-falantes, fone de ouvido, TV pelo HDMI.": "Tempat suara diputar: speaker, headphone, TV lewat HDMI.",
   "Atualizar lista": "Perbarui daftar",
@@ -414,5 +413,10 @@
   "Ao fechar a janela, o Refrata fica na bandeja do sistema, e os arquivos abrem na hora.": "Saat jendela ditutup, Refrata tetap di baki sistem, dan file terbuka seketika.",
   "Iniciar com o sistema": "Mulai bersama sistem",
   "Padrão do sistema": "Bawaan sistem",
-  "Este lançamento não está assinado pela LucsLabs. Nada foi baixado.": "Rilis ini tidak ditandatangani oleh LucsLabs. Tidak ada yang diunduh."
+  "Este lançamento não está assinado pela LucsLabs. Nada foi baixado.": "Rilis ini tidak ditandatangani oleh LucsLabs. Tidak ada yang diunduh.",
+  "Geral": "Umum",
+  "Som": "Suara",
+  "Sistema": "Sistem",
+  "Atalhos": "Pintasan",
+  "Sobre": "Tentang"
 }

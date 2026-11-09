@@ -327,7 +327,6 @@
   "Este computador": "Ce PC",
   "Procurando aparelhos na rede…": "Recherche d’appareils sur le réseau…",
   "Usa a GPU para decodificar vídeo. Desligue se um vídeo aparecer com falhas.": "Utilise le GPU pour décoder la vidéo. Désactivez-le si une vidéo s’affiche avec des défauts.",
-  "Som e legendas": "Son et sous-titres",
   "Saída de áudio": "Sortie audio",
   "Onde o som toca: alto-falantes, fone de ouvido, TV pelo HDMI.": "Où le son est diffusé : haut-parleurs, casque, télé en HDMI.",
   "Atualizar lista": "Actualiser la liste",
@@ -414,5 +413,10 @@
   "Ao fechar a janela, o Refrata fica na bandeja do sistema, e os arquivos abrem na hora.": "Quand vous fermez la fenêtre, Refrata reste dans la zone de notification et les fichiers s’ouvrent instantanément.",
   "Iniciar com o sistema": "Démarrer avec le système",
   "Padrão do sistema": "Par défaut du système",
-  "Este lançamento não está assinado pela LucsLabs. Nada foi baixado.": "Cette version n’est pas signée par LucsLabs. Rien n’a été téléchargé."
+  "Este lançamento não está assinado pela LucsLabs. Nada foi baixado.": "Cette version n’est pas signée par LucsLabs. Rien n’a été téléchargé.",
+  "Geral": "Général",
+  "Som": "Son",
+  "Sistema": "Système",
+  "Atalhos": "Raccourcis",
+  "Sobre": "À propos"
 }

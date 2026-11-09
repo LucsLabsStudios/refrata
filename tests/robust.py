@@ -1453,7 +1453,10 @@ def _item_center(item):
 
 
 def _scroll_to(page, item, margin=220):
-    from PySide6.QtCore import QPointF
+    from PySide6.QtCore import Q_ARG, QMetaObject, QPointF, Qt
+    if page.objectName() == "settingsPage" and not item.isVisible():   # one tab at a time
+        QMetaObject.invokeMethod(page, "reveal", Qt.ConnectionType.DirectConnection, Q_ARG("QVariant", item))
+        pump(0.2)
     y = item.mapToItem(page.property("contentItem"), QPointF(0, 0)).y()
     page.setProperty("contentY", max(0.0, y - margin))
     pump(0.4)
@@ -1744,13 +1747,18 @@ def layout_every_language_fits():
             win().setProperty("page", page)
             pump(0.35)
             problems += _overflowing_texts(win().contentItem(), f"{code}/page{page}")
-        if True:   # settings is long: check it in slices while scrolling
+        if True:   # settings: every tab, each checked in slices while scrolling
             win().setProperty("page", 5)
             sp = H.parts.find("settingsPage")
-            for y in range(0, int(sp.property("contentHeight")), 500):
-                sp.setProperty("contentY", y)
-                pump(0.15)
-                problems += _overflowing_texts(win().contentItem(), f"{code}/settings@{y}")
+            tabs = sp.property("tabs")
+            tabs = tabs.toVariant() if hasattr(tabs, "toVariant") else tabs
+            for tab in [t["key"] for t in tabs]:
+                sp.setProperty("tab", tab)
+                pump(0.2)
+                for y in range(0, int(sp.property("contentHeight")), 500):
+                    sp.setProperty("contentY", y)
+                    pump(0.15)
+                    problems += _overflowing_texts(win().contentItem(), f"{code}/settings:{tab}@{y}")
             sp.setProperty("contentY", 0)
         win().setProperty("playerOpen", True)
         pump(0.6)

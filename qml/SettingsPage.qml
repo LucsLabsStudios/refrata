@@ -5,6 +5,20 @@ Flickable {
     id: page
     signal addFolder()
     signal notify(string text)
+    // one subject at a time: a tab bar on top, the cards of the chosen tab below
+    property string tab: "general"
+    readonly property var tabs: [
+        { key: "general", text: qsTr("Geral") }, { key: "playback", text: qsTr("Reprodução") },
+        { key: "sound", text: qsTr("Som") }, { key: "subtitles", text: qsTr("Legendas") },
+        { key: "library", text: qsTr("Biblioteca") }, { key: "system", text: qsTr("Sistema") },
+        { key: "shortcuts", text: qsTr("Atalhos") }, { key: "about", text: qsTr("Sobre") }]
+    onTabChanged: contentY = 0
+    // the tab holding `item` (tests and showAbout open the right one before using a control)
+    function reveal(item) {
+        for (var p = item; p; p = p.parent)
+            if (p.sectionTab !== undefined && p.sectionTab !== "") { page.tab = p.sectionTab; return true }
+        return false
+    }
     contentHeight: col.height + 120
     clip: true
     boundsBehavior: Flickable.StopAtBounds
@@ -13,6 +27,8 @@ Flickable {
     component Card: Rectangle {
         default property alias body: inner.data
         property string title: ""
+        property string sectionTab: ""
+        visible: page.tab === sectionTab
         width: col.width
         height: inner.height + 80
         radius: 32
@@ -48,7 +64,24 @@ Flickable {
 
         PageHeader { width: parent.width; eyebrow: qsTr("Preferências"); title: qsTr("Ajustes"); subtitle: qsTr("Deixe o player do seu jeito.") }
 
+        Flow {
+            objectName: "settingsTabs"
+            width: parent.width
+            spacing: 8
+            Repeater {
+                model: page.tabs
+                PillButton {
+                    objectName: "settingsTab_" + modelData.key
+                    text: modelData.text
+                    variant: "outline"; h: 38; fontSize: 13
+                    checked: page.tab === modelData.key
+                    onClicked: page.tab = modelData.key
+                }
+            }
+        }
+
         Card {
+            sectionTab: "general"
             title: qsTr("Aparência")
             SettingRow {
                 title: qsTr("Tema"); desc: qsTr("Escuro é ideal para filmes; claro tem tons quentes e suaves.")
@@ -84,6 +117,7 @@ Flickable {
         }
 
         Card {
+            sectionTab: "general"
             objectName: "languageCard"
             title: qsTr("Idioma")
             SettingRow {
@@ -110,6 +144,7 @@ Flickable {
         }
 
         Card {
+            sectionTab: "playback"
             title: qsTr("Reprodução")
             SettingRow {
                 title: qsTr("Continuar de onde parou"); desc: qsTr("Lembra a posição de cada arquivo.")
@@ -126,21 +161,31 @@ Flickable {
         }
 
         Card {
+            sectionTab: "sound"
             objectName: "soundSubsCard"
-            title: qsTr("Som e legendas")
+            title: qsTr("Som")
             SettingRow {
                 title: qsTr("Normalizar volume"); desc: qsTr("Equilibra diálogos baixos e explosões altas.")
                 Toggle { objectName: "settingsNormalize"; checked: player.normalize; onToggled: (on) => player.setNormalize(on) }
             }
-            SettingRow { title: qsTr("Saída de áudio"); desc: qsTr("Onde o som toca: alto-falantes, fone de ouvido, TV pelo HDMI.") }
-            Flow {
-                width: parent.width; spacing: 8; bottomPadding: 6
-                Repeater {
-                    model: player.audioDevices
-                    PillButton { objectName: "settingsDev_" + index; text: modelData.name; variant: "outline"; h: 36; fontSize: 13; checked: player.audioDevice === modelData.id; onClicked: player.setAudioDevice(modelData.id) }
+            SettingRow {
+                title: qsTr("Saída de áudio"); desc: qsTr("Onde o som toca: alto-falantes, fone de ouvido, TV pelo HDMI.")
+                Dropdown {
+                    objectName: "settingsDevices"
+                    itemPrefix: "settingsDev_"
+                    maxWidth: 340
+                    model: player.audioDevices.map(function (d) { return { value: d.id, text: d.name } })
+                    value: player.audioDevice
+                    footerText: qsTr("Atualizar lista")
+                    onPicked: (v) => player.setAudioDevice(v)
+                    onFooterClicked: player.refreshAudioDevices()
                 }
-                PillButton { text: qsTr("Atualizar lista"); icon: "refresh"; variant: "outline"; h: 36; fontSize: 13; onClicked: player.refreshAudioDevices() }
             }
+        }
+
+        Card {
+            sectionTab: "subtitles"
+            title: qsTr("Legendas")
             SettingRow { title: qsTr("Aparência da legenda"); desc: qsTr("Tamanho, cor e fundo do texto das legendas.") }
             Flow {
                 width: parent.width; spacing: 8; bottomPadding: 6
@@ -157,21 +202,25 @@ Flickable {
                     PillButton { objectName: "settings_" + modelData.k + "_" + modelData.v; text: modelData.t; variant: "outline"; h: 36; fontSize: 13; checked: player.subtitleStyle[modelData.k] === modelData.v; onClicked: player.setSubtitleStyle(modelData.k, modelData.v) }
                 }
             }
-            SettingRow { title: qsTr("Codificação das legendas"); desc: qsTr("Se os acentos aparecerem trocados por símbolos, escolha a do idioma da legenda.") }
-            Flow {
-                width: parent.width; spacing: 8; bottomPadding: 6
-                Repeater {
-                    model: [{ v: "", t: qsTr("Automática") }, { v: "UTF-8", t: "UTF-8" },
-                            { v: "Windows-1252", t: qsTr("Ocidental (Windows-1252)") }, { v: "Windows-1250", t: qsTr("Europa Central (Windows-1250)") },
-                            { v: "Windows-1251", t: qsTr("Cirílico (Windows-1251)") }, { v: "Windows-1253", t: qsTr("Grego (Windows-1253)") },
-                            { v: "Windows-1254", t: qsTr("Turco (Windows-1254)") }, { v: "GB18030", t: qsTr("Chinês simplificado (GB18030)") },
-                            { v: "Shift_JIS", t: qsTr("Japonês (Shift_JIS)") }, { v: "EUC-KR", t: qsTr("Coreano (EUC-KR)") }]
-                    PillButton { objectName: "subEnc_" + (modelData.v || "auto"); text: modelData.t; variant: "outline"; h: 36; fontSize: 13; checked: player.subtitleStyle.subEncoding === modelData.v; onClicked: player.setSubtitleStyle("subEncoding", modelData.v) }
+            SettingRow {
+                title: qsTr("Codificação das legendas"); desc: qsTr("Se os acentos aparecerem trocados por símbolos, escolha a do idioma da legenda.")
+                Dropdown {
+                    objectName: "subEncoding"
+                    itemPrefix: "subEnc_"
+                    maxWidth: 300
+                    model: [{ value: "", text: qsTr("Automática") }, { value: "UTF-8", text: "UTF-8" },
+                            { value: "Windows-1252", text: qsTr("Ocidental (Windows-1252)") }, { value: "Windows-1250", text: qsTr("Europa Central (Windows-1250)") },
+                            { value: "Windows-1251", text: qsTr("Cirílico (Windows-1251)") }, { value: "Windows-1253", text: qsTr("Grego (Windows-1253)") },
+                            { value: "Windows-1254", text: qsTr("Turco (Windows-1254)") }, { value: "GB18030", text: qsTr("Chinês simplificado (GB18030)") },
+                            { value: "Shift_JIS", text: qsTr("Japonês (Shift_JIS)") }, { value: "EUC-KR", text: qsTr("Coreano (EUC-KR)") }]
+                    value: player.subtitleStyle.subEncoding
+                    onPicked: (v) => player.setSubtitleStyle("subEncoding", v)
                 }
             }
         }
 
         Card {
+            sectionTab: "library"
             title: qsTr("Pastas da biblioteca")
             Repeater {
                 model: settings.folders
@@ -190,6 +239,7 @@ Flickable {
         }
 
         Card {
+            sectionTab: "system"
             title: qsTr("Abertura rápida")
             SettingRow {
                 objectName: "defaultAppRow"
@@ -238,6 +288,7 @@ Flickable {
         }
 
         Card {
+            sectionTab: "system"
             title: qsTr("Atualizações")
             SettingRow {
                 title: qsTr("Procurar atualizações automaticamente")
@@ -282,6 +333,7 @@ Flickable {
 
         Card {
             id: keysCard
+            sectionTab: "shortcuts"
             objectName: "keysCard"
             title: qsTr("Atalhos de teclado")
             property string capturing: ""   // the action waiting for its new key
@@ -357,6 +409,8 @@ Flickable {
         Rectangle {
             id: aboutCard
             objectName: "aboutCard"
+            readonly property string sectionTab: "about"
+            visible: page.tab === "about"
             width: col.width
             height: 470
             radius: 32
@@ -465,7 +519,7 @@ Flickable {
     }
 
     function showAbout() {
-        // scroll so the brand card is fully in view
-        contentY = Math.max(0, Math.min(contentHeight - height, aboutCard.y + col.y - 24))
+        page.tab = "about"
+        contentY = 0
     }
 }

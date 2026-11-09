@@ -327,7 +327,6 @@
   "Este computador": "この PC",
   "Procurando aparelhos na rede…": "ネットワーク上のデバイスを探しています…",
   "Usa a GPU para decodificar vídeo. Desligue se um vídeo aparecer com falhas.": "GPU で動画をデコードします。映像が乱れる場合はオフにしてください。",
-  "Som e legendas": "サウンドと字幕",
   "Saída de áudio": "音声の出力先",
   "Onde o som toca: alto-falantes, fone de ouvido, TV pelo HDMI.": "音を出す場所：スピーカー、ヘッドホン、HDMI 接続のテレビ。",
   "Atualizar lista": "一覧を更新",
@@ -414,5 +413,10 @@
   "Ao fechar a janela, o Refrata fica na bandeja do sistema, e os arquivos abrem na hora.": "ウィンドウを閉じても Refrata はシステムトレイに残り、ファイルはすぐに開きます。",
   "Iniciar com o sistema": "システムと同時に起動",
   "Padrão do sistema": "システムの既定",
-  "Este lançamento não está assinado pela LucsLabs. Nada foi baixado.": "このリリースは LucsLabs の署名がありません。何もダウンロードしていません。"
+  "Este lançamento não está assinado pela LucsLabs. Nada foi baixado.": "このリリースは LucsLabs の署名がありません。何もダウンロードしていません。",
+  "Geral": "一般",
+  "Som": "サウンド",
+  "Sistema": "システム",
+  "Atalhos": "ショートカット",
+  "Sobre": "情報"
 }

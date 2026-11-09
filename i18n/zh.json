@@ -327,7 +327,6 @@
   "Este computador": "此电脑",
   "Procurando aparelhos na rede…": "正在查找网络中的设备…",
   "Usa a GPU para decodificar vídeo. Desligue se um vídeo aparecer com falhas.": "使用 GPU 解码视频。如果视频画面异常，请关闭。",
-  "Som e legendas": "声音和字幕",
   "Saída de áudio": "音频输出",
   "Onde o som toca: alto-falantes, fone de ouvido, TV pelo HDMI.": "声音从哪里播放：扬声器、耳机或通过 HDMI 连接的电视。",
   "Atualizar lista": "刷新列表",
@@ -414,5 +413,10 @@
   "Ao fechar a janela, o Refrata fica na bandeja do sistema, e os arquivos abrem na hora.": "关闭窗口后，Refrata 会留在系统托盘中，文件可以立即打开。",
   "Iniciar com o sistema": "随系统启动",
   "Padrão do sistema": "系统默认",
-  "Este lançamento não está assinado pela LucsLabs. Nada foi baixado.": "此版本未经 LucsLabs 签名，未下载任何内容。"
+  "Este lançamento não está assinado pela LucsLabs. Nada foi baixado.": "此版本未经 LucsLabs 签名，未下载任何内容。",
+  "Geral": "常规",
+  "Som": "声音",
+  "Sistema": "系统",
+  "Atalhos": "快捷键",
+  "Sobre": "关于"
 }

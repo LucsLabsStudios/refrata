@@ -327,7 +327,6 @@
   "Este computador": "내 PC",
   "Procurando aparelhos na rede…": "네트워크에서 기기를 찾는 중…",
   "Usa a GPU para decodificar vídeo. Desligue se um vídeo aparecer com falhas.": "GPU로 동영상을 디코딩합니다. 화면이 깨지면 끄세요.",
-  "Som e legendas": "소리 및 자막",
   "Saída de áudio": "오디오 출력",
   "Onde o som toca: alto-falantes, fone de ouvido, TV pelo HDMI.": "소리가 나올 곳: 스피커, 헤드폰, HDMI로 연결한 TV.",
   "Atualizar lista": "목록 새로 고침",
@@ -414,5 +413,10 @@
   "Ao fechar a janela, o Refrata fica na bandeja do sistema, e os arquivos abrem na hora.": "창을 닫으면 Refrata는 시스템 트레이에 남고, 파일이 바로 열립니다.",
   "Iniciar com o sistema": "시스템과 함께 시작",
   "Padrão do sistema": "시스템 기본값",
-  "Este lançamento não está assinado pela LucsLabs. Nada foi baixado.": "이 릴리스는 LucsLabs의 서명이 없습니다. 아무것도 내려받지 않았습니다."
+  "Este lançamento não está assinado pela LucsLabs. Nada foi baixado.": "이 릴리스는 LucsLabs의 서명이 없습니다. 아무것도 내려받지 않았습니다.",
+  "Geral": "일반",
+  "Som": "사운드",
+  "Sistema": "시스템",
+  "Atalhos": "단축키",
+  "Sobre": "정보"
 }

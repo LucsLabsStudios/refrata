@@ -965,8 +965,21 @@ def find_under(root, name):
     raise Fail(f"'{name}' not found under {root.objectName() or root}")
 
 
+def reveal_setting(item):
+    """Ajustes shows one tab at a time: open the tab that holds `item` (no-op elsewhere)."""
+    if item.isVisible():
+        return
+    p = item.parentItem()
+    while p is not None and p.objectName() != "settingsPage":
+        p = p.parentItem()
+    if p is not None:
+        call(p, "reveal", item)
+        pump(0.2)
+
+
 def scroll_into_view(item):
     """Scroll the nearest Flickable ancestor so `item` is on screen."""
+    reveal_setting(item)
     w = C.parts.win
     flick = item.parentItem()
     while flick is not None and flick.property("contentY") is None:

@@ -327,7 +327,6 @@
   "Este computador": "Этот компьютер",
   "Procurando aparelhos na rede…": "Поиск устройств в сети…",
   "Usa a GPU para decodificar vídeo. Desligue se um vídeo aparecer com falhas.": "Видео декодирует видеокарта. Выключите, если видео показывается с артефактами.",
-  "Som e legendas": "Звук и субтитры",
   "Saída de áudio": "Вывод звука",
   "Onde o som toca: alto-falantes, fone de ouvido, TV pelo HDMI.": "Куда выводится звук: колонки, наушники, телевизор по HDMI.",
   "Atualizar lista": "Обновить список",
@@ -414,5 +413,10 @@
   "Ao fechar a janela, o Refrata fica na bandeja do sistema, e os arquivos abrem na hora.": "При закрытии окна Refrata остаётся в системном трее, и файлы открываются мгновенно.",
   "Iniciar com o sistema": "Запускать вместе с системой",
   "Padrão do sistema": "По умолчанию в системе",
-  "Este lançamento não está assinado pela LucsLabs. Nada foi baixado.": "Этот выпуск не подписан LucsLabs. Ничего не загружено."
+  "Este lançamento não está assinado pela LucsLabs. Nada foi baixado.": "Этот выпуск не подписан LucsLabs. Ничего не загружено.",
+  "Geral": "Общие",
+  "Som": "Звук",
+  "Sistema": "Система",
+  "Atalhos": "Клавиши",
+  "Sobre": "О программе"
 }

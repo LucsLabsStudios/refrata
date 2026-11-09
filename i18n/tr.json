@@ -327,7 +327,6 @@
   "Este computador": "Bu bilgisayar",
   "Procurando aparelhos na rede…": "Ağdaki cihazlar aranıyor…",
   "Usa a GPU para decodificar vídeo. Desligue se um vídeo aparecer com falhas.": "Videoyu GPU ile çözer. Bir videoda bozulma görürseniz kapatın.",
-  "Som e legendas": "Ses ve altyazılar",
   "Saída de áudio": "Ses çıkışı",
   "Onde o som toca: alto-falantes, fone de ouvido, TV pelo HDMI.": "Sesin çaldığı yer: hoparlör, kulaklık, HDMI ile TV.",
   "Atualizar lista": "Listeyi yenile",
@@ -414,5 +413,10 @@
   "Ao fechar a janela, o Refrata fica na bandeja do sistema, e os arquivos abrem na hora.": "Pencereyi kapatınca Refrata sistem tepsisinde kalır ve dosyalar anında açılır.",
   "Iniciar com o sistema": "Sistemle başlat",
   "Padrão do sistema": "Sistem varsayılanı",
-  "Este lançamento não está assinado pela LucsLabs. Nada foi baixado.": "Bu sürüm LucsLabs tarafından imzalanmamış. Hiçbir şey indirilmedi."
+  "Este lançamento não está assinado pela LucsLabs. Nada foi baixado.": "Bu sürüm LucsLabs tarafından imzalanmamış. Hiçbir şey indirilmedi.",
+  "Geral": "Genel",
+  "Som": "Ses",
+  "Sistema": "Sistem",
+  "Atalhos": "Kısayollar",
+  "Sobre": "Hakkında"
 }
