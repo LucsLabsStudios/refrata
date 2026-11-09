@@ -158,6 +158,11 @@ Atalhos: `Espaço` play/pausa · `F` tela cheia · `←/→` ±10 s · `↑/↓`
 `I` informações · `R` girar · `Ctrl+P` picture-in-picture · `Ctrl+O` abrir · `Ctrl+L` streams · `Esc` sair/fechar.
 Todos, menos `Esc` e `F11`, podem ser trocados em **Ajustes › Atalhos de teclado** (clique na tecla e aperte a nova).
 
+## Desempenho, Rust e outros sistemas
+
+Auditoria, medições (`tools/perf.py`) e o plano para Rust, Linux e macOS: [docs/ROTEIRO-DESEMPENHO-E-PLATAFORMAS.md](docs/ROTEIRO-DESEMPENHO-E-PLATAFORMAS.md).
+O app já abre e toca no Linux a partir do código (PySide6 + libVLC do sistema).
+
 ## Identidade visual
 
 O ícone é um prisma de vidro em forma de play que decompõe a luz: *lux* + *labs*, da LucsLabs
