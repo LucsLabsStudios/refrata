@@ -373,5 +373,15 @@
   "Nenhuma legenda encontrada para este arquivo": "No subtitles found for this file",
   "Baixando legenda…": "Downloading subtitle…",
   "Não foi possível baixar a legenda": "Couldn't download the subtitle",
-  "Mostrar mais resultados": "Show more results"
+  "Mostrar mais resultados": "Show more results",
+  "Abrindo link do %1…": "Opening %1 link…",
+  "Abrindo o link…": "Opening link…",
+  "Procurando a melhor qualidade. Isso leva alguns segundos.": "Finding the best quality. This takes a few seconds.",
+  "Avançar 10 s": "Forward 10 s",
+  "Fechar": "Close",
+  "Pausar": "Pause",
+  "Picture-in-picture": "Picture-in-picture",
+  "Picture-in-picture (Ctrl+P)": "Picture-in-picture (Ctrl+P)",
+  "Voltar 10 s": "Back 10 s",
+  "Voltar ao app": "Back to the app"
 }

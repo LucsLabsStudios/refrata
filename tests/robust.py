@@ -1062,6 +1062,102 @@ def feature_web_links_flow():
     check(e.currentPath.endswith("Tom B 660.wav") and e.state == "playing", "a late lookup does not take over")
 
 
+@scenario(timeout=60)
+def feature_link_loading_feedback():
+    """A song is playing and a YouTube link is opened: while yt-dlp looks it up, the player must
+    drop the song (title, cover, music mode) and say the link is opening, with a way to cancel."""
+    from refrata import websites
+    base = _local_http()
+
+    def slow(url):
+        time.sleep(3.0)
+        return {"title": "Vídeo do site", "video": f"{base}/media/Filmes/Segundo%20Video.mkv", "audio": "",
+                "headers": {}, "duration": 30000, "thumbnail": "", "live": False, "at": time.time()}
+    websites.resolve = slow
+    e = eng()
+    e.openFiles([str(H.fx["tone_a"])])
+    win().setProperty("playerOpen", True)
+    playing_media(video=False)
+    wait(lambda: e.time > 2000, 6, "the song plays for a while")
+    song = e.title
+    url = "https://www.youtube.com/watch?v=carregando"
+    e.openUrl(url)
+    pump(0.3)
+    banner = H.parts.find("resolvingBanner")
+    check(e.resolving and e.resolvingSite == "YouTube", "the lookup is reported", f"{e.resolving} {e.resolvingSite!r}")
+    check(not e.isAudio and e.title != song and e.time == 0, "the song is gone from the player", f"{e.isAudio} {e.title!r} {e.time}")
+    check(not H.parts.find("musicBackdrop").property("visible"), "music mode is left")
+    wait(lambda: banner.property("visible") and banner.property("opacity") > 0.9, 2, "the 'opening link' message shows")
+    if os.environ.get("REFRATA_SHOTS"):
+        win().grabWindow().save(str(Path(os.environ["REFRATA_SHOTS"]) / "link_loading.png"))
+    wait(lambda: e.state == "playing" and e._frames_seen > 2, 15, "the video then plays")
+    check(not e.resolving and e.title == "Vídeo do site", "the message goes away")
+    wait(lambda: not banner.property("visible"), 2, "the banner hides")
+    # cancel: the late answer must not start playing
+    e.openUrl("https://youtu.be/cancelado")
+    pump(0.3)
+    check(e.resolving, "second lookup running")
+    H.parts.find("resolvingCancel").clicked.emit()
+    pump(0.2)
+    check(not e.resolving and e.state == "stopped", "Cancel stops the lookup", f"{e.resolving} {e.state}")
+    pump(3.5)
+    check(e.state == "stopped" and not e.playing and not e.resolving and e.time == 0,
+          "a cancelled link does not start later", f"{e.state} {e.time}")
+
+
+@scenario(timeout=60)
+def feature_picture_in_picture():
+    """Ctrl+P / the PiP button: a small always-on-top window with the same video (no restart),
+    the app minimised; back to the app, close (pauses), and the app coming back by itself."""
+    from PySide6.QtCore import QMetaObject, QObject, Qt
+    from PySide6.QtGui import QWindow
+    e, w = eng(), win()
+    e.openFiles([str(H.fx["video"])])
+    w.setProperty("playerOpen", True)
+    playing_media(video=True)
+    pump(0.5)
+    pip = H.parts.qml.rootObjects()[0].findChild(QWindow, "pipWindow")
+    check(pip is not None and not pip.isVisible(), "PiP window exists, hidden")
+    H.parts.find("pvPip").clicked.emit()
+    pump(0.8)
+    check(pip.isVisible() and w.property("pipOn"), "the PiP button opens it")
+    check(pip.flags() & Qt.WindowType.WindowStaysOnTopHint, "PiP stays on top")
+    check(w.visibility() == QWindow.Visibility.Minimized, "the app is minimised", str(w.visibility()))
+    t0 = e.time
+    sink = pip.findChild(QObject, "pipVideo").property("videoSink")
+    wait(lambda: sink.videoFrame().isValid(), 4, "PiP shows the video")
+    wait(lambda: e.time > t0 + 500, 4, "the video keeps playing (not restarted)")
+    ar = pip.width() / pip.height()
+    check(abs(ar - e.videoWidth / e.videoHeight) < 0.05, "PiP has the video's shape", f"{pip.width()}x{pip.height()}")
+    check(pip.x() + pip.width() <= pip.screen().availableGeometry().right() + 1, "PiP fits on screen")
+    if os.environ.get("REFRATA_SHOTS"):
+        pip.grabWindow().save(str(Path(os.environ["REFRATA_SHOTS"]) / "pip.png"))
+    pip.findChild(QObject, "pipPlay").clicked.emit()
+    pump(0.4)
+    check(not e.playing, "pause from PiP")
+    pip.findChild(QObject, "pipPlay").clicked.emit()
+    wait(lambda: e.playing, 3, "play from PiP")
+    pip.findChild(QObject, "pipBack").clicked.emit()
+    pump(0.8)
+    check(not pip.isVisible() and not w.property("pipOn"), "back to the app closes PiP")
+    check(w.visibility() != QWindow.Visibility.Minimized and w.property("playerOpen"), "the app shows the player again", str(w.visibility()))
+    check(e.playing, "still playing after coming back")
+    # Ctrl+P function, then the ✕: pauses, PiP closes
+    QMetaObject.invokeMethod(w, "togglePip")
+    pump(0.8)
+    check(pip.isVisible(), "togglePip opens it again")
+    pip.findChild(QObject, "pipClose").clicked.emit()
+    pump(0.5)
+    check(not pip.isVisible() and not e.playing, "close pauses and hides PiP")
+    # the app restored from the taskbar while PiP is up: PiP goes away by itself
+    e.togglePlay()
+    QMetaObject.invokeMethod(w, "togglePip")
+    pump(0.8)
+    w.showNormal()
+    pump(0.8)
+    check(not pip.isVisible() and not w.property("pipOn"), "restoring the app ends PiP")
+
+
 @scenario(timeout=90, env={"REFRATA_OPENSUBTITLES_KEY": "test-key"})
 def feature_online_subtitles():
     """Search + download + load, against a local stand-in for the OpenSubtitles API (the real
@@ -1303,6 +1399,7 @@ def layout_smallest_window_at_150_percent():
 MONKEY_DENY = ("Open", "AddFolder", "addSubBtn", "pvReveal", "aboutContact", "aboutSource", "aboutChip_",
                "toggleAutostart", "toggleAutoUpdate", "toggleBackground", "toggleQuickLook", "update",
                "settingsAddFolder", "rescanBtn", "adev_", "settingsDev_",
+               "pvPip",   # minimises the window the monkey is clicking in (covered by its own scenario)
                "cast_")   # never cast to a real TV on the person's network
 
 

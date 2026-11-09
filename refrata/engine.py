@@ -367,6 +367,7 @@ class Engine(QObject):
     timeChanged = Signal()
     loopChanged = Signal()
     mediaChanged = Signal()
+    resolvingChanged = Signal()
     queueChanged = Signal()
     currentIndexChanged = Signal()
     tracksChanged = Signal()
@@ -377,7 +378,7 @@ class Engine(QObject):
     adjustChanged = Signal()
     videoSizeChanged = Signal()
     message = Signal(str)
-    _frameReady = Signal(object)
+    _frameReady = Signal(object, int)
     _endReached = Signal()
     _errorReached = Signal()
 
@@ -394,6 +395,7 @@ class Engine(QObject):
         self._sinks: list[QVideoSink] = []
         self._last_frame: QVideoFrame | None = None
         self._frames_seen = 0
+        self._media_gen = 0   # bumped on every item change; frames carry the value they were decoded under
         self._visible_checked = False
         self._frameReady.connect(self._deliver_frame, Qt.ConnectionType.QueuedConnection)
         self._endReached.connect(self._on_end, Qt.ConnectionType.QueuedConnection)
@@ -850,11 +852,13 @@ class Engine(QObject):
                 self._dropped += 1
                 return
             self._pending_busy = True
-        self._frameReady.emit(frame)
+        self._frameReady.emit(frame, self._media_gen)
 
-    def _deliver_frame(self, frame: QVideoFrame):
+    def _deliver_frame(self, frame: QVideoFrame, gen: int):
         try:
-            self._show_frame(frame)
+            # a frame still queued from the previous item must not count for (or show in) this one
+            if gen == self._media_gen:
+                self._show_frame(frame)
         finally:
             with self._pending_lock:
                 self._pending_busy = False
@@ -1091,15 +1095,53 @@ class Engine(QObject):
     _resolved = Signal(int, object, str)
     _switchDone = Signal()
 
+    @property
+    def _resolving(self) -> bool:
+        return getattr(self, "_resolving_on", False)
+
+    @_resolving.setter
+    def _resolving(self, on: bool):
+        if on != getattr(self, "_resolving_on", None):
+            self._resolving_on = on
+            self.resolvingChanged.emit()
+
+    @Property(bool, notify=resolvingChanged)
+    def resolving(self):
+        """yt-dlp is looking up a web page's stream (YouTube, Vimeo…)."""
+        return self._resolving
+
+    @Property(str, notify=resolvingChanged)
+    def resolvingSite(self):
+        if not (self._resolving and 0 <= self._index < len(self._queue)):
+            return ""
+        return websites.site_name(self._queue[self._index]["path"])
+
     def _resolve_async(self, index, e):
         token = object()
         self._resolve_token = token
         self._resolving = True
         self._mp.stop()                           # the previous item must not keep playing
         self._open_deadline = time.time() + 40   # the watchdog waits for the lookup too
+        # forget the previous item now, or the player keeps showing it (a song's time with no
+        # frames even made the link look like audio) until the stream is found
+        # until the page's real title arrives: "YouTube" reads better than "watch?v=…"
+        self._meta = {"title": websites.site_name(e["path"]) or e["title"], "artist": "", "album": "", "artwork": ""}
+        self._last_frame = None
+        self._frames_seen = 0
+        self._media_gen += 1
+        self._time, self._length = 0, 0
+        for sink in self._sinks:
+            try:
+                sink.setVideoFrame(QVideoFrame())
+            except RuntimeError:
+                pass
+        if self._chapters or self._chapter != -1:
+            self._chapters, self._chapter = [], -1
+            self.chaptersChanged.emit()
         if self._state != "loading":
             self._state = "loading"
             self.stateChanged.emit()
+        self.timeChanged.emit()
         self.mediaChanged.emit()
         self.currentIndexChanged.emit()
 
@@ -1193,6 +1235,7 @@ class Engine(QObject):
             self.chaptersChanged.emit()
         self._last_frame = None
         self._frames_seen = 0
+        self._media_gen += 1
         self._visible_checked = False
         self._time, self._length = 0, 0
         for sink in self._sinks:
@@ -1342,6 +1385,7 @@ class Engine(QObject):
     @Slot()
     def stop(self):
         self._save_resume()
+        self._resolving, self._resolve_token, self._open_deadline = False, None, 0   # also cancels a link lookup
         self._mp.stop()
         self._state = "stopped"
         self.stateChanged.emit()

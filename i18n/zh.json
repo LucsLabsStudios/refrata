@@ -373,5 +373,15 @@
   "Nenhuma legenda encontrada para este arquivo": "未找到此文件的字幕",
   "Baixando legenda…": "正在下载字幕…",
   "Não foi possível baixar a legenda": "无法下载字幕",
-  "Mostrar mais resultados": "显示更多结果"
+  "Mostrar mais resultados": "显示更多结果",
+  "Abrindo link do %1…": "正在打开 %1 链接…",
+  "Abrindo o link…": "正在打开链接…",
+  "Procurando a melhor qualidade. Isso leva alguns segundos.": "正在查找最佳画质，需要几秒钟。",
+  "Avançar 10 s": "快进 10 秒",
+  "Fechar": "关闭",
+  "Pausar": "暂停",
+  "Picture-in-picture": "画中画",
+  "Picture-in-picture (Ctrl+P)": "画中画 (Ctrl+P)",
+  "Voltar 10 s": "后退 10 秒",
+  "Voltar ao app": "返回应用"
 }

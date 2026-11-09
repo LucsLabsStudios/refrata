@@ -32,6 +32,7 @@ Item {
     property bool warm: false          // rendered off-screen once at startup (see Main.qml)
     signal minimize()
     signal toggleFullscreen()
+    signal pipRequested()
     signal loadSubtitle()
 
     // music mode keeps its dock on screen; video hides the chrome while playing
@@ -140,9 +141,11 @@ Item {
     Item {
         anchors.centerIn: parent
         width: 64; height: 64
-        opacity: player.state === "loading" && !spinDelay.running && !player.isAudio ? 1 : 0
+        opacity: player.state === "loading" && (!spinDelay.running || player.resolving) && !player.isAudio ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
         visible: opacity > 0.01
+        anchors.verticalCenterOffset: player.resolving ? -40 : 0
+        z: 1   // above the scrims
         Rectangle {
             anchors.fill: parent; radius: 32; color: "transparent"
             border.width: 4; border.color: Qt.rgba(1, 1, 1, 0.15)
@@ -151,6 +154,37 @@ Item {
             anchors.fill: parent
             RotationAnimation on rotation { from: 0; to: 360; duration: 900; loops: Animation.Infinite; running: player.state === "loading" }
             Rectangle { x: 26; y: -2; width: 12; height: 12; radius: 6; color: theme.accent }
+        }
+    }
+
+    // a YouTube/Vimeo… link: yt-dlp needs a few seconds to find the stream; say so right away
+    Column {
+        objectName: "resolvingBanner"
+        z: 1   // above the scrims
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.verticalCenterOffset: 70
+        width: Math.min(pv.width - 64, 560)
+        spacing: 10
+        opacity: player.resolving ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+        visible: opacity > 0.01
+        Text {
+            width: parent.width; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.Wrap
+            text: player.resolvingSite ? qsTr("Abrindo link do %1…").arg(player.resolvingSite) : qsTr("Abrindo o link…")
+            color: "white"; font.family: theme.displayFont; font.pixelSize: 24; font.weight: Font.DemiBold
+        }
+        Text {
+            width: parent.width; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.Wrap
+            text: qsTr("Procurando a melhor qualidade. Isso leva alguns segundos.")
+            color: Qt.rgba(1, 1, 1, 0.65); font.pixelSize: 15
+        }
+        Item { width: 1; height: 6 }
+        PillButton {
+            objectName: "resolvingCancel"
+            anchors.horizontalCenter: parent.horizontalCenter
+            variant: "glass"; h: 40; text: qsTr("Cancelar")
+            onClicked: player.stop()
         }
     }
 
@@ -237,6 +271,7 @@ Item {
                             pv.fillMode = modes[(modes.indexOf(pv.fillMode) + 1) % 3]
                         }
                     }
+                    IconButton { objectName: "pvPip"; visible: !player.isAudio; icon: "pip"; motion: "pop"; onMedia: true; size: 44; iconSize: 16; enabled: player.castingTo === ""; tip: qsTr("Picture-in-picture (Ctrl+P)"); onClicked: pv.pipRequested() }
                     IconButton { objectName: "pvOnTop"; icon: "pin"; motion: "drop"; onMedia: true; size: 44; iconSize: 16; checked: pv.alwaysOnTop; tip: pv.alwaysOnTop ? qsTr("Sempre no topo: ligado (T)") : qsTr("Sempre no topo (T)"); onClicked: pv.toggleOnTop() }
                     IconButton { objectName: "pvCast"; icon: "cast"; onMedia: true; size: 44; iconSize: 16; checked: pv.panel === "cast" || player.castingTo !== ""; tip: player.castingTo ? qsTr("Transmitindo para %1").arg(player.castingTo) : qsTr("Transmitir para a TV"); onClicked: { player.startCastDiscovery(); pv.togglePanel("cast") } }
                     IconButton { objectName: "pvInfo"; icon: "info"; onMedia: true; size: 44; iconSize: 16; checked: pv.panel === "info"; tip: qsTr("Informações da mídia (I)"); onClicked: pv.togglePanel("info") }
@@ -284,7 +319,7 @@ Item {
         Row {
             anchors.centerIn: parent
             anchors.verticalCenterOffset: player.isAudio ? 9999 : 0
-            visible: !player.isAudio
+            visible: !player.isAudio && !player.resolving   // a link opening has its own message there
             spacing: 36
             SkipButton { objectName: "pvSkipBack"; anchors.verticalCenter: parent.verticalCenter; size: 64; backdrop: backdrop; onClicked: { player.skip(-10000); pv.poke() } }
             GlassPanel {
@@ -384,7 +419,8 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     width: 72; horizontalAlignment: Text.AlignRight
                     property bool remaining: false
-                    text: player.length > 0 ? (remaining ? "−" + U.time(player.length - player.time) : U.time(player.length)) : qsTr("AO VIVO")
+                    text: player.length > 0 ? (remaining ? "−" + U.time(player.length - player.time) : U.time(player.length))
+                                            : player.state === "loading" ? "" : qsTr("AO VIVO")
                     color: Qt.rgba(1, 1, 1, 0.75); font.pixelSize: 13; font.weight: Font.DemiBold
                     font.features: { "tnum": 1 }
                     MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: parent.remaining = !parent.remaining }

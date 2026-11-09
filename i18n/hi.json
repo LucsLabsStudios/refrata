@@ -373,5 +373,15 @@
   "Nenhuma legenda encontrada para este arquivo": "इस फ़ाइल के लिए कोई सबटाइटल नहीं मिला",
   "Baixando legenda…": "सबटाइटल डाउनलोड हो रहा है…",
   "Não foi possível baixar a legenda": "सबटाइटल डाउनलोड नहीं हो सका",
-  "Mostrar mais resultados": "और परिणाम दिखाएँ"
+  "Mostrar mais resultados": "और परिणाम दिखाएँ",
+  "Abrindo link do %1…": "%1 लिंक खोला जा रहा है…",
+  "Abrindo o link…": "लिंक खोला जा रहा है…",
+  "Procurando a melhor qualidade. Isso leva alguns segundos.": "सबसे अच्छी क्वालिटी खोजी जा रही है। इसमें कुछ सेकंड लगते हैं।",
+  "Avançar 10 s": "10 सेकंड आगे",
+  "Fechar": "बंद करें",
+  "Pausar": "रोकें",
+  "Picture-in-picture": "पिक्चर-इन-पिक्चर",
+  "Picture-in-picture (Ctrl+P)": "पिक्चर-इन-पिक्चर (Ctrl+P)",
+  "Voltar 10 s": "10 सेकंड पीछे",
+  "Voltar ao app": "ऐप पर वापस जाएँ"
 }

@@ -373,5 +373,15 @@
   "Nenhuma legenda encontrada para este arquivo": "Bu dosya için altyazı bulunamadı",
   "Baixando legenda…": "Altyazı indiriliyor…",
   "Não foi possível baixar a legenda": "Altyazı indirilemedi",
-  "Mostrar mais resultados": "Daha fazla sonuç göster"
+  "Mostrar mais resultados": "Daha fazla sonuç göster",
+  "Abrindo link do %1…": "%1 bağlantısı açılıyor…",
+  "Abrindo o link…": "Bağlantı açılıyor…",
+  "Procurando a melhor qualidade. Isso leva alguns segundos.": "En iyi kalite aranıyor. Bu birkaç saniye sürer.",
+  "Avançar 10 s": "10 sn ileri",
+  "Fechar": "Kapat",
+  "Pausar": "Duraklat",
+  "Picture-in-picture": "Resim içinde resim",
+  "Picture-in-picture (Ctrl+P)": "Resim içinde resim (Ctrl+P)",
+  "Voltar 10 s": "10 sn geri",
+  "Voltar ao app": "Uygulamaya dön"
 }

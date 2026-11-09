@@ -373,5 +373,15 @@
   "Nenhuma legenda encontrada para este arquivo": "Для этого файла субтитры не найдены",
   "Baixando legenda…": "Загрузка субтитров…",
   "Não foi possível baixar a legenda": "Не удалось загрузить субтитры",
-  "Mostrar mais resultados": "Показать ещё"
+  "Mostrar mais resultados": "Показать ещё",
+  "Abrindo link do %1…": "Открываем ссылку %1…",
+  "Abrindo o link…": "Открываем ссылку…",
+  "Procurando a melhor qualidade. Isso leva alguns segundos.": "Ищем лучшее качество. Это займёт несколько секунд.",
+  "Avançar 10 s": "Вперёд на 10 с",
+  "Fechar": "Закрыть",
+  "Pausar": "Пауза",
+  "Picture-in-picture": "Картинка в картинке",
+  "Picture-in-picture (Ctrl+P)": "Картинка в картинке (Ctrl+P)",
+  "Voltar 10 s": "Назад на 10 с",
+  "Voltar ao app": "Вернуться в приложение"
 }

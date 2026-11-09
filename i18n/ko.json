@@ -373,5 +373,15 @@
   "Nenhuma legenda encontrada para este arquivo": "이 파일에 맞는 자막이 없습니다",
   "Baixando legenda…": "자막 다운로드 중…",
   "Não foi possível baixar a legenda": "자막을 다운로드할 수 없습니다",
-  "Mostrar mais resultados": "결과 더 보기"
+  "Mostrar mais resultados": "결과 더 보기",
+  "Abrindo link do %1…": "%1 링크를 여는 중…",
+  "Abrindo o link…": "링크를 여는 중…",
+  "Procurando a melhor qualidade. Isso leva alguns segundos.": "최적의 화질을 찾는 중입니다. 몇 초 걸립니다.",
+  "Avançar 10 s": "10초 앞으로",
+  "Fechar": "닫기",
+  "Pausar": "일시정지",
+  "Picture-in-picture": "PIP 모드",
+  "Picture-in-picture (Ctrl+P)": "PIP 모드 (Ctrl+P)",
+  "Voltar 10 s": "10초 뒤로",
+  "Voltar ao app": "앱으로 돌아가기"
 }

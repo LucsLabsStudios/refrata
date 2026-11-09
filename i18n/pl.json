@@ -373,5 +373,15 @@
   "Nenhuma legenda encontrada para este arquivo": "Nie znaleziono napisów do tego pliku",
   "Baixando legenda…": "Pobieranie napisów…",
   "Não foi possível baixar a legenda": "Nie udało się pobrać napisów",
-  "Mostrar mais resultados": "Pokaż więcej wyników"
+  "Mostrar mais resultados": "Pokaż więcej wyników",
+  "Abrindo link do %1…": "Otwieranie linku %1…",
+  "Abrindo o link…": "Otwieranie linku…",
+  "Procurando a melhor qualidade. Isso leva alguns segundos.": "Szukamy najlepszej jakości. To potrwa kilka sekund.",
+  "Avançar 10 s": "Do przodu 10 s",
+  "Fechar": "Zamknij",
+  "Pausar": "Wstrzymaj",
+  "Picture-in-picture": "Obraz w obrazie",
+  "Picture-in-picture (Ctrl+P)": "Obraz w obrazie (Ctrl+P)",
+  "Voltar 10 s": "Wstecz 10 s",
+  "Voltar ao app": "Wróć do aplikacji"
 }

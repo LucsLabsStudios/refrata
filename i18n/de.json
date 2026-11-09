@@ -373,5 +373,15 @@
   "Nenhuma legenda encontrada para este arquivo": "Keine Untertitel für diese Datei gefunden",
   "Baixando legenda…": "Untertitel wird heruntergeladen …",
   "Não foi possível baixar a legenda": "Der Untertitel konnte nicht heruntergeladen werden",
-  "Mostrar mais resultados": "Mehr Ergebnisse anzeigen"
+  "Mostrar mais resultados": "Mehr Ergebnisse anzeigen",
+  "Abrindo link do %1…": "%1-Link wird geöffnet…",
+  "Abrindo o link…": "Link wird geöffnet…",
+  "Procurando a melhor qualidade. Isso leva alguns segundos.": "Die beste Qualität wird gesucht. Das dauert ein paar Sekunden.",
+  "Avançar 10 s": "10 s vor",
+  "Fechar": "Schließen",
+  "Pausar": "Pause",
+  "Picture-in-picture": "Bild-in-Bild",
+  "Picture-in-picture (Ctrl+P)": "Bild-in-Bild (Strg+P)",
+  "Voltar 10 s": "10 s zurück",
+  "Voltar ao app": "Zurück zur App"
 }

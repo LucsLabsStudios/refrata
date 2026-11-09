@@ -271,7 +271,7 @@ Flickable {
                         ["E", qsTr("Avançar um quadro")], ["L", qsTr("Repetir um trecho (A-B)")],
                         ["T", qsTr("Sempre no topo")], ["I", qsTr("Informações da mídia")],
                         ["R", qsTr("Girar o vídeo 90°")], ["Shift + N / P", qsTr("Próximo / anterior capítulo")],
-                        ["Ctrl + O", qsTr("Abrir arquivos")],
+                        ["Ctrl + P", qsTr("Picture-in-picture")], ["Ctrl + O", qsTr("Abrir arquivos")],
                         ["Ctrl + L", qsTr("Abrir stream de rede")], ["Esc", qsTr("Sair da tela cheia / fechar")],
                     ]
                     Row {

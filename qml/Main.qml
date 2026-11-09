@@ -312,6 +312,7 @@ Window {
         fullscreen: win.fullscreen
         onMinimize: { if (win.fullscreen) win.toggleFullscreen(); win.playerOpen = false }
         onToggleFullscreen: win.toggleFullscreen()
+        onPipRequested: win.togglePip()
         onLoadSubtitle: subDialog.open()
         alwaysOnTop: win.alwaysOnTop
         onToggleOnTop: win.alwaysOnTop = !win.alwaysOnTop
@@ -357,6 +358,7 @@ Window {
         // closing the main window closes Refrata, quick player included (no window left behind
         // holding the app open)
         if (quick.visible) quick.close()
+        if (pip.visible) pip.hide()
         Qt.callLater(Qt.quit)
     }
 
@@ -374,5 +376,40 @@ Window {
         target: quicklook
         function onPreviewRequested(path, list) { quick.open(path, list, "preview") }
     }
+    // ------------------------------------------------------------ picture-in-picture
+    property bool pipOn: false
+    function enterPip() {
+        if (pipOn || !player.hasMedia || player.castingTo !== "") return
+        if (fullscreen) toggleFullscreen()
+        pip.place()
+        pip.show()
+        pipOn = true
+        win.showMinimized()
+    }
+    function leavePip(back) {
+        if (!pipOn) return
+        pipOn = false
+        pip.hide()
+        if (back) {
+            if (player.hasMedia && !player.isAudio) win.playerOpen = true
+            if (win.visibility === Window.Minimized || win.visibility === Window.Hidden) win.showNormal()
+            appctl.activateWindow(win)
+        }
+    }
+    function togglePip() { if (pipOn) leavePip(true); else enterPip() }
+    PipWindow {
+        id: pip
+        onBackRequested: win.leavePip(true)
+        onCloseRequested: { player.pause(); win.leavePip(false) }
+    }
+    // the app came back (taskbar, Alt+Tab): the small window is not needed any more
+    onVisibilityChanged: if (pipOn && (win.visibility === Window.Windowed || win.visibility === Window.Maximized)) leavePip(true)
+    // nothing left to show (queue cleared, cast started)
+    Connections {
+        target: player
+        function onRenderersChanged() { if (player.castingTo !== "") win.leavePip(true) }
+    }
+    Shortcut { sequence: "Ctrl+P"; onActivated: win.togglePip() }
+
     Toast { id: toast; objectName: "toast" }
 }

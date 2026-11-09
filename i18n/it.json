@@ -373,5 +373,15 @@
   "Nenhuma legenda encontrada para este arquivo": "Nessun sottotitolo trovato per questo file",
   "Baixando legenda…": "Download del sottotitolo…",
   "Não foi possível baixar a legenda": "Impossibile scaricare il sottotitolo",
-  "Mostrar mais resultados": "Mostra altri risultati"
+  "Mostrar mais resultados": "Mostra altri risultati",
+  "Abrindo link do %1…": "Apertura del link di %1…",
+  "Abrindo o link…": "Apertura del link…",
+  "Procurando a melhor qualidade. Isso leva alguns segundos.": "Ricerca della qualità migliore. Ci vuole qualche secondo.",
+  "Avançar 10 s": "Avanti 10 s",
+  "Fechar": "Chiudi",
+  "Pausar": "Pausa",
+  "Picture-in-picture": "Picture-in-picture",
+  "Picture-in-picture (Ctrl+P)": "Picture-in-picture (Ctrl+P)",
+  "Voltar 10 s": "Indietro 10 s",
+  "Voltar ao app": "Torna all’app"
 }

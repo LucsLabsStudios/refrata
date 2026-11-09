@@ -107,7 +107,7 @@ passo está em [docs/SIGNING.md](docs/SIGNING.md).
 | Áudio | Volume até 150 %, mudo, equalizador de 10 bandas + pré-amp + 18 presets, normalizar volume, escolha da saída de áudio (alto-falantes, fone, HDMI) |
 | Imagem | Brilho, contraste, saturação, gama, matiz; ajustar / preencher / esticar; girar 90°, espelhar, proporção (16:9, 4:3, 21:9, 1:1), zoom, desentrelaçar |
 | Fila | A seguir (painel lateral e página), reordenar, remover, tocar em seguida, aleatório, repetir 1/todos |
-| Extras | Velocidade 0,25×–4×, timer de sono, captura de quadro, avanço quadro a quadro, continuar de onde parou, repetir um trecho (A-B), sempre no topo |
+| Extras | Velocidade 0,25×–4×, timer de sono, captura de quadro, avanço quadro a quadro, continuar de onde parou, repetir um trecho (A-B), sempre no topo, picture-in-picture (`Ctrl+P`: janelinha flutuante sempre por cima) |
 | Abertura rápida | Prévia com Espaço no Explorer e na área de trabalho (estilo QuickLook), duplo clique abre direto no player completo (ou no player rápido, se você ativar nos Ajustes), modo em segundo plano na bandeja e iniciar com o Windows |
 | Rede | Links do YouTube, Vimeo e outros sites (yt-dlp), HTTP/HLS/RTSP/RTMP/SMB… pela página Streams; transmitir para Chromecast |
 | Playlists | M3U/M3U8, PLS, XSPF |

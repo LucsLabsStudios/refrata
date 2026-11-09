@@ -373,5 +373,15 @@
   "Nenhuma legenda encontrada para este arquivo": "このファイルの字幕は見つかりませんでした",
   "Baixando legenda…": "字幕をダウンロードしています…",
   "Não foi possível baixar a legenda": "字幕をダウンロードできませんでした",
-  "Mostrar mais resultados": "さらに結果を表示"
+  "Mostrar mais resultados": "さらに結果を表示",
+  "Abrindo link do %1…": "%1 のリンクを開いています…",
+  "Abrindo o link…": "リンクを開いています…",
+  "Procurando a melhor qualidade. Isso leva alguns segundos.": "最適な画質を探しています。数秒かかります。",
+  "Avançar 10 s": "10 秒進む",
+  "Fechar": "閉じる",
+  "Pausar": "一時停止",
+  "Picture-in-picture": "ピクチャー イン ピクチャー",
+  "Picture-in-picture (Ctrl+P)": "ピクチャー イン ピクチャー (Ctrl+P)",
+  "Voltar 10 s": "10 秒戻る",
+  "Voltar ao app": "アプリに戻る"
 }

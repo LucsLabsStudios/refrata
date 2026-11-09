@@ -36,6 +36,27 @@ def is_page_url(url: str) -> bool:
     return any(host == h or host.endswith("." + h) for h in PAGE_HOSTS)
 
 
+SITE_NAMES = {
+    "youtube.com": "YouTube", "youtu.be": "YouTube", "youtube-nocookie.com": "YouTube",
+    "music.youtube.com": "YouTube Music", "vimeo.com": "Vimeo", "dailymotion.com": "Dailymotion",
+    "dai.ly": "Dailymotion", "twitch.tv": "Twitch", "soundcloud.com": "SoundCloud", "bandcamp.com": "Bandcamp",
+    "bilibili.com": "Bilibili", "tiktok.com": "TikTok", "x.com": "X", "twitter.com": "X",
+    "facebook.com": "Facebook", "fb.watch": "Facebook", "instagram.com": "Instagram", "reddit.com": "Reddit",
+    "streamable.com": "Streamable", "rumble.com": "Rumble", "odysee.com": "Odysee", "kick.com": "Kick",
+    "mixcloud.com": "Mixcloud", "ted.com": "TED", "archive.org": "Internet Archive",
+    "globoplay.globo.com": "Globoplay",
+}
+
+
+def site_name(url: str) -> str:
+    """"YouTube" for a youtube.com link; the bare host for anything else."""
+    host = (urlparse(url).hostname or "").lower()
+    for h in sorted(SITE_NAMES, key=len, reverse=True):   # music.youtube.com before youtube.com
+        if host == h or host.endswith("." + h):
+            return SITE_NAMES[h]
+    return host.removeprefix("www.")
+
+
 _cache: dict[str, dict] = {}
 
 
