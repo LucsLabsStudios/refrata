@@ -403,5 +403,15 @@
   "Restaurar os atalhos padrão": "既定のショートカットに戻す",
   "Nenhum vídeo": "動画なし",
   "Mídia do Refrata": "Refrata メディア",
-  "Player de vídeo e música sobre o motor do VLC": "VLC エンジンを使った動画・音楽プレーヤー"
+  "Player de vídeo e música sobre o motor do VLC": "VLC エンジンを使った動画・音楽プレーヤー",
+  "Mostrar na pasta": "フォルダーで表示",
+  "“Automático” segue o idioma do sistema. A troca vale na hora.": "「自動」はシステムの言語に従います。変更はすぐに反映されます。",
+  "Player padrão do sistema": "システムの既定のプレーヤー",
+  "O Refrata já abre seus vídeos e músicas com dois cliques.": "Refrata はすでにダブルクリックで動画や音楽を開きます。",
+  "Faz o Refrata aparecer em “Abrir com” e abrir vídeos e músicas com dois cliques no gerenciador de arquivos.": "Refrata を「プログラムから開く」に表示し、ファイルマネージャーでダブルクリックして動画や音楽を開けるようにします。",
+  "Um vídeo ou música aberto pelo gerenciador de arquivos começa numa janela compacta e flutuante; ⤢ leva para o app completo.": "ファイルマネージャーから開いた動画や曲は、小さなフローティングウィンドウで再生されます。⤢ でフルアプリに切り替えます。",
+  "Só vale para arquivos que o sistema abre com o Refrata (veja Player padrão do sistema, acima).": "システムが Refrata で開くファイルにだけ有効です（上の「システムの既定のプレーヤー」を参照）。",
+  "Ao fechar a janela, o Refrata fica na bandeja do sistema, e os arquivos abrem na hora.": "ウィンドウを閉じても Refrata はシステムトレイに残り、ファイルはすぐに開きます。",
+  "Iniciar com o sistema": "システムと同時に起動",
+  "Padrão do sistema": "システムの既定"
 }

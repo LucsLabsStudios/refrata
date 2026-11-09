@@ -403,5 +403,15 @@
   "Restaurar os atalhos padrão": "Ripristina le scorciatoie predefinite",
   "Nenhum vídeo": "Nessun video",
   "Mídia do Refrata": "Contenuto multimediale Refrata",
-  "Player de vídeo e música sobre o motor do VLC": "Lettore video e musicale basato sul motore di VLC"
+  "Player de vídeo e música sobre o motor do VLC": "Lettore video e musicale basato sul motore di VLC",
+  "Mostrar na pasta": "Mostra nella cartella",
+  "“Automático” segue o idioma do sistema. A troca vale na hora.": "“Automatico” segue la lingua del sistema. Il cambio è immediato.",
+  "Player padrão do sistema": "Lettore predefinito del sistema",
+  "O Refrata já abre seus vídeos e músicas com dois cliques.": "Refrata apre già video e musica con un doppio clic.",
+  "Faz o Refrata aparecer em “Abrir com” e abrir vídeos e músicas com dois cliques no gerenciador de arquivos.": "Fa comparire Refrata in “Apri con” e apre video e musica con un doppio clic nel gestore file.",
+  "Um vídeo ou música aberto pelo gerenciador de arquivos começa numa janela compacta e flutuante; ⤢ leva para o app completo.": "Un video o un brano aperto dal gestore file parte in una finestra compatta e mobile; ⤢ passa all’app completa.",
+  "Só vale para arquivos que o sistema abre com o Refrata (veja Player padrão do sistema, acima).": "Vale solo per i file che il sistema apre con Refrata (vedi Lettore predefinito del sistema, sopra).",
+  "Ao fechar a janela, o Refrata fica na bandeja do sistema, e os arquivos abrem na hora.": "Chiudendo la finestra, Refrata resta nell’area di notifica e i file si aprono subito.",
+  "Iniciar com o sistema": "Avvia con il sistema",
+  "Padrão do sistema": "Predefinito di sistema"
 }

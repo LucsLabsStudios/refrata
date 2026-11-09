@@ -22,17 +22,23 @@ def server_name(tag: str = "") -> str:
     return "Refrata-" + hashlib.sha1(who.encode("utf8")).hexdigest()[:16]
 
 
-def send_to_running(args: list[str], name: str | None = None, timeout_ms: int = 800) -> bool:
-    """True if a running instance accepted the arguments."""
+def send_to_running(args: list[str], name: str | None = None, timeout_ms: int = 800, ack_ms: int = 5000) -> bool:
+    """True if a running instance accepted the arguments.
+
+    Connecting is quick or nothing is listening (timeout_ms). Once connected, the running app may
+    be busy for a moment (loading a library, a slow disk): its answer gets ack_ms. A short wait there
+    made a second, full Refrata open while the first one was about to play the file too."""
     sock = QLocalSocket()
     sock.connectToServer(name or server_name())
     if not sock.waitForConnected(timeout_ms):
         return False
     sock.write(json.dumps({"open": args}).encode("utf8") + b"\n")
     sock.flush()
-    ok = sock.waitForBytesWritten(timeout_ms)
+    # on Unix sockets flush() usually writes everything at once, and waitForBytesWritten() then
+    # answers False (nothing left to wait for): only wait while something is still queued
+    ok = sock.bytesToWrite() == 0 or sock.waitForBytesWritten(ack_ms)
     # wait for the ack so the receiver has parsed the request before we exit
-    ok = ok and sock.waitForReadyRead(timeout_ms) and bytes(sock.readAll().data()).startswith(b"ok")
+    ok = ok and sock.waitForReadyRead(ack_ms) and bytes(sock.readAll().data()).startswith(b"ok")
     sock.disconnectFromServer()
     return bool(ok)
 

@@ -403,5 +403,15 @@
   "Restaurar os atalhos padrão": "恢复默认快捷键",
   "Nenhum vídeo": "没有视频",
   "Mídia do Refrata": "Refrata 媒体",
-  "Player de vídeo e música sobre o motor do VLC": "基于 VLC 引擎的视频和音乐播放器"
+  "Player de vídeo e música sobre o motor do VLC": "基于 VLC 引擎的视频和音乐播放器",
+  "Mostrar na pasta": "在文件夹中显示",
+  "“Automático” segue o idioma do sistema. A troca vale na hora.": "“自动”跟随系统语言。更改立即生效。",
+  "Player padrão do sistema": "系统默认播放器",
+  "O Refrata já abre seus vídeos e músicas com dois cliques.": "Refrata 已经可以双击打开你的视频和音乐。",
+  "Faz o Refrata aparecer em “Abrir com” e abrir vídeos e músicas com dois cliques no gerenciador de arquivos.": "让 Refrata 出现在“打开方式”中，并在文件管理器中双击打开视频和音乐。",
+  "Um vídeo ou música aberto pelo gerenciador de arquivos começa numa janela compacta e flutuante; ⤢ leva para o app completo.": "从文件管理器打开的视频或歌曲会在紧凑的浮动窗口中播放；⤢ 切换到完整应用。",
+  "Só vale para arquivos que o sistema abre com o Refrata (veja Player padrão do sistema, acima).": "仅对系统用 Refrata 打开的文件有效（见上方的系统默认播放器）。",
+  "Ao fechar a janela, o Refrata fica na bandeja do sistema, e os arquivos abrem na hora.": "关闭窗口后，Refrata 会留在系统托盘中，文件可以立即打开。",
+  "Iniciar com o sistema": "随系统启动",
+  "Padrão do sistema": "系统默认"
 }

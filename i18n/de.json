@@ -403,5 +403,15 @@
   "Restaurar os atalhos padrão": "Standard-Tastenkürzel wiederherstellen",
   "Nenhum vídeo": "Keine Videos",
   "Mídia do Refrata": "Refrata-Medien",
-  "Player de vídeo e música sobre o motor do VLC": "Video- und Musikplayer auf Basis der VLC-Engine"
+  "Player de vídeo e música sobre o motor do VLC": "Video- und Musikplayer auf Basis der VLC-Engine",
+  "Mostrar na pasta": "Im Ordner zeigen",
+  "“Automático” segue o idioma do sistema. A troca vale na hora.": "„Automatisch“ folgt der Systemsprache. Die Änderung gilt sofort.",
+  "Player padrão do sistema": "Standardplayer des Systems",
+  "O Refrata já abre seus vídeos e músicas com dois cliques.": "Refrata öffnet deine Videos und Musik schon per Doppelklick.",
+  "Faz o Refrata aparecer em “Abrir com” e abrir vídeos e músicas com dois cliques no gerenciador de arquivos.": "Lässt Refrata unter „Öffnen mit“ erscheinen und Videos und Musik per Doppelklick im Dateimanager öffnen.",
+  "Um vídeo ou música aberto pelo gerenciador de arquivos começa numa janela compacta e flutuante; ⤢ leva para o app completo.": "Ein im Dateimanager geöffnetes Video oder Lied startet in einem kompakten, schwebenden Fenster; ⤢ wechselt zur vollen App.",
+  "Só vale para arquivos que o sistema abre com o Refrata (veja Player padrão do sistema, acima).": "Gilt nur für Dateien, die das System mit Refrata öffnet (siehe Standardplayer des Systems oben).",
+  "Ao fechar a janela, o Refrata fica na bandeja do sistema, e os arquivos abrem na hora.": "Beim Schließen des Fensters bleibt Refrata im Infobereich, und Dateien öffnen sich sofort.",
+  "Iniciar com o sistema": "Mit dem System starten",
+  "Padrão do sistema": "Systemstandard"
 }

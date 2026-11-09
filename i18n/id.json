@@ -403,5 +403,15 @@
   "Restaurar os atalhos padrão": "Pulihkan pintasan bawaan",
   "Nenhum vídeo": "Tidak ada video",
   "Mídia do Refrata": "Media Refrata",
-  "Player de vídeo e música sobre o motor do VLC": "Pemutar video dan musik di atas mesin VLC"
+  "Player de vídeo e música sobre o motor do VLC": "Pemutar video dan musik di atas mesin VLC",
+  "Mostrar na pasta": "Tampilkan di folder",
+  "“Automático” segue o idioma do sistema. A troca vale na hora.": "“Otomatis” mengikuti bahasa sistem. Perubahan langsung berlaku.",
+  "Player padrão do sistema": "Pemutar bawaan sistem",
+  "O Refrata já abre seus vídeos e músicas com dois cliques.": "Refrata sudah membuka video dan musik Anda dengan klik dua kali.",
+  "Faz o Refrata aparecer em “Abrir com” e abrir vídeos e músicas com dois cliques no gerenciador de arquivos.": "Membuat Refrata muncul di “Buka dengan” dan membuka video serta musik dengan klik dua kali di pengelola file.",
+  "Um vídeo ou música aberto pelo gerenciador de arquivos começa numa janela compacta e flutuante; ⤢ leva para o app completo.": "Video atau lagu yang dibuka dari pengelola file dimulai di jendela kecil yang mengambang; ⤢ membawanya ke aplikasi penuh.",
+  "Só vale para arquivos que o sistema abre com o Refrata (veja Player padrão do sistema, acima).": "Hanya berlaku untuk file yang dibuka sistem dengan Refrata (lihat Pemutar bawaan sistem, di atas).",
+  "Ao fechar a janela, o Refrata fica na bandeja do sistema, e os arquivos abrem na hora.": "Saat jendela ditutup, Refrata tetap di baki sistem, dan file terbuka seketika.",
+  "Iniciar com o sistema": "Mulai bersama sistem",
+  "Padrão do sistema": "Bawaan sistem"
 }

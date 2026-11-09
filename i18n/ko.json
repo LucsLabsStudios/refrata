@@ -403,5 +403,15 @@
   "Restaurar os atalhos padrão": "기본 단축키로 되돌리기",
   "Nenhum vídeo": "동영상 없음",
   "Mídia do Refrata": "Refrata 미디어",
-  "Player de vídeo e música sobre o motor do VLC": "VLC 엔진 기반 동영상·음악 플레이어"
+  "Player de vídeo e música sobre o motor do VLC": "VLC 엔진 기반 동영상·음악 플레이어",
+  "Mostrar na pasta": "폴더에서 보기",
+  "“Automático” segue o idioma do sistema. A troca vale na hora.": "“자동”은 시스템 언어를 따릅니다. 변경 사항은 바로 적용됩니다.",
+  "Player padrão do sistema": "시스템 기본 플레이어",
+  "O Refrata já abre seus vídeos e músicas com dois cliques.": "Refrata가 이미 두 번 클릭으로 동영상과 음악을 엽니다.",
+  "Faz o Refrata aparecer em “Abrir com” e abrir vídeos e músicas com dois cliques no gerenciador de arquivos.": "Refrata가 “연결 프로그램”에 나타나고, 파일 관리자에서 두 번 클릭으로 동영상과 음악을 엽니다.",
+  "Um vídeo ou música aberto pelo gerenciador de arquivos começa numa janela compacta e flutuante; ⤢ leva para o app completo.": "파일 관리자에서 연 동영상이나 노래는 작은 플로팅 창에서 시작합니다. ⤢를 누르면 전체 앱으로 갑니다.",
+  "Só vale para arquivos que o sistema abre com o Refrata (veja Player padrão do sistema, acima).": "시스템이 Refrata로 여는 파일에만 적용됩니다(위의 시스템 기본 플레이어 참고).",
+  "Ao fechar a janela, o Refrata fica na bandeja do sistema, e os arquivos abrem na hora.": "창을 닫으면 Refrata는 시스템 트레이에 남고, 파일이 바로 열립니다.",
+  "Iniciar com o sistema": "시스템과 함께 시작",
+  "Padrão do sistema": "시스템 기본값"
 }

@@ -11,6 +11,26 @@ from .media import SUB_EXT, is_media_path
 from .playlists import is_playlist, read_playlist
 
 
+PLATFORM = "windows" if sys.platform == "win32" else "mac" if sys.platform == "darwin" else "linux"
+
+
+def _show_item_dbus(path: str) -> bool:
+    """Linux: ask the file manager (Nautilus, Dolphin, Nemo…) to open the folder with the file selected."""
+    try:
+        from PySide6.QtDBus import QDBusConnection, QDBusInterface
+        bus = QDBusConnection.sessionBus()
+        if not bus.isConnected():
+            return False
+        fm = QDBusInterface("org.freedesktop.FileManager1", "/org/freedesktop/FileManager1",
+                            "org.freedesktop.FileManager1", bus)
+        if not fm.isValid():
+            return False
+        reply = fm.call("ShowItems", [QUrl.fromLocalFile(path).toString()], "")
+        return not reply.errorMessage()
+    except Exception:
+        return False
+
+
 def force_foreground(hwnd: int):
     """SetForegroundWindow from a background app: Windows only honours it for the thread that owns
     the current foreground input, so attach to that thread's input queue for the call."""
@@ -43,6 +63,11 @@ class AppController(QObject):
     @Property("QVariantMap", notify=aboutChanged)
     def about(self):
         return self._about
+
+    @Property(str, constant=True)
+    def platform(self):
+        """windows | linux | mac: QML words things the way each system calls them."""
+        return PLATFORM
 
     def handOver(self, args: list[str]):
         """Route command-line / second-instance arguments to the UI."""
@@ -104,10 +129,18 @@ class AppController(QObject):
 
     @Slot(str)
     def reveal(self, path):
+        """Show the file selected in the system's file manager."""
         if path.startswith("file:"):
             path = QUrl(path).toLocalFile()
-        if os.path.exists(path):
+        if not os.path.exists(path):
+            return
+        if PLATFORM == "windows":
             subprocess.Popen(["explorer", "/select,", os.path.normpath(path)])
+        elif PLATFORM == "mac":
+            subprocess.Popen(["open", "-R", path])
+        elif not _show_item_dbus(path):
+            # file managers without org.freedesktop.FileManager1: at least open the folder
+            QDesktopServices.openUrl(QUrl.fromLocalFile(os.path.dirname(path)))
 
     @Slot(result=str)
     def clipboardText(self):

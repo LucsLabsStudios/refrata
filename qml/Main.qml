@@ -380,14 +380,19 @@ Window {
     }
     // ------------------------------------------------------------ picture-in-picture
     property bool pipOn: false
+    property double pipSince: 0
     function enterPip() {
         if (pipOn || !player.hasMedia || player.castingTo !== "") return
-        if (fullscreen) toggleFullscreen()
         pip.place()
         pip.show()
         pipOn = true
-        win.showMinimized()
+        pipSince = Date.now()
+        // leaving full screen finishes asynchronously: minimise once it has, or Windows' late
+        // "windowed" notice would read as "the app is back" and close the PiP right away
+        if (fullscreen) { toggleFullscreen(); pipMinimize.restart() }
+        else win.showMinimized()
     }
+    Timer { id: pipMinimize; interval: 350; onTriggered: if (win.pipOn) win.showMinimized() }
     function leavePip(back) {
         if (!pipOn) return
         pipOn = false
@@ -405,7 +410,9 @@ Window {
         onCloseRequested: { player.pause(); win.leavePip(false) }
     }
     // the app came back (taskbar, Alt+Tab): the small window is not needed any more
-    onVisibilityChanged: if (pipOn && (win.visibility === Window.Windowed || win.visibility === Window.Maximized)) leavePip(true)
+    // (ignored while the window is still settling after entering PiP)
+    onVisibilityChanged: if (pipOn && Date.now() - pipSince > 1200 && !pipMinimize.running
+                             && (win.visibility === Window.Windowed || win.visibility === Window.Maximized)) leavePip(true)
     // nothing left to show (queue cleared, cast started)
     Connections {
         target: player

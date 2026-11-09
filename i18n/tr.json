@@ -403,5 +403,15 @@
   "Restaurar os atalhos padrão": "Varsayılan kısayolları geri yükle",
   "Nenhum vídeo": "Video yok",
   "Mídia do Refrata": "Refrata medyası",
-  "Player de vídeo e música sobre o motor do VLC": "VLC motoru üzerine kurulu video ve müzik oynatıcı"
+  "Player de vídeo e música sobre o motor do VLC": "VLC motoru üzerine kurulu video ve müzik oynatıcı",
+  "Mostrar na pasta": "Klasörde göster",
+  "“Automático” segue o idioma do sistema. A troca vale na hora.": "“Otomatik” sistem dilini izler. Değişiklik hemen geçerli olur.",
+  "Player padrão do sistema": "Sistemin varsayılan oynatıcısı",
+  "O Refrata já abre seus vídeos e músicas com dois cliques.": "Refrata videolarını ve müziklerini zaten çift tıklamayla açıyor.",
+  "Faz o Refrata aparecer em “Abrir com” e abrir vídeos e músicas com dois cliques no gerenciador de arquivos.": "Refrata’nın “Birlikte aç” listesinde görünmesini ve dosya yöneticisinde çift tıklamayla video ve müzik açmasını sağlar.",
+  "Um vídeo ou música aberto pelo gerenciador de arquivos começa numa janela compacta e flutuante; ⤢ leva para o app completo.": "Dosya yöneticisinden açılan video veya şarkı küçük, yüzen bir pencerede başlar; ⤢ tam uygulamaya geçirir.",
+  "Só vale para arquivos que o sistema abre com o Refrata (veja Player padrão do sistema, acima).": "Yalnızca sistemin Refrata ile açtığı dosyalar için geçerli (yukarıdaki Sistemin varsayılan oynatıcısı bölümüne bak).",
+  "Ao fechar a janela, o Refrata fica na bandeja do sistema, e os arquivos abrem na hora.": "Pencereyi kapatınca Refrata sistem tepsisinde kalır ve dosyalar anında açılır.",
+  "Iniciar com o sistema": "Sistemle başlat",
+  "Padrão do sistema": "Sistem varsayılanı"
 }

@@ -1,0 +1,19 @@
+[package]
+name = "refrata_native"
+version = "0.1.0"
+edition = "2021"
+description = "Refrata's native helpers: the per-frame libVLC callbacks, without the Python GIL"
+license = "GPL-3.0-or-later"
+publish = false
+
+[lib]
+name = "refrata_native"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.22", features = ["extension-module", "abi3-py312"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3

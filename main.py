@@ -18,6 +18,12 @@ if __name__ == "__main__":
     # `import main` (tests) must see this very module, not a second copy
     sys.modules.setdefault("main", sys.modules[__name__])
 
+# Every video frame passes through Python twice (libVLC's decoder thread, then the UI thread). With
+# another Python thread busy (library scan, yt-dlp, thumbnails) each pass waited up to the default
+# 5 ms GIL switch interval; at 1 ms a 4K60 video under that load went from ~3 to ~20 frames a second
+# (tools/perf.py). Lower than that, the threads spend their time handing the GIL back and forth.
+sys.setswitchinterval(0.001)
+
 # --selftest must isolate the data dir before refrata.settings computes DATA_DIR
 if "--selftest" in sys.argv and not os.environ.get("REFRATA_E2E_TMP"):
     _tmp = Path(tempfile.mkdtemp(prefix="refrata_e2e_"))
@@ -68,6 +74,10 @@ _IGNORED = (
     # font fallback walking past fonts without a script (e.g. Devanagari for "हिन्दी") before it
     # reaches one that has it (Nirmala UI); the text renders with the fallback
     "OpenType support missing for",
+    # Linux machines without PipeWire, VA-API or a GPU (CI, containers, WSL): QtMultimedia (the
+    # preview window) and the GL stack say so once; playback works, it is the environment talking
+    "Couldn't load pipewire", "Couldn't resolve pipewire", "No HW decoder found", "eglSwapBuffers failed",
+    "This plugin does not support",
 )
 
 
@@ -246,7 +256,13 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
         instance.received.connect(ctl.handOver)
         instance.activateRequested.connect(lambda: QTimer.singleShot(0, lambda: root.showMain()))
     tray.showRequested.connect(lambda: QTimer.singleShot(0, lambda: root.showMain()))
-    mediakeys = MediaKeys(engine, library, app)
+    if sys.platform.startswith("linux"):
+        from refrata.mpris import Mpris   # the Linux media keys / media widget (MPRIS2 over D-Bus)
+        mediakeys = Mpris(engine, library, app)
+        mediakeys.raiseRequested.connect(lambda: QTimer.singleShot(0, lambda: root.showMain()))
+        mediakeys.openRequested.connect(ctl.handOver)
+    else:
+        mediakeys = MediaKeys(engine, library, app)
     return AppParts(app, qml, win, settings, theme, engine, library, ctl, updater, quicklook, tray, i18n, instance,
                     mediakeys, subsearch, assoc, keys)
 

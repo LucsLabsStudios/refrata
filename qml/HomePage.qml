@@ -248,7 +248,7 @@ Flickable {
                     }
                     PillButton {
                         visible: heroBox.overImage
-                        text: qsTr("Mostrar no Explorer"); icon: "folder"; variant: "glass"; h: 52; fontSize: 15
+                        text: (appctl.platform === "windows" ? qsTr("Mostrar no Explorer") : qsTr("Mostrar na pasta")); icon: "folder"; variant: "glass"; h: 52; fontSize: 15
                         onClicked: appctl.reveal(page.hero.path)
                     }
                 }
@@ -270,26 +270,32 @@ Flickable {
                 Rectangle {
                     objectName: "stat_" + index
                     width: (content.width - 60) / 4
-                    height: 128
+                    height: 112
                     radius: 28
                     color: sma.containsMouse ? theme.surface2 : theme.surface
                     border.width: 1; border.color: theme.stroke
                     Behavior on color { ColorAnimation { duration: 140; easing.type: Easing.OutCubic } }
+                    // icon, number and label side by side, centred on the card's middle line
                     Rectangle {
-                        x: 22; y: 22; width: 40; height: 40; radius: 20
+                        id: statIcon
+                        x: 22; anchors.verticalCenter: parent.verticalCenter
+                        width: 48; height: 48; radius: 24
                         color: theme.accentSoft
-                        Icon { anchors.centerIn: parent; name: modelData.icon; size: 16; color: theme.accent }
+                        Icon { anchors.centerIn: parent; name: modelData.icon; size: 20; color: theme.accent }
                     }
-                    Icon { anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 24; name: "right"; size: 12; color: theme.textFaint }
+                    Icon { id: statArrow; anchors.right: parent.right; anchors.rightMargin: 22; anchors.verticalCenter: parent.verticalCenter; name: "right"; size: 12; color: theme.textFaint }
                     Column {
-                        x: 22; anchors.bottom: parent.bottom; anchors.bottomMargin: 18
+                        anchors.left: statIcon.right; anchors.leftMargin: 16
+                        anchors.right: statArrow.left; anchors.rightMargin: 12
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 0
                         Text {
                             text: modelData.value + (library.scanning && modelData.page !== 3 ? "…" : "")
                             color: theme.text; font.family: theme.displayFont
                             font.pixelSize: 30; font.weight: Font.DemiBold
                             font.features: { "tnum": 1 }
                         }
-                        Text { text: modelData.label; color: theme.textDim; font.pixelSize: 13 }
+                        Text { width: parent.width; text: modelData.label; color: theme.textDim; font.pixelSize: 13; elide: Text.ElideRight }
                     }
                     MouseArea { id: sma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: page.jump(modelData.page) }
                 }

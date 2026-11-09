@@ -275,7 +275,7 @@ Item {
                     IconButton { objectName: "pvOnTop"; icon: "pin"; motion: "drop"; onMedia: true; size: 44; iconSize: 16; checked: pv.alwaysOnTop; tip: pv.alwaysOnTop ? qsTr("Sempre no topo: ligado (T)") : qsTr("Sempre no topo (T)"); onClicked: pv.toggleOnTop() }
                     IconButton { objectName: "pvCast"; icon: "cast"; onMedia: true; size: 44; iconSize: 16; checked: pv.panel === "cast" || player.castingTo !== ""; tip: player.castingTo ? qsTr("Transmitindo para %1").arg(player.castingTo) : qsTr("Transmitir para a TV"); onClicked: { player.startCastDiscovery(); pv.togglePanel("cast") } }
                     IconButton { objectName: "pvInfo"; icon: "info"; onMedia: true; size: 44; iconSize: 16; checked: pv.panel === "info"; tip: qsTr("Informações da mídia (I)"); onClicked: pv.togglePanel("info") }
-                    IconButton { objectName: "pvReveal"; icon: "explorer"; onMedia: true; size: 44; iconSize: 16; tip: qsTr("Mostrar no Explorer"); enabled: player.currentPath.indexOf("://") < 0; onClicked: appctl.reveal(player.currentPath) }
+                    IconButton { objectName: "pvReveal"; icon: "explorer"; onMedia: true; size: 44; iconSize: 16; tip: (appctl.platform === "windows" ? qsTr("Mostrar no Explorer") : qsTr("Mostrar na pasta")); enabled: player.currentPath.indexOf("://") < 0; onClicked: appctl.reveal(player.currentPath) }
                 }
             }
         }

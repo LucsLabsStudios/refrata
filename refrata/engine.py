@@ -9,6 +9,7 @@ from __future__ import annotations
 import ctypes
 import os
 import random
+import sys
 import threading
 import time
 from pathlib import Path
@@ -252,11 +253,14 @@ class QueueModel(QAbstractListModel):
 
 
 class DirectRenderer:
-    """libVLC decodes straight into the memory of a QVideoFrame, as NV12 (1.5 bytes per pixel,
-    vs 4 for RGB), at the video's own size up to 4K. One copy fewer than FrameRenderer (libVLC's
-    own conversion is the only one), and the RGB conversion happens on the GPU in Qt's shader.
+    """libVLC decodes straight into the memory of a QVideoFrame, in a YUV layout (1.5 bytes per
+    pixel, vs 4 for RGB), at the video's own size up to 4K; Qt's shader turns it into RGB on the GPU.
 
-    lock (decoder thread): a fresh frame is mapped and its two planes handed to libVLC.
+    The layout is the decoder's own when Qt can show it: software decoders give I420 (three
+    planes), and asking for NV12 made libVLC repack every picture on the CPU (its i420_nv12
+    filter, ~750 MB/s at 4K60). Anything else (10-bit, 4:2:2, hardware surfaces) goes to NV12.
+
+    lock (decoder thread): a fresh frame is mapped and its planes handed to libVLC.
     display: the frame is unmapped and passed on (on_frame may drop it if the UI is busy).
     """
 
@@ -267,6 +271,8 @@ class DirectRenderer:
         self._on_frame = on_frame
         self.width = self.height = 0
         self._fmt: QVideoFrameFormat | None = None
+        self._planes = 2
+        self.chroma = ""          # what libVLC writes: "I420" or "NV12"
         self._pending: dict[int, QVideoFrame] = {}
         self._lock = threading.Lock()
         self._next = 1
@@ -292,23 +298,30 @@ class DirectRenderer:
                 k = min(self.MAX_W / w, self.MAX_H / h)
                 w, h = int(w * k), int(h * k)
             w, h = max(2, w & ~1), max(2, h & ~1)
-            fmt = QVideoFrameFormat(QSize(w, h), QVideoFrameFormat.PixelFormat.Format_NV12)
+            src = bytes(chroma[0:4])
+            three = src in (b"I420", b"J420")   # J420: the same planes, full-range levels
+            fmt = QVideoFrameFormat(QSize(w, h), QVideoFrameFormat.PixelFormat.Format_YUV420P if three
+                                    else QVideoFrameFormat.PixelFormat.Format_NV12)
             # HD and up is BT.709, SD is BT.601 (what the encoders write when the stream says nothing)
             fmt.setColorSpace(QVideoFrameFormat.ColorSpace.ColorSpace_BT709 if h >= 720
                               else QVideoFrameFormat.ColorSpace.ColorSpace_BT601)
-            fmt.setColorRange(QVideoFrameFormat.ColorRange.ColorRange_Video)
+            fmt.setColorRange(QVideoFrameFormat.ColorRange.ColorRange_Full if src == b"J420"
+                              else QVideoFrameFormat.ColorRange.ColorRange_Video)
             # libVLC writes with the pitches it is given: use the ones Qt allocates
             probe = QVideoFrame(fmt)
             if not probe.map(QVideoFrame.MapMode.WriteOnly):
                 return 0
-            p0, p1 = probe.bytesPerLine(0), probe.bytesPerLine(1)
+            n = 3 if three else 2
+            bpl = [probe.bytesPerLine(i) for i in range(n)]
             probe.unmap()
-            ctypes.memmove(chroma, b"NV12", 4)
+            ctypes.memmove(chroma, src if three else b"NV12", 4)
             width[0], height[0] = w, h
-            pitches[0], pitches[1] = p0, p1
-            lines[0], lines[1] = h, h // 2
+            for i in range(n):
+                pitches[i] = bpl[i]
+                lines[i] = h if i == 0 else h // 2
             with self._lock:
-                self.width, self.height, self._fmt = w, h, fmt
+                self.width, self.height, self._fmt, self._planes = w, h, fmt, n
+                self.chroma = (src if three else b"NV12").decode()
                 self._pending.clear()
             return 1
         except Exception as exc:
@@ -328,14 +341,14 @@ class DirectRenderer:
 
     def _cb_lock(self, opaque, planes):
         with self._lock:
-            fmt = self._fmt
+            fmt, n = self._fmt, self._planes
             key = self._next
             self._next += 1
         frame = QVideoFrame(fmt)
         if not frame.map(QVideoFrame.MapMode.WriteOnly):
             return None
-        planes[0] = ctypes.addressof(ctypes.c_char.from_buffer(frame.bits(0)))
-        planes[1] = ctypes.addressof(ctypes.c_char.from_buffer(frame.bits(1)))
+        for i in range(n):
+            planes[i] = ctypes.addressof(ctypes.c_char.from_buffer(frame.bits(i)))
         with self._lock:
             self._pending[key] = frame
             # late pictures are unlocked but never displayed: forget the oldest ones
@@ -358,6 +371,121 @@ class DirectRenderer:
             self._on_frame(frame)
         except Exception as exc:  # never let exceptions cross into libVLC
             print("frame error:", exc)
+
+
+class NativeRenderer(DirectRenderer):
+    """DirectRenderer's frames, with the per-picture work in Rust (native/, module refrata_native).
+
+    libVLC called lock / unlock / display in Python for every picture, from its decoder thread:
+    each call waited for the GIL, so a busy interpreter could hold up decoding. Here those three
+    callbacks are Rust functions working on a pool of frames this class prepares. The UI thread
+    hears about finished pictures through a socket (QSocketNotifier), shows them and refills the
+    pool. The format callback (once per file) stays in Python.
+    """
+
+    POOL = 6               # mapped frames libVLC can decode into
+    RECLAIM_MS = 3000      # a picture unlocked this long ago and never shown was dropped as late
+
+    def __init__(self, player: vlc.MediaPlayer, on_frame):
+        import itertools
+        import socket
+        from PySide6.QtCore import QSocketNotifier
+        from refrata_native import FramePool
+        self._player = player
+        self._on_frame = on_frame
+        self.width = self.height = 0
+        self._fmt: QVideoFrameFormat | None = None
+        self._planes = 2
+        self.chroma = ""
+        self._lock = threading.Lock()
+        self._frames: dict[int, QVideoFrame] = {}   # id -> mapped frame the pool knows
+        self._pending: dict = {}                       # (DirectRenderer's setup clears it)
+        self._ids = itertools.count(1)
+        self._rd, self._wr = socket.socketpair()
+        self._rd.setblocking(False)
+        self._pool = FramePool(self._wr.fileno())
+        self._notifier = QSocketNotifier(self._rd.fileno(), QSocketNotifier.Type.Read)
+        self._notifier.activated.connect(self._on_ready)
+        lock, unlock, display, opaque = self._pool.callbacks()
+        # keep the ctypes wrappers alive as long as the player can call them
+        self._lockcb, self._unlock, self._display = LOCK_CB(lock), UNLOCK_CB(unlock), DISPLAY_CB(display)
+        self._setup = SETUP_CB(self._cb_native_setup)
+        self._cleanup = CLEANUP_CB(lambda opaque: None)
+        _set_cbs(player._as_parameter_, self._lockcb, self._unlock, self._display, ctypes.c_void_p(opaque))
+        _set_format_cbs(player._as_parameter_, self._setup, self._cleanup)
+
+    def _new_frame(self):
+        """A mapped frame of the current format, given to the pool (call with self._lock held)."""
+        if self._fmt is None:
+            return
+        frame = QVideoFrame(self._fmt)
+        if not frame.map(QVideoFrame.MapMode.WriteOnly):
+            return
+        fid = next(self._ids)
+        planes = [ctypes.addressof(ctypes.c_char.from_buffer(frame.bits(i))) for i in range(self._planes)]
+        self._frames[fid] = frame
+        self._pool.give(fid, planes)
+
+    def _cb_native_setup(self, opaque, chroma, width, height, pitches, lines):
+        ok = DirectRenderer._cb_setup(self, opaque, chroma, width, height, pitches, lines)
+        if not ok:
+            return ok
+        try:
+            sizes = [int(pitches[i]) * int(lines[i]) for i in range(self._planes)]
+            with self._lock:
+                for fid in self._pool.configure(sizes):   # frames of the old format
+                    self._frames.pop(fid, None)
+                for _ in range(self.POOL):
+                    self._new_frame()
+            return 1
+        except Exception as exc:
+            print("native video setup error:", exc)
+            return 0
+
+    def set_visible(self, w, h):
+        DirectRenderer.set_visible(self, w, h)   # new frames get the viewport; the pool refills with them
+
+    def _on_ready(self):
+        try:
+            while self._rd.recv(4096):
+                pass
+        except (BlockingIOError, InterruptedError):
+            pass
+        except OSError:
+            return
+        with self._lock:
+            done = [(fid, self._frames.pop(fid, None)) for fid in self._pool.take()]
+            lost = self._pool.reclaim(self.RECLAIM_MS)
+            for fid in lost:
+                self._frames.pop(fid, None)
+            for _ in range(len(done) + len(lost)):
+                self._new_frame()
+        for _fid, frame in done:
+            if frame is None:
+                continue
+            frame.unmap()
+            try:
+                self._on_frame(frame)
+            except Exception as exc:
+                print("frame error:", exc)
+
+    def stats(self):
+        return self._pool.stats()
+
+
+def make_renderer(player, on_frame):
+    """Python's frame path, or the Rust one with REFRATA_NATIVE=1 (experimental: the UI thread still
+    needs Python for every frame, so it does not beat the Python path yet; it becomes useful once
+    frames go from Rust straight to Qt, see docs/ROTEIRO-DESEMPENHO-E-PLATAFORMAS.md)."""
+    if os.environ.get("REFRATA_NATIVE") == "1":
+        try:
+            import refrata_native  # noqa: F401
+            return NativeRenderer(player, on_frame)
+        except ImportError:
+            pass
+        except Exception as exc:
+            print("native frame path unavailable:", exc)
+    return DirectRenderer(player, on_frame)
 
 
 class Engine(QObject):
@@ -456,6 +584,8 @@ class Engine(QObject):
         self._eq_bands = [0.0] * vlc.libvlc_audio_equalizer_get_band_count()
         self._eq_preamp = 0.0
 
+        self._audio_off = False
+        self._audio_dirty = True
         self._poll = QTimer(self)
         self._poll.setInterval(self.POLL_FAST)
         self._poll.timeout.connect(self._tick)
@@ -503,7 +633,7 @@ class Engine(QObject):
             print("libVLC refused", self._vlc_args)
             self._vlc = vlc.Instance(["--quiet", "--verbose=-1", "--no-video-title-show", "--no-osd"])
         self._mp: vlc.MediaPlayer = self._vlc.media_player_new()
-        self._renderer = DirectRenderer(self._mp, self._on_vlc_frame)
+        self._renderer = make_renderer(self._mp, self._on_vlc_frame)
         em = self._mp.event_manager()
         em.event_attach(vlc.EventType.MediaPlayerEndReached, lambda e: self._endReached.emit())
         em.event_attach(vlc.EventType.MediaPlayerEncounteredError, lambda e: self._errorReached.emit())
@@ -625,7 +755,7 @@ class Engine(QObject):
         self.devicesChanged.emit()
 
     def _enum_devices(self) -> list[dict]:
-        out = [{"id": "", "name": tr("Padrão do Windows")}]
+        out = [{"id": "", "name": tr("Padrão do Windows") if sys.platform == "win32" else tr("Padrão do sistema")}]
         head = None
         try:
             head = self._mp.audio_output_device_enum()
@@ -1190,6 +1320,7 @@ class Engine(QObject):
 
     def _play_index(self, index):
         self._wake()
+        self._audio_off = False   # "Desativado" was for the previous item
         self._save_resume()
         self._index = index
         self._error_handled = False
@@ -1228,6 +1359,11 @@ class Engine(QObject):
         for uri in self._ext_subs.get(e["path"], []):
             media.slaves_add(vlc.MediaSlaveType.subtitle, 4, uri)   # 4 = highest priority
         casting = self._cast_ptr is not None
+        # libVLC 3 switches hardware decoding off for apps that take the pictures through callbacks
+        # (as this one does) by setting the player's avcodec-hw to "none"; a per-media option wins
+        # over it. The GPU then decodes and libVLC copies the picture back: ~70% less CPU at 4K60.
+        if self._settings.value("hwdec", True) and not casting:
+            media.add_option(":avcodec-hw=any")
         if not casting:
             self._mp.set_media(media)
             media.release()   # the player holds its own reference
@@ -1288,7 +1424,7 @@ class Engine(QObject):
     def _start_playback(self):
         self._wake()
         self._mp.play()
-        self._mp.audio_set_volume(self._volume)
+        self._audio_dirty = True   # applied by _tick once the audio output is up
         self._mp.set_rate(self._rate)
         if self._eq_enabled:
             self._mp.set_equalizer(self._eq)
@@ -1502,8 +1638,12 @@ class Engine(QObject):
         if new_state == "playing":
             self._consecutive_errors = 0
         if new_state != self._state:
+            if new_state == "playing":
+                self._audio_dirty = True   # a new track may bring a new audio output
             self._state = new_state
             self.stateChanged.emit()
+        if self._audio_dirty and new_state in ("playing", "paused"):
+            self._apply_volume()
         if new_state in ("playing", "paused", "loading"):
             t, ln = max(0, self._mp.get_time()), max(0, self._mp.get_length())
             if t != self._time or ln != self._length:
@@ -1677,7 +1817,7 @@ class Engine(QObject):
 
     @Property(int, notify=tracksChanged)
     def audioTrack(self):
-        return self._mp.audio_get_track()
+        return -1 if self._audio_off else self._mp.audio_get_track()
 
     @Property(int, notify=tracksChanged)
     def subtitleTrack(self):
@@ -1685,7 +1825,16 @@ class Engine(QObject):
 
     @Slot(int)
     def setAudioTrack(self, tid):
-        self._mp.audio_set_track(tid)
+        """Faixas › Desativado silences the audio but keeps its stream selected. Deselecting it in
+        libVLC 3 broke links whose audio is a separate stream (YouTube): the clock fell back to 0
+        while it was off, and the track chosen again stayed silent until the next seek."""
+        if tid == -1:
+            self._audio_off = True
+        else:
+            self._audio_off = False
+            if tid != self._mp.audio_get_track():
+                self._mp.audio_set_track(tid)
+        self._apply_volume()
         self.tracksChanged.emit()
 
     @Slot(int)
@@ -1730,14 +1879,22 @@ class Engine(QObject):
     def _get_volume(self):
         return self._volume
 
+    def _apply_volume(self):
+        """Volume and mute reach libVLC through one call, and only while the audio output is settled
+        (playing or paused). libVLC 3 could crash in audio_set_mute / audio_set_volume while a track
+        switch was replacing its audio output; a change made then waits for _tick. Mute is volume 0."""
+        self._audio_dirty = True
+        if self._state in ("playing", "paused") and not self._switching:
+            self._audio_dirty = False
+            self._mp.audio_set_volume(0 if self._muted or self._audio_off else self._volume)
+
     def _set_volume(self, v):
         v = max(0, min(150, int(v)))
         if v != self._volume:
             self._volume = v
-            self._mp.audio_set_volume(v)
             if self._muted and v > 0:
                 self._muted = False
-                self._mp.audio_set_mute(False)
+            self._apply_volume()
             self._settings.setValue("volume", v)
             self.volumeChanged.emit()
 
@@ -1750,7 +1907,7 @@ class Engine(QObject):
     @Slot()
     def toggleMute(self):
         self._muted = not self._muted
-        self._mp.audio_set_mute(self._muted)
+        self._apply_volume()
         self.volumeChanged.emit()
 
     # rate ----------------------------------------------------------------
@@ -1932,6 +2089,12 @@ class Engine(QObject):
             print("cast discovery shutdown:", exc)
         # the app is leaving: a libVLC fault here (it can hit one after Windows invalidates the
         # audio device) must not cut the rest of the shutdown short
+        if sys.platform != "win32":
+            # libVLC 3 on Linux aborts in glibc (__pthread_tpp_change_priority) while its threads
+            # are stopped at exit; settings and the resume point are saved already and the process
+            # leaves right after (main.hard_exit), so the system reclaims everything instead
+            self._mp.set_pause(1)
+            return
         try:
             self._mp.stop()
             self._mp.release()

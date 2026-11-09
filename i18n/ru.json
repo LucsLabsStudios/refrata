@@ -403,5 +403,15 @@
   "Restaurar os atalhos padrão": "Вернуть стандартные сочетания",
   "Nenhum vídeo": "Нет видео",
   "Mídia do Refrata": "Медиафайл Refrata",
-  "Player de vídeo e música sobre o motor do VLC": "Видео- и аудиоплеер на движке VLC"
+  "Player de vídeo e música sobre o motor do VLC": "Видео- и аудиоплеер на движке VLC",
+  "Mostrar na pasta": "Показать в папке",
+  "“Automático” segue o idioma do sistema. A troca vale na hora.": "«Автоматически» — язык системы. Изменение применяется сразу.",
+  "Player padrão do sistema": "Проигрыватель системы по умолчанию",
+  "O Refrata já abre seus vídeos e músicas com dois cliques.": "Refrata уже открывает видео и музыку двойным щелчком.",
+  "Faz o Refrata aparecer em “Abrir com” e abrir vídeos e músicas com dois cliques no gerenciador de arquivos.": "Refrata появится в меню «Открыть с помощью» и будет открывать видео и музыку двойным щелчком в файловом менеджере.",
+  "Um vídeo ou música aberto pelo gerenciador de arquivos começa numa janela compacta e flutuante; ⤢ leva para o app completo.": "Видео или песня из файлового менеджера открываются в компактном плавающем окне; ⤢ — в полном приложении.",
+  "Só vale para arquivos que o sistema abre com o Refrata (veja Player padrão do sistema, acima).": "Действует только для файлов, которые система открывает в Refrata (см. «Проигрыватель системы по умолчанию» выше).",
+  "Ao fechar a janela, o Refrata fica na bandeja do sistema, e os arquivos abrem na hora.": "При закрытии окна Refrata остаётся в системном трее, и файлы открываются мгновенно.",
+  "Iniciar com o sistema": "Запускать вместе с системой",
+  "Padrão do sistema": "По умолчанию в системе"
 }

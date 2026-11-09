@@ -39,6 +39,26 @@ def exts() -> list[str]:
     return sorted(set(VIDEO_EXT) | set(AUDIO_EXT) | set(PLAYLIST_EXT))
 
 
+def mime_types() -> list[str]:
+    """Linux: the MIME types for those extensions (from the shared MIME database Qt reads)."""
+    from PySide6.QtCore import QMimeDatabase
+    db = QMimeDatabase()
+    out = []
+    for e in exts():
+        m = db.mimeTypeForFile("x" + e, QMimeDatabase.MatchMode.MatchExtension)
+        if m.isValid() and m.name() not in ("application/octet-stream", "text/plain") and m.name() not in out:
+            out.append(m.name())
+    return out
+
+
+def _linux_apps_dir() -> Path:
+    base = os.environ.get("REFRATA_E2E_TMP") or os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
+    return Path(base) / "applications"
+
+
+DESKTOP_ID = "refrata.desktop"
+
+
 def _exe() -> str | None:
     if getattr(sys, "frozen", False):
         return sys.executable
@@ -82,6 +102,11 @@ class Associations(QObject):
             self.changed.emit()
 
     def _read_state(self) -> tuple[bool, bool]:
+        if sys.platform == "linux":
+            entry = _linux_apps_dir() / DESKTOP_ID
+            registered = entry.exists()
+            default = registered and _xdg_default("video/mp4") == DESKTOP_ID
+            return registered, default
         if sys.platform != "win32":
             return False, False
         import winreg
@@ -101,7 +126,7 @@ class Associations(QObject):
     @Property(bool, notify=changed)
     def available(self):
         """Only a real Refrata.exe can be registered (not python.exe running the source tree)."""
-        return sys.platform == "win32" and _exe() is not None
+        return sys.platform in ("win32", "linux") and _exe() is not None
 
     @Property(bool, notify=changed)
     def registered(self):
@@ -115,6 +140,8 @@ class Associations(QObject):
     @Slot(result=bool)
     def register(self) -> bool:
         exe = _exe()
+        if sys.platform == "linux" and exe:
+            return self._register_linux(exe)
         if sys.platform != "win32" or not exe:
             return False
         import winreg
@@ -152,11 +179,40 @@ class Associations(QObject):
         self.changed.emit()
         return True
 
+    def _register_linux(self, exe: str) -> bool:
+        """~/.local/share/applications/refrata.desktop with the MIME types; "Abrir com" in every
+        file manager reads it. Making it the default (xdg-mime) is the button's second step."""
+        from .tray import _desktop_entry
+        from .vlcpath import app_root
+        d = _linux_apps_dir()
+        icons = d.parent / "icons" / "hicolor" / "256x256" / "apps"
+        try:
+            d.mkdir(parents=True, exist_ok=True)
+            icons.mkdir(parents=True, exist_ok=True)
+            (icons / "refrata.png").write_bytes((app_root() / "assets" / "brand" / "icon-256.png").read_bytes())
+            (d / DESKTOP_ID).write_text(_desktop_entry(exe), encoding="utf8")
+        except OSError as exc:
+            print("desktop entry not written:", exc)
+            return False
+        if not _testing():
+            import subprocess
+            subprocess.run(["update-desktop-database", str(d)], capture_output=True, check=False)
+        self.refresh()
+        self.changed.emit()
+        return True
+
     @Slot()
     def openDefaults(self):
-        """Register if needed, then open Windows' Apps padrão on Refrata's page."""
+        """Register if needed, then let the user choose: Windows' Apps padrão page; on Linux,
+        xdg-mime makes Refrata the default for its video and audio types right away."""
         if not self._registered:
             self.register()
+        if sys.platform == "linux":
+            if not _testing():
+                import subprocess
+                subprocess.run(["xdg-mime", "default", DESKTOP_ID, *mime_types()], capture_output=True, check=False)
+            self.refresh()
+            return
         if not _testing():
             QDesktopServices.openUrl(QUrl("ms-settings:defaultapps?registeredAppUser=Refrata"))
 
@@ -171,6 +227,15 @@ class Associations(QObject):
         old = _command_exe(cmd)
         if old and os.path.normcase(old) != os.path.normcase(exe) and not Path(old).is_file():
             self.register()
+
+
+def _xdg_default(mime: str) -> str:
+    import shutil
+    import subprocess
+    if not shutil.which("xdg-mime"):
+        return ""
+    r = subprocess.run(["xdg-mime", "query", "default", mime], capture_output=True, text=True, check=False)
+    return r.stdout.strip()
 
 
 def clear_test_keys():

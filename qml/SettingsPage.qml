@@ -88,7 +88,7 @@ Flickable {
             title: qsTr("Idioma")
             SettingRow {
                 title: qsTr("Idioma do app")
-                desc: qsTr("“Automático” segue o idioma do Windows. A troca vale na hora.")
+                desc: (appctl.platform === "windows" ? qsTr("“Automático” segue o idioma do Windows. A troca vale na hora.") : qsTr("“Automático” segue o idioma do sistema. A troca vale na hora."))
             }
             Flow {
                 width: parent.width
@@ -194,36 +194,44 @@ Flickable {
             SettingRow {
                 objectName: "defaultAppRow"
                 visible: winassoc.available && updater.kind !== "store"
-                title: qsTr("Player padrão do Windows")
-                desc: winassoc.isDefault ? qsTr("O duplo clique num vídeo no Explorer já abre o Refrata.")
+                title: appctl.platform === "windows" ? qsTr("Player padrão do Windows") : qsTr("Player padrão do sistema")
+                desc: appctl.platform === "windows" ? (winassoc.isDefault ? qsTr("O duplo clique num vídeo no Explorer já abre o Refrata.")
                     : winassoc.registered ? qsTr("Para o duplo clique no Explorer abrir o Refrata, escolha-o como app padrão nas configurações do Windows.")
-                    : qsTr("Esta cópia portátil ainda não aparece no “Abrir com” do Windows. O botão a registra para o seu usuário e abre as configurações para você escolher o Refrata como padrão.")
+                    : qsTr("Esta cópia portátil ainda não aparece no “Abrir com” do Windows. O botão a registra para o seu usuário e abre as configurações para você escolher o Refrata como padrão."))
+                    : winassoc.isDefault ? qsTr("O Refrata já abre seus vídeos e músicas com dois cliques.")
+                    : qsTr("Faz o Refrata aparecer em “Abrir com” e abrir vídeos e músicas com dois cliques no gerenciador de arquivos.")
                 PillButton {
                     objectName: "defaultAppBtn"
+                    visible: appctl.platform === "windows" || !winassoc.isDefault
                     text: winassoc.isDefault ? qsTr("Configurações") : qsTr("Tornar padrão")
                     variant: winassoc.isDefault ? "outline" : "filled"
                     onClicked: winassoc.openDefaults()
                 }
             }
             SettingRow {
+                visible: appctl.platform === "windows"   // an Explorer feature
                 title: qsTr("Prévia com Espaço no Explorer")
                 desc: qsTr("Selecione um vídeo ou música no Explorer ou na área de trabalho e aperte Espaço. Espaço ou Esc fecha; ← → passa pelos arquivos da pasta.")
                 Toggle { objectName: "toggleQuickLook"; checked: quicklook.enabled; onToggled: (on) => quicklook.enabled = on }
             }
             SettingRow {
                 title: qsTr("Abrir arquivos no player rápido")
-                desc: qsTr("Um vídeo ou música aberto pelo Explorer começa numa janela compacta e flutuante; ⤢ leva para o app completo.")
-                      + (settings.quickOpen && winassoc.available && !winassoc.isDefault ? " " + qsTr("Só vale para arquivos que o Windows abre com o Refrata (veja Player padrão do Windows, acima).") : "")
+                desc: (appctl.platform === "windows" ? qsTr("Um vídeo ou música aberto pelo Explorer começa numa janela compacta e flutuante; ⤢ leva para o app completo.")
+                              : qsTr("Um vídeo ou música aberto pelo gerenciador de arquivos começa numa janela compacta e flutuante; ⤢ leva para o app completo."))
+                      + (settings.quickOpen && winassoc.available && !winassoc.isDefault ? " " + (appctl.platform === "windows"
+                         ? qsTr("Só vale para arquivos que o Windows abre com o Refrata (veja Player padrão do Windows, acima).")
+                         : qsTr("Só vale para arquivos que o sistema abre com o Refrata (veja Player padrão do sistema, acima).")) : "")
                 Toggle { objectName: "toggleQuickOpen"; checked: settings.quickOpen; onToggled: (on) => settings.quickOpen = on }
             }
             SettingRow {
                 title: qsTr("Manter em segundo plano")
-                desc: qsTr("Ao fechar a janela, o Refrata fica na bandeja do Windows, e a prévia e os arquivos abrem na hora.")
+                desc: appctl.platform === "windows" ? qsTr("Ao fechar a janela, o Refrata fica na bandeja do Windows, e a prévia e os arquivos abrem na hora.")
+                    : qsTr("Ao fechar a janela, o Refrata fica na bandeja do sistema, e os arquivos abrem na hora.")
                 Toggle { objectName: "toggleBackground"; checked: tray.background; onToggled: (on) => tray.background = on }
             }
             SettingRow {
                 visible: tray.canAutostart
-                title: qsTr("Iniciar com o Windows")
+                title: appctl.platform === "windows" ? qsTr("Iniciar com o Windows") : qsTr("Iniciar com o sistema")
                 desc: qsTr("Começa discretamente na bandeja ao ligar o computador.")
                 Toggle { objectName: "toggleAutostart"; checked: tray.autostart; onToggled: (on) => tray.autostart = on }
             }

@@ -30,3 +30,6 @@ venv/
 .idea/
 Thumbs.db
 desktop.ini
+
+# Rust (native/)
+native/target/

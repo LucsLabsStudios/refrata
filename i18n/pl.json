@@ -403,5 +403,15 @@
   "Restaurar os atalhos padrão": "Przywróć domyślne skróty",
   "Nenhum vídeo": "Brak filmów",
   "Mídia do Refrata": "Multimedia Refrata",
-  "Player de vídeo e música sobre o motor do VLC": "Odtwarzacz wideo i muzyki oparty na silniku VLC"
+  "Player de vídeo e música sobre o motor do VLC": "Odtwarzacz wideo i muzyki oparty na silniku VLC",
+  "Mostrar na pasta": "Pokaż w folderze",
+  "“Automático” segue o idioma do sistema. A troca vale na hora.": "„Automatycznie” to język systemu. Zmiana działa od razu.",
+  "Player padrão do sistema": "Domyślny odtwarzacz systemu",
+  "O Refrata já abre seus vídeos e músicas com dois cliques.": "Refrata już otwiera Twoje filmy i muzykę dwuklikiem.",
+  "Faz o Refrata aparecer em “Abrir com” e abrir vídeos e músicas com dois cliques no gerenciador de arquivos.": "Refrata pojawi się w „Otwórz za pomocą” i będzie otwierać filmy i muzykę dwuklikiem w menedżerze plików.",
+  "Um vídeo ou música aberto pelo gerenciador de arquivos começa numa janela compacta e flutuante; ⤢ leva para o app completo.": "Film lub utwór otwarty z menedżera plików startuje w małym, pływającym oknie; ⤢ przenosi do pełnej aplikacji.",
+  "Só vale para arquivos que o sistema abre com o Refrata (veja Player padrão do sistema, acima).": "Dotyczy tylko plików, które system otwiera w Refrata (zobacz Domyślny odtwarzacz systemu, wyżej).",
+  "Ao fechar a janela, o Refrata fica na bandeja do sistema, e os arquivos abrem na hora.": "Po zamknięciu okna Refrata zostaje w zasobniku systemowym, a pliki otwierają się od razu.",
+  "Iniciar com o sistema": "Uruchamiaj z systemem",
+  "Padrão do sistema": "Domyślne systemowe"
 }

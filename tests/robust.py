@@ -1062,6 +1062,52 @@ def feature_web_links_flow():
     check(e.currentPath.endswith("Tom B 660.wav") and e.state == "playing", "a late lookup does not take over")
 
 
+def _decoded_audio(e, field="played_abuffers") -> int:
+    """libVLC's count of audio blocks for the current media (played by the output, by default)."""
+    import vlc
+    m = e._mp.get_media()
+    if m is None:
+        return 0
+    try:
+        st = vlc.MediaStats()
+        m.get_stats(st)
+        return int(getattr(st, field))
+    finally:
+        m.release()
+
+
+@scenario(timeout=60)
+def feature_audio_track_off_and_back():
+    """A YouTube link (video and audio in separate streams): Faixas › Desativado, then Trilha 1.
+    The sound must come back right away; in 1.4.3 it only came back after a seek."""
+    from refrata import websites
+    base = _local_http()
+    websites.resolve = lambda url: {"title": "Video do site", "video": f"{base}/media/Filmes/Segundo%20Video.mkv",
+                                    "audio": f"{base}/extras/tone_alt.wav", "headers": {}, "duration": 30000,
+                                    "thumbnail": "", "live": False, "at": time.time()}
+    e = eng()
+    e.openFiles(["https://www.youtube.com/watch?v=faixas"])
+    wait(lambda: e.state == "playing" and e._frames_seen > 2, 15, "the link plays")
+    wait(lambda: len(e.audioTracks) >= 2, 6, "audio tracks listed")
+    pump(1.0)
+    on = [t for t in e.audioTracks if t["id"] != -1][0]["id"]
+    check(_decoded_audio(e) > 0, "audio is decoded")
+    e.setAudioTrack(-1)
+    pump(1.0)
+    off = _decoded_audio(e)
+    pump(1.0)
+    check(e.audioTrack == -1 and e._mp.audio_get_volume() == 0, "Desativado silences the audio and shows it off",
+          f"track {e.audioTrack} volume {e._mp.audio_get_volume()}")
+    t0 = e.time
+    e.setAudioTrack(on)
+    before = _decoded_audio(e)
+    lost = _decoded_audio(e, "lost_abuffers")
+    pump(2.0)
+    check(_decoded_audio(e) > before + 20, "Trilha 1 brings the sound back without a seek",
+          f"played {before} -> {_decoded_audio(e)}, lost {lost} -> {_decoded_audio(e, 'lost_abuffers')}")
+    check(e.time >= t0, "the video keeps its place", f"{t0} -> {e.time}")
+
+
 @scenario(timeout=90)
 def feature_ytdlp_self_update():
     """yt-dlp updates itself from PyPI (a local stand-in here): a bad checksum is refused, a link
@@ -1207,6 +1253,10 @@ def feature_picture_in_picture():
     pump(0.8)
     check(pip.isVisible() and w.property("pipOn"), "the PiP button opens it")
     check(pip.flags() & Qt.WindowType.WindowStaysOnTopHint, "PiP stays on top")
+    check(pip.transientParent() is None, "PiP is not owned by the main window (minimising it would hide the PiP)")
+    if sys.platform == "win32":
+        import ctypes
+        check(ctypes.windll.user32.IsWindowVisible(int(pip.winId())), "the PiP window is really on screen")
     check(w.visibility() == QWindow.Visibility.Minimized, "the app is minimised", str(w.visibility()))
     t0 = e.time
     sink = pip.findChild(QObject, "pipVideo").property("videoSink")
@@ -1234,10 +1284,35 @@ def feature_picture_in_picture():
     pip.findChild(QObject, "pipClose").clicked.emit()
     pump(0.5)
     check(not pip.isVisible() and not e.playing, "close pauses and hides PiP")
-    # the app restored from the taskbar while PiP is up: PiP goes away by itself
+    # from full screen and from a maximised window: leaving full screen is asynchronous, and its late
+    # "windowed" notice used to close the PiP a moment after it opened (seen in 1.4.3)
     e.togglePlay()
+    for start in ("fullscreen", "maximized"):
+        if start == "fullscreen":
+            QMetaObject.invokeMethod(w, "toggleFullscreen")
+        else:
+            w.showMaximized()
+        pump(1.0)
+        QMetaObject.invokeMethod(w, "togglePip")
+        pump(2.5)
+        check(pip.isVisible() and w.property("pipOn"), f"PiP stays open when entered from {start}",
+              f"pip={pip.isVisible()} visibility={w.visibility()}")
+        if sys.platform == "win32":   # what is really on screen (Qt keeps saying "visible" for an owned window)
+            import ctypes
+            hwnd = int(pip.winId())
+            check(ctypes.windll.user32.IsWindowVisible(hwnd) and not ctypes.windll.user32.IsIconic(hwnd),
+                  f"the PiP window is really on screen ({start})")
+        check(w.visibility() == QWindow.Visibility.Minimized, f"the app is minimised ({start})", str(w.visibility()))
+        pip.findChild(QObject, "pipBack").clicked.emit()
+        pump(1.0)
+        check(not pip.isVisible(), f"back to the app ({start})")
+        if w.property("fullscreen"):
+            QMetaObject.invokeMethod(w, "toggleFullscreen")
+        w.showNormal()
+        pump(0.6)
+    # the app restored from the taskbar while PiP is up: PiP goes away by itself
     QMetaObject.invokeMethod(w, "togglePip")
-    pump(0.8)
+    pump(1.6)
     w.showNormal()
     pump(0.8)
     check(not pip.isVisible() and not w.property("pipOn"), "restoring the app ends PiP")
@@ -1334,6 +1409,38 @@ def network_youtube_link_plays():
     wait(lambda: e.state == "playing" and e._frames_seen > 3 and e.time > 1000, 60, "YouTube video plays")
     check("zoo" in e.title.lower(), "YouTube title", e.title)
     H.notes.append(f"YouTube: {e.videoWidth}×{e.videoHeight}, {len(e.audioTracks) - 1} audio track(s)")
+
+@scenario(timeout=150)
+def network_youtube_audio_track_off_and_back():
+    """Real YouTube (DASH: video and audio are separate streams): Desativado, then Trilha 1 must bring
+    the sound back without a seek (needs the internet; reported, not failed, when offline)."""
+    import socket
+    try:
+        socket.create_connection(("www.youtube.com", 443), timeout=5).close()
+    except OSError:
+        H.notes.append("offline: real YouTube audio-track check skipped")
+        return
+    e = eng()
+    e.openUrl("https://www.youtube.com/watch?v=aqz-KE-bpKQ")   # Big Buck Bunny (Blender Foundation)
+    wait(lambda: e.state == "playing" and e._frames_seen > 3 and e.time > 3000, 90, "YouTube video plays")
+    wait(lambda: len(e.audioTracks) >= 2, 10, "audio tracks listed")
+    on = [t for t in e.audioTracks if t["id"] != -1][0]["id"]
+    t_on = e.time
+    e.setAudioTrack(-1)
+    pump(2.0)
+    t0 = e.time
+    H.notes.append(f"time before Desativado {t_on}, 2 s later {t0} (libVLC {e._mp.get_time()})")
+    check(t0 >= t_on, "the clock keeps running with the audio off", f"{t_on} -> {t0}")
+    before = _decoded_audio(e)
+    lost = _decoded_audio(e, "lost_abuffers")
+    e.setAudioTrack(on)
+    pump(4.0)
+    H.notes.append(f"audio back: played {before} -> {_decoded_audio(e)}, lost {lost} -> "
+                   f"{_decoded_audio(e, 'lost_abuffers')}, time {t0} -> {e.time}")
+    check(_decoded_audio(e) > before + 20, "Trilha 1 brings the sound back without a seek",
+          f"played {before} -> {_decoded_audio(e)}")
+    check(e.time >= t_on, "the video keeps its place (no jump back)", f"{t_on} -> {e.time}")
+
 
 # ------------------------------------------------ from a YouTuber's review of 1.3.1 (portable zip)
 def _item_center(item):

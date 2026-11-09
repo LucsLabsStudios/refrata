@@ -19,6 +19,26 @@ def _exe() -> str | None:
     return sys.executable if getattr(sys, "frozen", False) else None
 
 
+def _autostart_file() -> Path:
+    """Linux (XDG): ~/.config/autostart/refrata.desktop; the tests use their own config folder."""
+    import os
+    base = Path(os.environ.get("REFRATA_E2E_TMP") or os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+    return base / "autostart" / "refrata.desktop"
+
+
+def _desktop_entry(exe: str, args: str = "%F", autostart: bool = False) -> str:
+    """A freedesktop .desktop entry for this copy of Refrata."""
+    from .assoc import mime_types
+    lines = ["[Desktop Entry]", "Type=Application", "Name=Refrata",
+             "Comment=Video and music player built on the VLC engine",
+             f'Exec="{exe}" {args}', "Icon=refrata", "Terminal=false", "Categories=AudioVideo;Player;Video;Audio;"]
+    if autostart:
+        lines.append("X-GNOME-Autostart-enabled=true")
+    else:
+        lines.append("MimeType=" + ";".join(mime_types()) + ";")
+    return "\n".join(lines) + "\n"
+
+
 def _testing() -> bool:
     """The E2E battery (also --selftest inside an installed copy) must never touch the user's
     real "start with Windows" entry."""
@@ -46,7 +66,9 @@ class Tray(QObject):
         self._a_auto.toggled.connect(lambda on: self._set_autostart(on))
         a_quit = self._a_quit = QAction(menu)
         a_quit.triggered.connect(QApplication.instance().quit)
-        for a in (a_open, None, self._a_preview, self._a_auto, None, a_quit):
+        # the Space preview is an Explorer feature
+        items = (a_open, None, self._a_preview, self._a_auto, None, a_quit) if sys.platform == "win32"             else (a_open, None, self._a_auto, None, a_quit)
+        for a in items:
             menu.addSeparator() if a is None else menu.addAction(a)
         self._menu = menu
         self.retranslate()
@@ -57,7 +79,7 @@ class Tray(QObject):
         """Menu text in the current language (called again when the language changes)."""
         self._a_open.setText(tr("Abrir o Refrata"))
         self._a_preview.setText(tr("Prévia com Espaço no Explorer"))
-        self._a_auto.setText(tr("Iniciar com o Windows"))
+        self._a_auto.setText(tr("Iniciar com o Windows") if sys.platform == "win32" else tr("Iniciar com o sistema"))
         self._a_quit.setText(tr("Sair"))
 
     def _activated(self, reason):
@@ -96,9 +118,12 @@ class Tray(QObject):
 
     @Property(bool, constant=True)
     def canAutostart(self):
-        return _exe() is not None and sys.platform == "win32"
+        return _exe() is not None and sys.platform in ("win32", "linux")
 
     def _read_run(self):
+        if sys.platform == "linux":
+            f = _autostart_file()
+            return str(f) if f.exists() else None
         if sys.platform != "win32" or _testing():
             return None
         import winreg
@@ -110,7 +135,16 @@ class Tray(QObject):
 
     def _set_autostart(self, on):
         exe = _exe()
-        if sys.platform == "win32" and exe and not _testing():
+        if sys.platform == "linux" and exe:
+            f = _autostart_file()
+            if on:
+                f.parent.mkdir(parents=True, exist_ok=True)
+                f.write_text(_desktop_entry(exe, "--background", autostart=True), encoding="utf8")
+            else:
+                f.unlink(missing_ok=True)
+            if on and not self.background:
+                self._settings.setValue("background", True)
+        elif sys.platform == "win32" and exe and not _testing():
             import winreg
             with winreg.CreateKey(winreg.HKEY_CURRENT_USER, RUN_KEY) as k:
                 if on:

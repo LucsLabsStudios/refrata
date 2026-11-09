@@ -11,7 +11,7 @@ Item {
         { key: "play", text: qsTr("Reproduzir"), icon: "play" },
         { key: "next", text: qsTr("Tocar em seguida"), icon: "next" },
         { key: "queue", text: qsTr("Adicionar à fila"), icon: "add" },
-        { key: "reveal", text: qsTr("Mostrar no Explorer"), icon: "folder" },
+        { key: "reveal", text: (appctl.platform === "windows" ? qsTr("Mostrar no Explorer") : qsTr("Mostrar na pasta")), icon: "folder" },
     ]
     signal triggered(string key, string path)
 

@@ -319,7 +319,8 @@ def t05_settings_theme_accent_persistence():
     check(th.onAccent.name().lower() == "#ffffff", "readable text on accent")
     s.accent = "#FF7A2F"
     check(len(th.accents) == 8, "8 accent swatches")
-    check(th.iconFont in ("Segoe Fluent Icons", "Segoe MDL2 Assets"), "icon font resolved", th.iconFont)
+    check(th.iconFont in ("Segoe Fluent Icons", "Segoe MDL2 Assets") if sys.platform == "win32"
+          else th.iconFont.startswith("FluentSystemIcons") and th.iconSet == "fluent", "icon font resolved", th.iconFont)
     s.save()
     data = json.loads((TMP / "data" / "settings.json").read_text(encoding="utf8"))
     check(data["settings"]["accent"] == "#FF7A2F" and data["settings"]["theme"] == "dark", "settings persisted to disk")
@@ -1285,6 +1286,8 @@ def go_page(i):
 
 @test
 def t37_native_open_files_dialog_multi_select():
+    if sys.platform != "win32":
+        return   # drives the Windows file dialog (tests/windialogs.py)
     e = eng()
     stop_playback()
     go_page(0)
@@ -1306,6 +1309,8 @@ def t37_native_open_files_dialog_multi_select():
 
 @test
 def t38_native_play_folder_dialog():
+    if sys.platform != "win32":
+        return   # drives the Windows file dialog (tests/windialogs.py)
     e = eng()
     stop_playback()
     go_page(0)
@@ -1323,6 +1328,8 @@ def t38_native_play_folder_dialog():
 
 @test
 def t39_native_add_folder_dialogs_and_cancel():
+    if sys.platform != "win32":
+        return   # drives the Windows file dialog (tests/windialogs.py)
     s, lib = C.parts.settings, C.parts.library
     extra = TMP / "extra lib"
     extra.mkdir(exist_ok=True)
@@ -1347,6 +1354,8 @@ def t39_native_add_folder_dialogs_and_cancel():
 
 @test
 def t40_native_subtitle_dialog():
+    if sys.platform != "win32":
+        return   # drives the Windows file dialog (tests/windialogs.py)
     e = eng()
     stop_playback()
     pv = open_player_with([C.fx["video"]])

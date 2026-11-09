@@ -403,5 +403,15 @@
   "Restaurar os atalhos padrão": "डिफ़ॉल्ट शॉर्टकट वापस लाएँ",
   "Nenhum vídeo": "कोई वीडियो नहीं",
   "Mídia do Refrata": "Refrata मीडिया",
-  "Player de vídeo e música sobre o motor do VLC": "VLC इंजन पर बना वीडियो और संगीत प्लेयर"
+  "Player de vídeo e música sobre o motor do VLC": "VLC इंजन पर बना वीडियो और संगीत प्लेयर",
+  "Mostrar na pasta": "फ़ोल्डर में दिखाएँ",
+  "“Automático” segue o idioma do sistema. A troca vale na hora.": "“स्वचालित” सिस्टम की भाषा अपनाता है। बदलाव तुरंत लागू होता है।",
+  "Player padrão do sistema": "सिस्टम का डिफ़ॉल्ट प्लेयर",
+  "O Refrata já abre seus vídeos e músicas com dois cliques.": "Refrata पहले से आपके वीडियो और संगीत डबल-क्लिक पर खोलता है।",
+  "Faz o Refrata aparecer em “Abrir com” e abrir vídeos e músicas com dois cliques no gerenciador de arquivos.": "Refrata को “इसके साथ खोलें” में दिखाता है और फ़ाइल मैनेजर में डबल-क्लिक से वीडियो और संगीत खोलता है।",
+  "Um vídeo ou música aberto pelo gerenciador de arquivos começa numa janela compacta e flutuante; ⤢ leva para o app completo.": "फ़ाइल मैनेजर से खोला गया वीडियो या गाना छोटी, तैरती विंडो में शुरू होता है; ⤢ पूरे ऐप में ले जाता है।",
+  "Só vale para arquivos que o sistema abre com o Refrata (veja Player padrão do sistema, acima).": "केवल उन फ़ाइलों पर लागू जिन्हें सिस्टम Refrata से खोलता है (ऊपर सिस्टम का डिफ़ॉल्ट प्लेयर देखें)।",
+  "Ao fechar a janela, o Refrata fica na bandeja do sistema, e os arquivos abrem na hora.": "विंडो बंद करने पर Refrata सिस्टम ट्रे में रहता है, और फ़ाइलें तुरंत खुलती हैं।",
+  "Iniciar com o sistema": "सिस्टम के साथ शुरू करें",
+  "Padrão do sistema": "सिस्टम डिफ़ॉल्ट"
 }

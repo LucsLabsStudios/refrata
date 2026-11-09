@@ -9,6 +9,9 @@ Window {
     id: pip
     objectName: "pipWindow"
     flags: Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+    // a top-level window of its own: declared inside Main.qml it would be owned by the main window,
+    // and Windows hides owned windows when their owner is minimised (the PiP flashed and vanished)
+    transientParent: null
     color: "black"
     title: player.title ? player.title + "  —  Refrata" : "Refrata"
     minimumWidth: 240; minimumHeight: 135
