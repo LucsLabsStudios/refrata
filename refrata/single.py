@@ -14,6 +14,9 @@ from PySide6.QtCore import QObject, Signal
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 
 
+MAX_MESSAGE = 4 * 1024 * 1024
+
+
 def server_name(tag: str = "") -> str:
     who = f"{getpass.getuser()}|{os.environ.get('REFRATA_DATA', '')}|{tag}"
     return "Refrata-" + hashlib.sha1(who.encode("utf8")).hexdigest()[:16]
@@ -59,12 +62,16 @@ class InstanceServer(QObject):
         while self._srv.hasPendingConnections():
             s = self._srv.nextPendingConnection()
             s.readyRead.connect(lambda s=s: self._read(s))
+            s.disconnected.connect(lambda s=s: self._buffers.pop(id(s), None))   # no leftovers per socket
             s.disconnected.connect(s.deleteLater)
 
     def _read(self, s: QLocalSocket):
         key = id(s)
         self._buffers[key] = self._buffers.get(key, b"") + bytes(s.readAll().data())
         if b"\n" not in self._buffers[key]:
+            if len(self._buffers[key]) > MAX_MESSAGE:   # file lists are kilobytes: drop junk
+                self._buffers.pop(key, None)
+                s.abort()
             return
         line = self._buffers.pop(key).split(b"\n", 1)[0]
         try:

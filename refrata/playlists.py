@@ -32,6 +32,16 @@ def _resolve(entry: str, base: str) -> str:
     return os.path.normpath(entry)
 
 
+def _unc_host(path: str) -> str:
+    r"""The server of a network path (\\server\share\… or file://server/…), "" for local ones."""
+    if path.lower().startswith(("file:", "smb:")):
+        return (urlparse(path).hostname or "").lower()
+    p = path.replace("/", "\\")
+    if p.startswith("\\\\") and not p.startswith(("\\\\?\\", "\\\\.\\")):
+        return p[2:].split("\\", 1)[0].lower()
+    return ""
+
+
 def _read_text(path):
     raw = open(path, "rb").read()
     for enc in ("utf-8-sig", "cp1252", "latin-1"):
@@ -73,4 +83,9 @@ def read_playlist(path: str) -> list[str]:
         for el in root.iter():
             if el.tag.endswith("location") and el.text:
                 items.append(_resolve(el.text, base))
-    return [i for i in items if i and ("://" in i or os.path.exists(i))]
+    # A playlist from the internet can point at \\attacker\share\x.mp3: just checking that the file
+    # exists makes Windows sign in to that server and hand it the user's NTLM hash. Network paths
+    # are kept only when the playlist itself lives on that same server (a list on a NAS).
+    own = _unc_host(os.path.abspath(path))
+    safe = [i for i in items if i and (not _unc_host(i) or _unc_host(i) == own)]
+    return [i for i in safe if "://" in i or os.path.exists(i)]

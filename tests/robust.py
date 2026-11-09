@@ -1519,7 +1519,7 @@ def feature_review_custom_shortcuts():
 @scenario(timeout=90)
 def feature_review_library_lists_duplicates_once():
     """Adding all of C:\\ listed Windows' sample clips several times: the same file is hard-linked
-    from several folders (WinSxS) or copied with the same content. Each media shows once; a
+    from several folders (WinSxS) or copied, with the same name, size and date. Each shows once; a
     different file with the same name stays; overlapping folders list a file once."""
     import shutil
     lib, st = H.parts.library, H.parts.settings
@@ -1534,12 +1534,15 @@ def feature_review_library_lists_duplicates_once():
     os.link(mine, link)                                   # hard link: same file
     copy = root / "Sistema" / "amostra.mkv"
     copy.parent.mkdir(parents=True)
-    shutil.copyfile(src, copy)                            # same content, another file
+    shutil.copy2(mine, copy)                              # a copy (Explorer keeps the date too)
     diff = root / "Outro" / "amostra.mkv"
     diff.parent.mkdir(parents=True)
     data = bytearray(src.read_bytes())
     data[-10] ^= 0xFF                                     # same name and size, different tail
     diff.write_bytes(bytes(data))
+    os.utime(diff, (time.time() - 86400, time.time() - 86400))   # another file: written another day
+    renamed = root / "Outro" / "episodio 2.mkv"
+    os.link(mine, renamed)                                # same file, another name: a separate entry    wait(lambda: not lib.scanning, 20, "the startup scan ends")   # a rescan asked during it is ignored
     st.setValue("folders", [str(root), str(root / "Filmes")])
     pump(0.3)
     wait(lambda: not lib.scanning, 20, "scan ends")
@@ -1550,6 +1553,7 @@ def feature_review_library_lists_duplicates_once():
     same = [p for p in paths if p in {os.path.normcase(str(x)) for x in (mine, link, copy)}]
     check(len(same) == 1, "the sample (link, copy, overlapping folder) is listed once", str(paths))
     check(os.path.normcase(str(diff)) in paths, "a different file with the same name stays", str(paths))
+    check(os.path.normcase(str(renamed)) in paths, "the same file under another name stays", str(paths))
 
 
 

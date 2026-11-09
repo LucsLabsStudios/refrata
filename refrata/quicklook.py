@@ -1,7 +1,10 @@
 """QuickLook-style preview: select a video or song in Explorer (or on the desktop) and press Space.
 
 How it works
-- A low-level keyboard hook (WH_KEYBOARD_LL) sees the Space key system-wide. It never swallows
+- A foreground-window event (SetWinEventHook) tells when an Explorer window or the desktop comes to
+  the front; only then is a low-level keyboard hook installed, and it is removed when another app
+  takes the front. Typing anywhere else never passes through Refrata (or waits on Python).
+- The keyboard hook (WH_KEYBOARD_LL) sees the Space key. It never swallows
   keys and never does slow work inside the hook: it only checks, cheaply, that the foreground
   window is an Explorer folder view (or the desktop) with the file list focused, and that the
   user is not typing (type-ahead / rename), then queues the real work on the Qt event loop.
@@ -44,7 +47,14 @@ class GUITHREADINFO(ctypes.Structure):
                 ("hwndMoveSize", wintypes.HWND), ("hwndCaret", wintypes.HWND), ("rcCaret", wintypes.RECT)]
 
 
-HOOKPROC = ctypes.WINFUNCTYPE(ctypes.c_ssize_t, ctypes.c_int, wintypes.WPARAM, wintypes.LPARAM)
+if sys.platform == "win32":
+    HOOKPROC = ctypes.WINFUNCTYPE(ctypes.c_ssize_t, ctypes.c_int, wintypes.WPARAM, wintypes.LPARAM)
+    WINEVENTPROC = ctypes.WINFUNCTYPE(None, wintypes.HANDLE, wintypes.DWORD, wintypes.HWND, wintypes.LONG,
+                                      wintypes.LONG, wintypes.DWORD, wintypes.DWORD)
+else:   # the preview is a Windows Explorer feature; elsewhere the module only offers its helpers
+    HOOKPROC = WINEVENTPROC = None
+EVENT_SYSTEM_FOREGROUND = 0x0003
+WINEVENT_OUTOFCONTEXT = 0x0000
 
 
 def _class_name(hwnd) -> str:
@@ -166,8 +176,11 @@ class QuickLook(QObject):
     def __init__(self, settings, parent=None):
         super().__init__(parent)
         self._settings = settings
-        self._hook = None
-        self._proc = HOOKPROC(self._on_key)   # keep a reference: the hook calls into it
+        self._hook = None       # keyboard hook: only while Explorer / the desktop is in front
+        self._watch = None      # foreground-window event hook: while the feature is on
+        # keep references: Windows calls into them
+        self._proc = HOOKPROC(self._on_key) if HOOKPROC else None
+        self._fgproc = WINEVENTPROC(self._on_foreground) if WINEVENTPROC else None
         self._last_typing = 0.0
         self._busy = False
         self.sourceWindow = 0
@@ -187,10 +200,44 @@ class QuickLook(QObject):
 
     @Property(bool, notify=changed)
     def active(self):
-        return self._hook is not None
+        """Watching for Explorer (the keyboard hook itself comes and goes with the foreground)."""
+        return self._watch is not None
 
     def start(self):
-        if self._hook or sys.platform != "win32" or os.environ.get("REFRATA_NO_HOOK"):
+        if self._watch or sys.platform != "win32" or os.environ.get("REFRATA_NO_HOOK"):
+            return
+        u = ctypes.windll.user32
+        u.SetWinEventHook.restype = ctypes.c_void_p
+        u.SetWinEventHook.argtypes = [wintypes.DWORD, wintypes.DWORD, wintypes.HMODULE, WINEVENTPROC,
+                                      wintypes.DWORD, wintypes.DWORD, wintypes.DWORD]
+        self._watch = u.SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND, None, self._fgproc,
+                                        0, 0, WINEVENT_OUTOFCONTEXT) or None
+        self._sync_keys(u.GetForegroundWindow())
+        self.changed.emit()
+
+    def stop(self):
+        if self._watch:
+            ctypes.windll.user32.UnhookWinEvent(ctypes.c_void_p(self._watch))
+            self._watch = None
+        self._unhook_keys()
+        self.changed.emit()
+
+    def _on_foreground(self, hook, event, hwnd, obj, child, thread, when):
+        try:
+            self._sync_keys(hwnd)
+        except Exception:
+            pass
+
+    def _sync_keys(self, hwnd):
+        """Keyboard hook on while an Explorer window or the desktop is in front, off otherwise."""
+        cls = _class_name(hwnd) if hwnd else ""
+        if cls in EXPLORER_CLASSES or cls in DESKTOP_CLASSES:
+            self._hook_keys()
+        else:
+            self._unhook_keys()
+
+    def _hook_keys(self):
+        if self._hook:
             return
         k32 = ctypes.windll.kernel32
         k32.GetModuleHandleW.restype = wintypes.HMODULE
@@ -198,13 +245,11 @@ class QuickLook(QObject):
         u.SetWindowsHookExW.restype = ctypes.c_void_p
         u.SetWindowsHookExW.argtypes = [ctypes.c_int, HOOKPROC, wintypes.HINSTANCE, wintypes.DWORD]
         self._hook = u.SetWindowsHookExW(WH_KEYBOARD_LL, self._proc, k32.GetModuleHandleW(None), 0) or None
-        self.changed.emit()
 
-    def stop(self):
+    def _unhook_keys(self):
         if self._hook:
             ctypes.windll.user32.UnhookWindowsHookEx(ctypes.c_void_p(self._hook))
             self._hook = None
-            self.changed.emit()
 
     # ---------------------------------------------------------------- hook (keep it tiny)
     def _on_key(self, code, wparam, lparam):

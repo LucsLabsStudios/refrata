@@ -25,32 +25,6 @@ CACHE_FILE = DATA_DIR / "library.json"
 MAX_FILES = 4000
 MAX_DEPTH = 5
 
-def _file_id(path: str):
-    """The file's identity on disk: hard links (Windows keeps its sample clips in several folders
-    this way, e.g. WinSxS) share it. None when the file system doesn't give one."""
-    try:
-        st = os.stat(path)
-    except OSError:
-        return None
-    return (st.st_dev, st.st_ino) if st.st_ino else None
-
-
-def _same_content(a: str, b: str, chunk: int = 64 * 1024) -> bool:
-    """Two files with the same name and size: the same media if the start and the end match."""
-    try:
-        with open(a, "rb") as fa, open(b, "rb") as fb:
-            if fa.read(chunk) != fb.read(chunk):
-                return False
-            size = os.path.getsize(a)
-            if size <= chunk:
-                return True   # the first read covered the whole file
-            fa.seek(size - chunk)
-            fb.seek(size - chunk)
-            return fa.read(chunk) == fb.read(chunk)
-    except OSError:
-        return False
-
-
 ROLES = ["path", "url", "title", "kind", "folder", "duration", "thumb", "mtime", "size", "artist", "album", "ext"]
 
 
@@ -386,8 +360,11 @@ class Library(QObject):
     def _scan(self, folders):
         found = []
         seen = set()       # paths (overlapping folders reach a file twice)
-        ids = set()        # hard links: one file, several paths
-        by_sig = {}        # (name, size) -> first path, for copies with the same content
+        # The same media under another folder: Windows keeps its sample clips in several places
+        # (hard links and copies in WinSxS, SystemApps…), all with the same name, size and date.
+        # Comparing those (free from the folder listing, no file opened) lists each one once,
+        # while different files that only share a name stay apart.
+        sigs = set()
         for root in folders:
             root = os.path.normpath(root)
             if not os.path.isdir(root):
@@ -417,17 +394,10 @@ class Library(QObject):
                         if st.st_size < 32 * 1024:
                             continue
                         seen.add(key)
-                        # the same media reached through another folder is listed once
-                        fid = _file_id(e.path)
-                        if fid is not None:
-                            if fid in ids:
-                                continue
-                            ids.add(fid)
-                        sig = (name.lower(), st.st_size)
-                        first = by_sig.get(sig)
-                        if first is not None and _same_content(first, e.path):
+                        sig = (name.lower(), st.st_size, int(st.st_mtime) // 2)   # FAT keeps 2 s steps
+                        if sig in sigs:
                             continue
-                        by_sig.setdefault(sig, e.path)
+                        sigs.add(sig)
                         found.append({
                             "path": e.path,
                             "url": QUrl.fromLocalFile(e.path).toString(),

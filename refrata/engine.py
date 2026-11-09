@@ -457,11 +457,12 @@ class Engine(QObject):
         self._eq_preamp = 0.0
 
         self._poll = QTimer(self)
-        self._poll.setInterval(120)
+        self._poll.setInterval(self.POLL_FAST)
         self._poll.timeout.connect(self._tick)
         self._poll.start()
 
     # ------------------------------------------------------------ libVLC setup
+    POLL_FAST, POLL_IDLE = 120, 1000   # ms between libVLC state checks (see _pace)
     SUB_SIZES = {"small": 75, "normal": 100, "large": 135, "huge": 175}
     SUB_COLORS = {"white": 0xFFFFFF, "yellow": 0xFFE14D}
 
@@ -1117,6 +1118,7 @@ class Engine(QObject):
         return websites.site_name(self._queue[self._index]["path"])
 
     def _resolve_async(self, index, e):
+        self._wake()
         token = object()
         self._resolve_token = token
         self._resolving = True
@@ -1187,6 +1189,7 @@ class Engine(QObject):
         return pos
 
     def _play_index(self, index):
+        self._wake()
         self._save_resume()
         self._index = index
         self._error_handled = False
@@ -1283,6 +1286,7 @@ class Engine(QObject):
             self._play_soon(nxt)
 
     def _start_playback(self):
+        self._wake()
         self._mp.play()
         self._mp.audio_set_volume(self._volume)
         self._mp.set_rate(self._rate)
@@ -1291,6 +1295,7 @@ class Engine(QObject):
         self._apply_adjust()
 
     def _switch_on_worker(self, media):
+        self._wake()
         self._switching += 1
 
         def work():
@@ -1355,6 +1360,7 @@ class Engine(QObject):
 
     @Slot()
     def togglePlay(self):
+        self._wake()
         if self._state in ("idle", "ended", "stopped", "error") and self._queue:
             self._play_index(max(0, self._index))
             return
@@ -1369,6 +1375,7 @@ class Engine(QObject):
 
     @Slot()
     def play(self):
+        self._wake()
         if self._state in ("idle", "ended", "stopped", "error") and self._queue:
             self._play_index(max(0, self._index))
             return
@@ -1378,6 +1385,7 @@ class Engine(QObject):
 
     @Slot()
     def pause(self):
+        self._wake()
         self._mp.set_pause(1)
         if self._state == "playing":
             self._expect("paused")
@@ -1407,6 +1415,7 @@ class Engine(QObject):
 
     @Slot(int)
     def seek(self, ms):
+        self._wake()
         if self._length > 0:
             ms = max(0, min(int(ms), self._length - 500))
             self._mp.set_time(ms)
@@ -1430,7 +1439,23 @@ class Engine(QObject):
                 self._settings.set_resume(e["path"], self._time, self._length)
 
     # ---------------------------------------------------------------- polling
+    def _wake(self):
+        """Poll libVLC quickly again (something is about to play, load or seek)."""
+        if self._poll.interval() != self.POLL_FAST:
+            self._poll.setInterval(self.POLL_FAST)
+        if not self._poll.isActive():
+            self._poll.start()
+
+    def _pace(self):
+        """Fast polling only while something can change on its own (playing, loading, a link being
+        looked up); idle, stopped or paused, once a second is plenty (no 8 wake-ups a second in the tray)."""
+        busy = self._state in ("loading", "playing") or self._resolving or self._open_deadline or self._switching
+        want = self.POLL_FAST if busy else self.POLL_IDLE
+        if self._poll.interval() != want:
+            self._poll.setInterval(want)
+
     def _tick(self):
+        self._pace()
         if self._switching:
             return   # a cast switch holds libVLC's player lock: asking now would freeze the UI
         st = self._mp.get_state()

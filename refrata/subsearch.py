@@ -27,6 +27,7 @@ def _api() -> str:
 
 
 UA = f"Refrata v{__version__}"
+MAX_SUBTITLE = 8 * 1024 * 1024
 
 
 def api_key() -> str:
@@ -110,9 +111,13 @@ def download(file_id: int, dest_dir: Path, stem: str, language: str) -> str:
     link = res.get("link")
     if not link:
         raise RuntimeError(res.get("message") or "no download link")
+    if not str(link).lower().startswith("https://") and not os.environ.get("REFRATA_OPENSUBTITLES_URL"):
+        raise RuntimeError("download link is not https")
     req = urllib.request.Request(link, headers={"User-Agent": UA})
     with urllib.request.urlopen(req, timeout=20) as r:
-        data = r.read()
+        data = r.read(MAX_SUBTITLE + 1)   # a subtitle is kilobytes; never hold a huge reply in memory
+    if len(data) > MAX_SUBTITLE:
+        raise RuntimeError("subtitle too large")
     dest_dir.mkdir(parents=True, exist_ok=True)
     name = re.sub(r'[\\/:*?"<>|]+', "_", f"{stem}.{language or 'sub'}.srt")
     p = dest_dir / name

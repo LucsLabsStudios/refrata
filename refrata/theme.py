@@ -48,6 +48,14 @@ def _reduce_motion() -> bool:
     return False
 
 
+def _bundled_icon_font() -> str:
+    """Fluent UI System Icons (MIT), cut down to the app's icons: Segoe Fluent Icons is Windows-only."""
+    from .vlcpath import app_root
+    fid = QFontDatabase.addApplicationFont(str(app_root() / "assets" / "fonts" / "FluentSystemIcons-Refrata.ttf"))
+    fams = QFontDatabase.applicationFontFamilies(fid) if fid >= 0 else []
+    return fams[0] if fams else "Sans Serif"
+
+
 class Theme(QObject):
     changed = Signal()
 
@@ -56,11 +64,14 @@ class Theme(QObject):
         self._s = settings
         settings.changed.connect(lambda k: k in ("theme", "accent") and self.changed.emit())
         fams = set(QFontDatabase.families())
-        self._icon_font = next((f for f in ("Segoe Fluent Icons", "Segoe MDL2 Assets") if f in fams), "Segoe UI Symbol")
-        self._display_font = next(
-            (f for f in ("Segoe UI Variable Display", "Segoe UI Variable", "Inter", "Segoe UI") if f in fams), "Sans Serif"
-        )
-        self._text_font = next((f for f in ("Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI") if f in fams), "Sans Serif")
+        segoe = next((f for f in ("Segoe Fluent Icons", "Segoe MDL2 Assets") if f in fams), "")
+        self._icon_set = "segoe" if segoe else "fluent"
+        self._icon_font = segoe or _bundled_icon_font()
+        # Windows' own type first; elsewhere the common UI fonts of Linux desktops and macOS
+        self._display_font = next((f for f in ("Segoe UI Variable Display", "Segoe UI Variable", "Inter", "Segoe UI",
+                                                "SF Pro Display", "Noto Sans", "Cantarell", "Ubuntu") if f in fams), "Sans Serif")
+        self._text_font = next((f for f in ("Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", "Inter",
+                                             "SF Pro Text", "Noto Sans", "Cantarell", "Ubuntu") if f in fams), "Sans Serif")
 
     def _p(self):
         return PALETTES.get(self._s.value("theme"), PALETTES["dark"])
@@ -118,6 +129,11 @@ class Theme(QObject):
     @Property(str, constant=True)
     def iconFont(self):
         return self._icon_font
+
+    @Property(str, constant=True)
+    def iconSet(self):
+        """Which glyph table qml/Icon.qml uses: "segoe" (Windows) or "fluent" (bundled font)."""
+        return self._icon_set
 
     @Property(str, constant=True)
     def displayFont(self):

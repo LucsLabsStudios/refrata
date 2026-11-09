@@ -254,7 +254,21 @@ class Updater(QObject):
         self._asset["sha256"] = m.group(0).lower()
         self._start_download()
 
+    @staticmethod
+    def _trusted_url(url: str) -> bool:
+        """Installers come over HTTPS from GitHub (release assets redirect to its CDN). The tests'
+        local server is allowed through REFRATA_UPDATE_URL."""
+        if os.environ.get("REFRATA_UPDATE_URL"):
+            return True
+        u = QUrl(url)
+        host = u.host().lower()
+        return u.scheme() == "https" and (host == "github.com" or host.endswith(".github.com")
+                                          or host.endswith(".githubusercontent.com"))
+
     def _start_download(self):
+        if not self._trusted_url(self._asset.get("url", "")):
+            self._set("error", tr("Não foi possível conferir o download"))
+            return
         if not self._asset.get("sha256"):
             self._set("error", tr("O lançamento não publica o SHA-256 do instalador"))
             return
