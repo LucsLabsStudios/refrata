@@ -66,8 +66,24 @@ O `tools/release.py`, em ordem:
 2. Gera o build.
 3. Roda as duas baterias de testes no app empacotado (e2e e robustez). Se algo falhar, **nada é
    publicado** e os componentes voltam às versões anteriores.
-4. Faz o commit das versões testadas, cria a tag, envia e publica o lançamento no GitHub com o
-   instalador, o `.sha256` e o zip portátil. As notas ganham uma linha para cada componente novo.
+4. Assina o instalador e o zip com a chave de atualização (`.sig`, Ed25519), faz o commit das versões
+   testadas, cria a tag, envia e publica o lançamento no GitHub com o instalador, o `.sha256`, os `.sig`
+   e o zip portátil. As notas ganham uma linha para cada componente novo.
+
+### Chave de atualização
+
+Desde a 1.4.5 o app só instala uma atualização assinada pela chave do projeto: alguém que tomasse a
+conta do GitHub não conseguiria empurrar um instalador. A chave privada fica só no `.env` (ignorado
+pelo git), em `REFRATA_UPDATE_KEY`; a pública está em `refrata/updater.py` (`UPDATE_PUBLIC_KEY`).
+
+```powershell
+python tools/update_key.py generate   # uma vez (já feito): cria a chave
+python tools/update_key.py public     # mostra a pública da chave do .env
+python tools/test_ed25519.py          # confere a implementação com os vetores do RFC 8032
+```
+
+**Guarde uma cópia do `.env` fora deste PC** (gerenciador de senhas, pendrive). Sem ela não dá para
+publicar versões que os apps instalados aceitem; o `release.py` se recusa a publicar sem a chave.
 
 A partir daí todo app instalado recebe o aviso de atualização e o botão de download do site aponta
 para a versão nova. `--keep-versions` publica sem mexer nos componentes; `--skip-build --skip-tests`

@@ -1,7 +1,9 @@
 """In-app updates from GitHub Releases.
 
 check()    → GET the latest release (JSON), compare its tag with __version__
-download() → stream the installer asset to %LOCALAPPDATA%\\Refrata\\updates, verify SHA-256
+download() → check the release's Ed25519 signature of the installer's name, SHA-256 and version
+             (the key is UPDATE_PUBLIC_KEY; tools/update_key.py, tools/release.py), then stream
+             the installer to %LOCALAPPDATA%\\Refrata\\updates and verify its SHA-256
 install()  → start the installer silently (/VERYSILENT … /relaunch=1) and quit; Inno closes
              what is left of the app, updates in place and starts Refrata again
 
@@ -31,6 +33,22 @@ API_LATEST = f"https://api.github.com/repos/{REPO}/releases/latest"
 SITE = "https://refrata.vercel.app"
 CHECK_EVERY_S = 12 * 3600
 ASSET_RE = re.compile(r"^Refrata-Setup-[\d.]+\.exe$", re.I)
+# Ed25519 public key of the update signing key (tools/update_key.py). An installer is downloaded
+# only when the release carries its signature by this key: a compromised GitHub account alone
+# cannot push an update. Releases up to 1.4.4 predate it and are not signed.
+UPDATE_PUBLIC_KEY = "396cbdf4ef2e43824091777e80065e216a421f84c8a94acbd3e5494e6f990e3b"
+
+
+def update_message(asset: str, sha256: str, version: str) -> bytes:
+    """The bytes a release signs for an installer (same as tools/update_key.message)."""
+    return f"refrata-update-v1\n{asset}\n{sha256.lower()}\n{version}\n".encode("utf8")
+
+
+def _public_key() -> bytes | None:
+    k = UPDATE_PUBLIC_KEY
+    if os.environ.get("REFRATA_E2E_TMP") and os.environ.get("REFRATA_UPDATE_PUBKEY"):
+        k = os.environ["REFRATA_UPDATE_PUBKEY"]   # the test batteries sign their fake releases
+    return bytes.fromhex(k) if re.fullmatch(r"[0-9a-fA-F]{64}", k or "") else None
 
 
 def parse_version(v: str) -> tuple:
@@ -199,9 +217,11 @@ class Updater(QObject):
             if digest.lower().startswith("sha256:"):
                 sha = digest.split(":", 1)[1].strip().lower()
             side = next((a for a in assets if a.get("name", "").lower() == exe["name"].lower() + ".sha256"), None)
+            sig = next((a for a in assets if a.get("name", "").lower() == exe["name"].lower() + ".sig"), None)
             self._asset = {"name": exe["name"], "url": exe.get("browser_download_url", ""),
                            "size": int(exe.get("size") or 0), "sha256": sha,
-                           "shaUrl": side.get("browser_download_url", "") if side else ""}
+                           "shaUrl": side.get("browser_download_url", "") if side else "",
+                           "sigUrl": sig.get("browser_download_url", "") if sig else ""}
         else:
             self._asset = {}
         if parse_version(self._latest) > parse_version(__version__):
@@ -271,6 +291,9 @@ class Updater(QObject):
         if not self._asset.get("sha256"):
             self._set("error", tr("O lançamento não publica o SHA-256 do instalador"))
             return
+        if not self._asset.get("sigChecked"):
+            self._check_signature()
+            return
         folder = DATA_DIR / "updates"
         folder.mkdir(parents=True, exist_ok=True)
         for old in folder.glob("Refrata-Setup-*.exe*"):
@@ -288,6 +311,35 @@ class Updater(QObject):
         self._reply.readyRead.connect(self._on_data)
         self._reply.downloadProgress.connect(self._on_progress)
         self._reply.finished.connect(self._on_downloaded)
+
+    def _check_signature(self):
+        """The release's signature of (installer name, SHA-256, version) by UPDATE_PUBLIC_KEY, before
+        any byte of the installer is downloaded."""
+        key, url = _public_key(), self._asset.get("sigUrl", "")
+        if key is None:
+            self._set("error", tr("Não foi possível conferir o download"))
+            return
+        if not url or not self._trusted_url(url):
+            self._set("error", tr("Este lançamento não está assinado pela LucsLabs. Nada foi baixado."))
+            return
+        r = self._net.get(self._request(url))
+        self._set("downloading")
+
+        def done():
+            r.deleteLater()
+            from .ed25519 import verify
+            text = bytes(r.readAll()).decode("ascii", "replace").strip()
+            try:
+                sig = bytes.fromhex(text)
+            except ValueError:
+                sig = b""
+            msg = update_message(self._asset["name"], self._asset["sha256"], self._latest)
+            if not self._http_ok(r) or not verify(key, msg, sig):
+                self._set("error", tr("Este lançamento não está assinado pela LucsLabs. Nada foi baixado."))
+                return
+            self._asset["sigChecked"] = True
+            self._start_download()
+        r.finished.connect(done)
 
     def _on_data(self, reply=None):
         chunk = bytes((reply or self._reply).readAll())

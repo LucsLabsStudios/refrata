@@ -413,5 +413,6 @@
   "Só vale para arquivos que o sistema abre com o Refrata (veja Player padrão do sistema, acima).": "Yalnızca sistemin Refrata ile açtığı dosyalar için geçerli (yukarıdaki Sistemin varsayılan oynatıcısı bölümüne bak).",
   "Ao fechar a janela, o Refrata fica na bandeja do sistema, e os arquivos abrem na hora.": "Pencereyi kapatınca Refrata sistem tepsisinde kalır ve dosyalar anında açılır.",
   "Iniciar com o sistema": "Sistemle başlat",
-  "Padrão do sistema": "Sistem varsayılanı"
+  "Padrão do sistema": "Sistem varsayılanı",
+  "Este lançamento não está assinado pela LucsLabs. Nada foi baixado.": "Bu sürüm LucsLabs tarafından imzalanmamış. Hiçbir şey indirilmedi."
 }

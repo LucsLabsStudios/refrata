@@ -22,6 +22,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -135,6 +136,28 @@ def run_tests() -> bool:
     return e2e == 0 and robust == 0
 
 
+WSL_DISTRO = os.environ.get("REFRATA_WSL", "Ubuntu-24.04")
+
+
+def linux_package(v: str) -> list[Path] | None:
+    """The .deb and .tar.gz, built in WSL and tested (whole e2e battery inside the package).
+    [] when there is no WSL here (the release goes out for Windows only); None when the Linux
+    build or its tests failed."""
+    if not shutil.which("wsl"):
+        print("\n== Linux: sem WSL nesta máquina, o lançamento sai só para Windows", flush=True)
+        return []
+    drive, rest = str(ROOT)[0].lower(), str(ROOT)[2:].replace("\\", "/")
+    root = f"/mnt/{drive}{rest}"
+    script = (f'cd "{root}" && grep -vi "^winrt" requirements.txt > /tmp/refrata-req.txt && '
+              f'~/refrata-venv/bin/pip install -q -r /tmp/refrata-req.txt pyinstaller && '
+              f'~/refrata-venv/bin/python tools/build_linux.py --test')
+    print("\n== Linux: pacote .deb e .tar.gz, com a bateria e2e dentro do pacote (WSL)", flush=True)
+    if subprocess.run(["wsl", "-d", WSL_DISTRO, "--", "bash", "-lc", script]).returncode != 0:
+        return None
+    out = [DIST / "linux" / f"refrata_{v}_amd64.deb", DIST / "linux" / f"Refrata-{v}-linux-x86_64.tar.gz"]
+    return out if all(f.exists() for f in out) else None
+
+
 # ------------------------------------------------------------------ main
 def main():
     ap = argparse.ArgumentParser()
@@ -145,8 +168,14 @@ def main():
     ap.add_argument("--skip-build", action="store_true")
     ap.add_argument("--skip-tests", action="store_true")
     ap.add_argument("--draft", action="store_true")
+    ap.add_argument("--no-linux", action="store_true", help="Windows only (skip the WSL Linux package)")
     args = ap.parse_args()
 
+    sys.path.insert(0, str(ROOT / "tools"))
+    import update_key
+    if update_key.read_secret() is None:
+        sys.exit("Sem REFRATA_UPDATE_KEY no .env (tools/update_key.py): o app recusaria um lançamento sem "
+                 "assinatura. Nada foi feito.")
     if git("status", "--porcelain"):
         sys.exit("Há alterações sem commit. O lançamento precisa corresponder ao código publicado.")
     v = version()
@@ -176,6 +205,13 @@ def main():
             if args.bump:
                 run("git", "checkout", "--", INIT)
             sys.exit("\nOs testes falharam: NADA foi publicado. Veja os relatórios acima.")
+    linux = [] if args.no_linux else linux_package(v)
+    if linux is None:
+        if changed:
+            roll_back(changed)
+        if args.bump:
+            run("git", "checkout", "--", INIT)
+        sys.exit("\nO pacote Linux falhou nos testes: NADA foi publicado. Use --no-linux para sair só no Windows.")
 
     setup = DIST / f"Refrata-Setup-{v}.exe"
     portable = DIST / f"Refrata-{v}-portable.zip"
@@ -184,6 +220,16 @@ def main():
             sys.exit(f"faltando: {f}")
     side = setup.with_name(setup.name + ".sha256")
     side.write_text(f"{sha256(setup)}  {setup.name}\n", encoding="ascii")
+    # installed apps only take an update signed with the key in .env (tools/update_key.py)
+    sys.path.insert(0, str(ROOT / "tools"))
+    import update_key
+    secret = update_key.read_secret()
+    if secret is None:
+        if args.bump:
+            run("git", "checkout", "--", INIT)
+        sys.exit("Sem REFRATA_UPDATE_KEY no .env: um lançamento sem assinatura não seria aceito pelo app. "
+                 "Nada foi publicado.")
+    sigs = [update_key.sign_file(f, v, secret) for f in (setup, portable, *linux)]
 
     # the versions that were tested are the ones committed
     if changed or args.bump:
@@ -203,7 +249,7 @@ def main():
         notes = f"Refrata {v}"
     with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False, encoding="utf8") as f:
         f.write(notes)
-    run("gh", "release", "create", tag, setup, side, portable, "--repo", REPO,
+    run("gh", "release", "create", tag, setup, side, portable, *linux, *sigs, "--repo", REPO,
         "--title", f"Refrata {v}", "--notes-file", f.name, *(["--draft"] if args.draft else []))
     os.unlink(f.name)
     print(f"\npublicado: https://github.com/{REPO}/releases/tag/{tag}")

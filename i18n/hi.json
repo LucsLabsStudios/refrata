@@ -413,5 +413,6 @@
   "Só vale para arquivos que o sistema abre com o Refrata (veja Player padrão do sistema, acima).": "केवल उन फ़ाइलों पर लागू जिन्हें सिस्टम Refrata से खोलता है (ऊपर सिस्टम का डिफ़ॉल्ट प्लेयर देखें)।",
   "Ao fechar a janela, o Refrata fica na bandeja do sistema, e os arquivos abrem na hora.": "विंडो बंद करने पर Refrata सिस्टम ट्रे में रहता है, और फ़ाइलें तुरंत खुलती हैं।",
   "Iniciar com o sistema": "सिस्टम के साथ शुरू करें",
-  "Padrão do sistema": "सिस्टम डिफ़ॉल्ट"
+  "Padrão do sistema": "सिस्टम डिफ़ॉल्ट",
+  "Este lançamento não está assinado pela LucsLabs. Nada foi baixado.": "यह रिलीज़ LucsLabs द्वारा हस्ताक्षरित नहीं है। कुछ भी डाउनलोड नहीं हुआ।"
 }

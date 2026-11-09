@@ -413,5 +413,6 @@
   "Só vale para arquivos que o sistema abre com o Refrata (veja Player padrão do sistema, acima).": "システムが Refrata で開くファイルにだけ有効です（上の「システムの既定のプレーヤー」を参照）。",
   "Ao fechar a janela, o Refrata fica na bandeja do sistema, e os arquivos abrem na hora.": "ウィンドウを閉じても Refrata はシステムトレイに残り、ファイルはすぐに開きます。",
   "Iniciar com o sistema": "システムと同時に起動",
-  "Padrão do sistema": "システムの既定"
+  "Padrão do sistema": "システムの既定",
+  "Este lançamento não está assinado pela LucsLabs. Nada foi baixado.": "このリリースは LucsLabs の署名がありません。何もダウンロードしていません。"
 }

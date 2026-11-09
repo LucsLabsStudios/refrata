@@ -413,5 +413,6 @@
   "Só vale para arquivos que o sistema abre com o Refrata (veja Player padrão do sistema, acima).": "시스템이 Refrata로 여는 파일에만 적용됩니다(위의 시스템 기본 플레이어 참고).",
   "Ao fechar a janela, o Refrata fica na bandeja do sistema, e os arquivos abrem na hora.": "창을 닫으면 Refrata는 시스템 트레이에 남고, 파일이 바로 열립니다.",
   "Iniciar com o sistema": "시스템과 함께 시작",
-  "Padrão do sistema": "시스템 기본값"
+  "Padrão do sistema": "시스템 기본값",
+  "Este lançamento não está assinado pela LucsLabs. Nada foi baixado.": "이 릴리스는 LucsLabs의 서명이 없습니다. 아무것도 내려받지 않았습니다."
 }

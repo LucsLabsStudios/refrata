@@ -32,6 +32,8 @@ async function latest() {
       }
     }
     if (zip) document.querySelectorAll("[data-portable]").forEach((a) => (a.href = zip.browser_download_url));
+    const deb = (rel.assets || []).find((a) => /_amd64\.deb$/i.test(a.name));
+    if (deb) document.querySelectorAll("[data-linux]").forEach((a) => (a.href = deb.browser_download_url));
     if (version) {
       document.querySelectorAll("[data-version]").forEach((el) => (el.textContent = version));
       document.querySelectorAll("[data-version-line]").forEach((el) => (el.textContent = t.line(version)));

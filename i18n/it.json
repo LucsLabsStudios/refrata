@@ -413,5 +413,6 @@
   "Só vale para arquivos que o sistema abre com o Refrata (veja Player padrão do sistema, acima).": "Vale solo per i file che il sistema apre con Refrata (vedi Lettore predefinito del sistema, sopra).",
   "Ao fechar a janela, o Refrata fica na bandeja do sistema, e os arquivos abrem na hora.": "Chiudendo la finestra, Refrata resta nell’area di notifica e i file si aprono subito.",
   "Iniciar com o sistema": "Avvia con il sistema",
-  "Padrão do sistema": "Predefinito di sistema"
+  "Padrão do sistema": "Predefinito di sistema",
+  "Este lançamento não está assinado pela LucsLabs. Nada foi baixado.": "Questa versione non è firmata da LucsLabs. Non è stato scaricato nulla."
 }

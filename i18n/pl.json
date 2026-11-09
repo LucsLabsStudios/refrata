@@ -413,5 +413,6 @@
   "Só vale para arquivos que o sistema abre com o Refrata (veja Player padrão do sistema, acima).": "Dotyczy tylko plików, które system otwiera w Refrata (zobacz Domyślny odtwarzacz systemu, wyżej).",
   "Ao fechar a janela, o Refrata fica na bandeja do sistema, e os arquivos abrem na hora.": "Po zamknięciu okna Refrata zostaje w zasobniku systemowym, a pliki otwierają się od razu.",
   "Iniciar com o sistema": "Uruchamiaj z systemem",
-  "Padrão do sistema": "Domyślne systemowe"
+  "Padrão do sistema": "Domyślne systemowe",
+  "Este lançamento não está assinado pela LucsLabs. Nada foi baixado.": "To wydanie nie jest podpisane przez LucsLabs. Nic nie zostało pobrane."
 }

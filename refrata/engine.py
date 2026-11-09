@@ -586,6 +586,7 @@ class Engine(QObject):
 
         self._audio_off = False
         self._hw_item = ""            # path decoding on the GPU right now
+        self._spu_wanted = None       # subtitle to select once a software reopen is up
         self._sw_paths: set[str] = set()   # items that showed subtitles: software from then on
         self._audio_dirty = True
         self._poll = QTimer(self)
@@ -1849,6 +1850,7 @@ class Engine(QObject):
 
     @Slot(int)
     def setSubtitleTrack(self, tid):
+        self._spu_wanted = None   # a newer choice: a pending re-selection after a reopen must not undo it
         if tid not in (-1, 0) and self._to_software(spu=tid):
             return
         self._mp.video_set_spu(tid)
@@ -1868,7 +1870,11 @@ class Engine(QObject):
         if st == "paused":
             self._pause_when_playing = True
         if spu is not None:
+            self._spu_wanted = spu
+
             def pick(tries=6):
+                if self._spu_wanted != spu:
+                    return   # the user chose something else meanwhile
                 if self._mp.video_get_spu() != spu:
                     self._mp.video_set_spu(spu)
                 if self._mp.video_get_spu() == spu:

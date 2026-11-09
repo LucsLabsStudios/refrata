@@ -221,7 +221,7 @@ def t01_app_boots_without_qml_warnings():
     check(C.parts.win.isVisible(), "main window visible")
     check(C.parts.win.width() >= 1040, "window respects minimum width")
     check(not C.boot_messages, "no Qt/QML warnings at boot", "; ".join(C.boot_messages[:5]))
-    if FROZEN:
+    if FROZEN and sys.platform == "win32":   # on Linux the package uses the distribution's libVLC on purpose
         app_dir = Path(sys.executable).parent
         check(main.VLC_DIR is not None and app_dir in Path(main.VLC_DIR).parents,
               "packaged build uses its bundled libVLC, not a system VLC", str(main.VLC_DIR))
@@ -1686,11 +1686,21 @@ def t47_in_app_update_check_download_verify_install():
     port = start_http(rel)
     base = f"http://127.0.0.1:{port}"
 
-    def publish(tag, digest):
+    # releases are signed (Ed25519): a test key stands in for the one in .env
+    from refrata import ed25519
+    test_key, other_key = os.urandom(32), os.urandom(32)
+    os.environ["REFRATA_UPDATE_PUBKEY"] = ed25519.public_key(test_key).hex()
+
+    def publish(tag, digest, signer=test_key, signed=True):
+        name = "Refrata-Setup-9.9.9.exe"
+        assets = [{"name": name, "size": len(blob), "digest": "sha256:" + digest,
+                   "browser_download_url": base + "/download/" + name}]
+        if signed:
+            sig = ed25519.sign(signer, U.update_message(name, digest, tag.lstrip("vV")))
+            (rel / (name + ".sig")).write_text(sig.hex(), "ascii")
+            assets.append({"name": name + ".sig", "size": 128, "browser_download_url": base + "/" + name + ".sig"})
         (rel / "latest.json").write_text(json.dumps({
-            "tag_name": tag, "body": "Notas de teste", "html_url": base + "/page",
-            "assets": [{"name": "Refrata-Setup-9.9.9.exe", "size": len(blob), "digest": "sha256:" + digest,
-                        "browser_download_url": base + "/download/Refrata-Setup-9.9.9.exe"}]}), "utf8")
+            "tag_name": tag, "body": "Notas de teste", "html_url": base + "/page", "assets": assets}), "utf8")
 
     up._url = base + "/latest.json"
     up._kind = "installer"
@@ -1734,6 +1744,17 @@ def t47_in_app_update_check_download_verify_install():
         pump(0.4)  # the pill re-sizes to the error text before the click
         ui_click("updateDismiss")
         wait(lambda: banner.property("opacity") < 0.05, 2, "banner can be dismissed")
+
+        # not signed, or signed by another key: refused before downloading anything
+        for label, kw in (("unsigned", {"signed": False}), ("signed by another key", {"signer": other_key})):
+            up._set("idle")
+            publish("v9.9.9", sha, **kw)
+            up.checkNow()
+            wait(lambda: up.state == "available", 5)
+            up.download()
+            wait(lambda: up.state == "error", 10, f"{label} release is refused")
+            check("assinado" in up.error and not any((TMP / "data" / "updates").glob("*.exe*")),
+                  f"{label}: nothing is downloaded", up.error)
 
         # a broken download is reported as such (never as a checksum problem)
         up._set("idle")

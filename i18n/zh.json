@@ -413,5 +413,6 @@
   "Só vale para arquivos que o sistema abre com o Refrata (veja Player padrão do sistema, acima).": "仅对系统用 Refrata 打开的文件有效（见上方的系统默认播放器）。",
   "Ao fechar a janela, o Refrata fica na bandeja do sistema, e os arquivos abrem na hora.": "关闭窗口后，Refrata 会留在系统托盘中，文件可以立即打开。",
   "Iniciar com o sistema": "随系统启动",
-  "Padrão do sistema": "系统默认"
+  "Padrão do sistema": "系统默认",
+  "Este lançamento não está assinado pela LucsLabs. Nada foi baixado.": "此版本未经 LucsLabs 签名，未下载任何内容。"
 }
