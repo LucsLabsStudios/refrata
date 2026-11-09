@@ -21,10 +21,9 @@ jobs:
       - name: Python dependencies
         run: pip install -r requirements.txt -r requirements-dev.txt
 
-      - name: VLC 3 (libVLC to bundle) and Inno Setup
-        run: |
-          choco install vlc --no-progress -y
-          choco install innosetup --no-progress -y
+      # libVLC itself is downloaded by the build: the official VideoLAN zip of tools/vlc-version.txt
+      - name: Inno Setup
+        run: choco install innosetup --no-progress -y
 
       - name: Build app, portable zip and installer
         run: python tools/build.py --no-msix

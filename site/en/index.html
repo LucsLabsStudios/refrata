@@ -29,8 +29,9 @@
       <span>Refrata</span>
     </a>
     <nav class="links" aria-label="Sections">
+      <a href="#destaques">Highlights</a>
       <a href="#video">Video</a>
-      <a href="#rapido">Preview</a>
+      <a href="#rede">Links &amp; TV</a>
       <a href="#musica">Music</a>
       <a href="#recursos">Features</a>
       <a href="#duvidas">FAQ</a>
@@ -56,7 +57,7 @@
       <div class="hero-copy">
         <p class="eyebrow">Free and open source</p>
         <h1>Plays everything.<br><em>Looks brand new.</em></h1>
-        <p class="lead">The video and music player for Windows that runs on the VLC engine. Movies, shows, a folder of songs or a stream link: it opens almost any file, no codec hunting required. Around it, an interface made for watching, not for tweaking.</p>
+        <p class="lead">The video and music player for Windows that runs on the VLC engine. Movies, shows, a folder of songs, a YouTube link or a live stream: it opens almost anything, no codec hunting required. Around it, an interface made for watching, not for tweaking.</p>
         <div class="cta-row">
           <a class="btn-orb" href="#download" data-download>
             <span class="orb" aria-hidden="true">
@@ -94,6 +95,38 @@
     </section>
 
 
+    <!-- ======================================================= highlights -->
+    <section class="section" id="destaques">
+      <p class="eyebrow">Highlights</p>
+      <h2>The VLC engine.<br><span class="dim">And everything it was missing around it.</span></h2>
+      <div class="hl-grid">
+        <a class="card hl" href="#rapido">
+          <span class="tag">File Explorer</span>
+          <h3>Preview with Space</h3> <p>Select a video or a song in File Explorer and press Space. The preview shows up instantly, without opening any app.</p> <span class="go">See how it works</span>
+        </a>
+        <a class="card hl" href="#rede">
+          <span class="tag">Links</span>
+          <h3>YouTube in the player</h3> <p>Paste a link from YouTube, Vimeo, Twitch and other sites and watch it in Refrata, in the best quality available.</p> <span class="go">Links &amp; TV</span>
+        </a>
+        <a class="card hl" href="#pip">
+          <span class="tag">New</span>
+          <h3>Picture-in-picture</h3> <p>Press <kbd>Ctrl</kbd>+<kbd>P</kbd> and the video becomes a small window in the corner of the screen, on top of everything, while you work.</p> <span class="go">See PiP</span>
+        </a>
+        <a class="card hl" href="#rede">
+          <span class="tag">TV</span>
+          <h3>Chromecast</h3> <p>Send the video to the living-room TV in one click. The PC becomes the remote: pause, skip and volume stay in the app.</p> <span class="go">Links &amp; TV</span>
+        </a>
+        <a class="card hl" href="#rede">
+          <span class="tag">Subtitles</span>
+          <h3>Online subtitles</h3> <p>Search OpenSubtitles without leaving the player. It looks first for subtitles made for that exact file.</p> <span class="go">Links &amp; TV</span>
+        </a>
+        <a class="card hl" href="#musica">
+          <span class="tag">Music</span>
+          <h3>A real music mode</h3> <p>A carousel of covers, a background in the album’s colours and your keyboard’s media keys working with the app minimised.</p> <span class="go">See music mode</span>
+        </a>
+      </div>
+    </section>
+
     <!-- ======================================================= video -->
     <section class="section split" id="video">
       <div class="split-copy">
@@ -104,7 +137,6 @@
           <li>Switch audio and subtitles in one click, or drag an .srt file onto the window</li>
           <li>Adjust brightness and contrast, rotate, zoom or force the aspect ratio while you watch</li>
           <li>Loop a section with <kbd>L</kbd> and keep the window always on top with <kbd>T</kbd></li>
-          <li>Picture-in-picture with <kbd>Ctrl</kbd>+<kbd>P</kbd>: the video in a small window on top of everything while you work</li>
           <li>4K at native resolution, chapters on the timeline and file details with <kbd>I</kbd></li>
           <li>Speed from 0.25× to 4×, frame-by-frame stepping and snapshots</li>
         </ul>
@@ -114,8 +146,29 @@
       </figure>
     </section>
 
+    <!-- ======================================================= picture-in-picture -->
+    <section class="section split reverse" id="pip">
+      <div class="split-copy">
+        <p class="eyebrow">Picture-in-picture</p>
+        <h2>Watch while you work.<br><span class="dim">The video stays in the corner, on top of everything.</span></h2>
+        <p class="lead">Press <kbd>Ctrl</kbd>+<kbd>P</kbd> or the button at the top of the player. Refrata steps aside and the video carries on, from the same second, in a small window that always stays on top.</p>
+        <ul class="ticks">
+          <li>Drag it to any corner and resize it from the edge</li>
+          <li>Pause, back and forward 10 s and the progress bar right in the small window</li>
+          <li>Double-click or <kbd>Esc</kbd> takes you back to the full app, at the same point in the video</li>
+        </ul>
+      </div>
+      <figure class="split-shot pip-scene">
+        <div class="workwin" aria-hidden="true">
+          <div class="bar"><i></i><i></i><i></i></div>
+          <div class="doc"><span class="h"></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+        </div>
+        <img class="pip-card" src="/img/pip.webp" alt="Refrata’s picture-in-picture window with the video paused, the back-to-app and close buttons and the progress bar" width="640" height="360" loading="lazy">
+      </figure>
+    </section>
+
     <!-- ======================================================= quick -->
-    <section class="section split reverse" id="rapido">
+    <section class="section split" id="rapido">
       <div class="split-copy">
         <p class="eyebrow">Instant preview</p>
         <h2>Press <span class="keycap">Space</span>.<br><span class="dim">See it before you open it.</span></h2>
@@ -134,6 +187,32 @@
           <span class="keycap big press">Space</span>
         </div>
         <img class="quick-card" src="/img/en/quick-preview.webp" alt="Refrata preview window floating with a video, the file name and 3 of 4 in the folder" width="1280" height="720" loading="lazy">
+      </figure>
+    </section>
+
+    <!-- ======================================================= links + TV -->
+    <section class="section split reverse" id="rede">
+      <div class="split-copy">
+        <p class="eyebrow">Links &amp; TV</p>
+        <h2>Paste the link and watch.<br><span class="dim">Or send it to the TV.</span></h2>
+        <p class="lead">On the Streams page, paste a YouTube, Vimeo or Twitch link, or an HLS, RTSP or RTMP address. Refrata finds the best quality and shows what it’s doing while it opens.</p>
+        <ul class="ticks">
+          <li>Over 20 sites: YouTube, Vimeo, Twitch, SoundCloud, Dailymotion, TikTok and more</li>
+          <li>Chromecast on the same Wi-Fi network, with the PC as the remote</li>
+          <li>OpenSubtitles subtitles right in the player, found from the file itself</li>
+        </ul>
+      </div>
+      <figure class="split-shot link-scene" aria-hidden="true">
+        <div class="urlbar">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M4 12h16 M12 4c2.5 2.5 2.5 13.5 0 16 M12 4c-2.5 2.5-2.5 13.5 0 16"/></svg>
+          <span class="url">youtube.com/watch?v=refrata</span>
+          <span class="play">Play</span>
+        </div>
+        <div class="screen">
+          <span class="cast-chip"><svg viewBox="0 0 24 24"><path d="M3 18a3 3 0 0 1 3 3 M3 14a7 7 0 0 1 7 7 M3 10a11 11 0 0 1 11 11 M3 7V5a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4"/></svg>Living room</span>
+          <span class="spin"></span>
+          <strong>Opening YouTube link…</strong> <small>Finding the best quality. This takes a few seconds.</small>
+        </div>
       </figure>
     </section>
 
@@ -174,9 +253,14 @@
           <p>Play next, shuffle and repeat. Opens M3U, PLS and XSPF playlists, and loops an A-B section with one key.</p>
         </article>
         <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" /><path d="M4 12h16 M12 4c2.5 2.5 2.5 13.5 0 16 M12 4c-2.5 2.5-2.5 13.5 0 16" /></svg></div>
-          <h3>Network streams</h3>
-          <p>Paste a YouTube or Vimeo link, or an HLS, RTSP or RTMP address, and watch. On the TV? Cast to Chromecast.</p>
+          <div class="knob"><svg viewBox="0 0 24 24"><path d="M3 5h18v14H3z M7 9v6 M7 12h3 M10 9v6 M14 9v6 M14 12l3-3 M14 12l3 3" /></svg></div>
+          <h3>Real 4K</h3>
+          <p>4K videos at their native resolution, with colour conversion done by the graphics card. Rotate, mirror, zoom and deinterlace TV recordings.</p>
+        </article>
+        <article class="card">
+          <div class="knob"><svg viewBox="0 0 24 24"><path d="M3 15h18 M7 12v6 M12 12v6 M17 12v6 M5 7h6 M13 7h6" /></svg></div>
+          <h3>Chapters</h3>
+          <p>Marks on the timeline with each chapter's name, a list to jump straight to one, and the <kbd>Shift</kbd>+<kbd>N</kbd> and <kbd>Shift</kbd>+<kbd>P</kbd> shortcuts.</p>
         </article>
         <article class="card">
           <div class="knob"><svg viewBox="0 0 24 24"><path d="M12 4v4 M12 16v4 M4 12h4 M16 12h4 M7 7l2 2 M15 15l2 2 M17 7l-2 2 M9 15l-2 2" /></svg></div>
@@ -187,6 +271,11 @@
           <div class="knob"><svg viewBox="0 0 24 24"><path d="M3 8h18v10H3z M7 13h2 M11 13h2 M15 13h2 M8 4l4 4 4-4" /></svg></div>
           <h3>Keyboard media keys</h3>
           <p>Play, pause and skip from the keyboard, even with Refrata minimized. It shows up in the Windows media flyout with title and cover.</p>
+        </article>
+        <article class="card">
+          <div class="knob"><svg viewBox="0 0 24 24"><path d="M4 6h9 M8.5 4v2 M6 6c1 4 4 7 7 8 M11 6c-1 4-4 7-7 8 M13 20l4-9 4 9 M14.5 17h5" /></svg></div>
+          <h3>In 14 languages</h3>
+          <p>English, Portuguese, Spanish, French, German, Japanese, Hindi and seven more. It follows your Windows language, and you can switch it in Settings.</p>
         </article>
       </div>
     </section>
@@ -241,6 +330,13 @@
           <p>The install runs in the background and the app reopens on the new version, with your library and settings just as they were.</p>
         </li>
       </ol>
+      <div class="card engine-note">
+        <div class="knob"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6 M20 4v4h-4 M9 12l2 2 4-4" /></svg></div>
+        <div>
+          <h3>An engine that stays current</h3>
+          <p>Every week the project checks whether VideoLAN has released a new VLC and whether yt-dlp, which opens links from sites, has a new version. Every engine update goes through nearly a hundred automated test scenarios before it reaches you.</p>
+        </div>
+      </div>
     </section>
 
     <!-- ======================================================= download -->
@@ -291,6 +387,18 @@
         <details class="card">
           <summary>Why does Windows warn that the file might be dangerous?</summary>
           <p>Because the installer isn’t digitally signed yet, and Windows is wary of any new program without a signature. The warning doesn’t mean there’s a virus. To check, compare the file’s SHA-256 with the one published with the release, or build the installer yourself from the code.</p>
+        </details>
+        <details class="card">
+          <summary>Can I watch YouTube videos?</summary>
+          <p>Yes. Copy the video’s link, open the Streams page (<kbd>Ctrl</kbd>+<kbd>L</kbd>), paste it and press Play. It also works with Vimeo, Twitch, SoundCloud, Dailymotion and other sites. Refrata picks the best quality available, and some videos take a few seconds to open.</p>
+        </details>
+        <details class="card">
+          <summary>Does it work with Chromecast?</summary>
+          <p>Yes. With the PC and the Chromecast on the same Wi-Fi network, click the cast button at the top of the player and pick the TV. Pause, skip and volume stay in Refrata, which becomes the remote.</p>
+        </details>
+        <details class="card">
+          <summary>Does the VLC engine inside Refrata get out of date?</summary>
+          <p>No. The project checks every week whether VideoLAN has published a new VLC. When one comes out, it is tested and goes into a Refrata update, which arrives through the app itself.</p>
         </details>
         <details class="card">
           <summary>How do I make Refrata my default player?</summary>

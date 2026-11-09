@@ -42,8 +42,9 @@
       <span>Refrata</span>
     </a>
     <nav class="links" aria-label="Seções">
+      <a href="#destaques">Destaques</a>
       <a href="#video">Vídeo</a>
-      <a href="#rapido">Prévia</a>
+      <a href="#rede">Links e TV</a>
       <a href="#musica">Música</a>
       <a href="#recursos">Recursos</a>
       <a href="#duvidas">Dúvidas</a>
@@ -70,7 +71,7 @@
         <p class="eyebrow">Grátis e de código aberto</p>
         <h1>Toca tudo.<br><em>Com outra cara.</em></h1>
         <p class="lead">O player de vídeo e música para Windows que roda sobre o motor do VLC. Filme, série, pasta de
-          músicas ou link de transmissão: ele abre praticamente qualquer arquivo sem você caçar codec. Em volta dele, uma interface feita para
+          músicas, link do YouTube ou transmissão ao vivo: ele abre praticamente tudo sem você caçar codec. Em volta dele, uma interface feita para
           assistir, não para configurar.</p>
         <div class="cta-row">
           <a class="btn-orb" href="#download" data-download>
@@ -109,6 +110,50 @@
     </section>
 
 
+    <!-- ======================================================= highlights -->
+    <section class="section" id="destaques">
+      <p class="eyebrow">Destaques</p>
+      <h2>O motor do VLC.<br><span class="dim">E tudo o que faltava em volta dele.</span></h2>
+      <div class="hl-grid">
+        <a class="card hl" href="#rapido">
+          <span class="tag">Explorer</span>
+          <h3>Prévia com Espaço</h3>
+          <p>Selecione um vídeo ou uma música no Explorer e aperte Espaço. A prévia aparece na hora, sem abrir programa nenhum.</p>
+          <span class="go">Ver como funciona</span>
+        </a>
+        <a class="card hl" href="#rede">
+          <span class="tag">Links</span>
+          <h3>YouTube no player</h3>
+          <p>Cole um link do YouTube, do Vimeo, da Twitch e de outros sites e assista no Refrata, na melhor qualidade disponível.</p>
+          <span class="go">Links e TV</span>
+        </a>
+        <a class="card hl" href="#pip">
+          <span class="tag">Novo</span>
+          <h3>Picture-in-picture</h3>
+          <p>Com <kbd>Ctrl</kbd>+<kbd>P</kbd>, o vídeo vira uma janelinha no canto da tela, por cima de tudo, enquanto você trabalha.</p>
+          <span class="go">Ver o PiP</span>
+        </a>
+        <a class="card hl" href="#rede">
+          <span class="tag">TV</span>
+          <h3>Chromecast</h3>
+          <p>Mande o vídeo para a TV da sala com um clique. O PC vira o controle remoto: pausar, pular e volume continuam no app.</p>
+          <span class="go">Links e TV</span>
+        </a>
+        <a class="card hl" href="#rede">
+          <span class="tag">Legendas</span>
+          <h3>Legendas online</h3>
+          <p>Busque no OpenSubtitles sem sair do player. Ele procura primeiro as legendas feitas para aquele arquivo exato.</p>
+          <span class="go">Links e TV</span>
+        </a>
+        <a class="card hl" href="#musica">
+          <span class="tag">Música</span>
+          <h3>Modo música de verdade</h3>
+          <p>Carrossel de capas, fundo com as cores do disco e as teclas de mídia do teclado funcionando com o app minimizado.</p>
+          <span class="go">Ver o modo música</span>
+        </a>
+      </div>
+    </section>
+
     <!-- ======================================================= video -->
     <section class="section split" id="video">
       <div class="split-copy">
@@ -120,7 +165,6 @@
           <li>Troque o áudio e a legenda num clique, ou arraste um .srt para a janela</li>
           <li>Acerte brilho e contraste, gire, dê zoom ou force a proporção enquanto assiste</li>
           <li>Repita um trecho com <kbd>L</kbd> e deixe a janela sempre no topo com <kbd>T</kbd></li>
-          <li>Picture-in-picture com <kbd>Ctrl</kbd>+<kbd>P</kbd>: o vídeo numa janelinha por cima de tudo enquanto você trabalha</li>
           <li>4K na resolução nativa, capítulos na barra de tempo e detalhes do arquivo com <kbd>I</kbd></li>
           <li>Velocidade de 0,25× a 4×, avanço quadro a quadro e captura de tela</li>
         </ul>
@@ -130,8 +174,30 @@
       </figure>
     </section>
 
+    <!-- ======================================================= picture-in-picture -->
+    <section class="section split reverse" id="pip">
+      <div class="split-copy">
+        <p class="eyebrow">Picture-in-picture</p>
+        <h2>Assista enquanto trabalha.<br><span class="dim">O vídeo fica no canto, por cima de tudo.</span></h2>
+        <p class="lead">Aperte <kbd>Ctrl</kbd>+<kbd>P</kbd> ou o botão no topo do player. O Refrata sai da frente e o vídeo
+          continua, no mesmo segundo, numa janelinha que fica sempre por cima das outras.</p>
+        <ul class="ticks">
+          <li>Arraste para qualquer canto e mude o tamanho pela borda</li>
+          <li>Pausar, voltar e avançar 10 s e a barra de progresso na própria janelinha</li>
+          <li>Duplo clique ou <kbd>Esc</kbd> volta ao app completo, no mesmo ponto do vídeo</li>
+        </ul>
+      </div>
+      <figure class="split-shot pip-scene">
+        <div class="workwin" aria-hidden="true">
+          <div class="bar"><i></i><i></i><i></i></div>
+          <div class="doc"><span class="h"></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+        </div>
+        <img class="pip-card" src="/img/pip.webp" alt="Janelinha de picture-in-picture do Refrata com o vídeo pausado, os botões de voltar ao app e fechar e a barra de progresso" width="640" height="360" loading="lazy">
+      </figure>
+    </section>
+
     <!-- ======================================================= quick -->
-    <section class="section split reverse" id="rapido">
+    <section class="section split" id="rapido">
       <div class="split-copy">
         <p class="eyebrow">Prévia instantânea</p>
         <h2>Aperte <span class="keycap">Espaço</span>.<br><span class="dim">Veja antes de abrir.</span></h2>
@@ -152,6 +218,34 @@
           <span class="keycap big press">Espaço</span>
         </div>
         <img class="quick-card" src="/img/quick-preview.webp" alt="Janela de prévia do Refrata flutuando com um vídeo, o nome do arquivo e 3 de 4 na pasta" width="1280" height="720" loading="lazy">
+      </figure>
+    </section>
+
+    <!-- ======================================================= links + TV -->
+    <section class="section split reverse" id="rede">
+      <div class="split-copy">
+        <p class="eyebrow">Links e TV</p>
+        <h2>Cole o link e assista.<br><span class="dim">Ou mande para a TV.</span></h2>
+        <p class="lead">Na página Streams, cole um link do YouTube, do Vimeo ou da Twitch, ou um endereço HLS, RTSP ou
+          RTMP. O Refrata encontra a melhor qualidade e mostra o que está fazendo enquanto abre.</p>
+        <ul class="ticks">
+          <li>Mais de 20 sites: YouTube, Vimeo, Twitch, SoundCloud, Dailymotion, TikTok e outros</li>
+          <li>Chromecast na mesma rede Wi-Fi, com o PC como controle remoto</li>
+          <li>Legendas do OpenSubtitles direto no player, encontradas pelo próprio arquivo</li>
+        </ul>
+      </div>
+      <figure class="split-shot link-scene" aria-hidden="true">
+        <div class="urlbar">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M4 12h16 M12 4c2.5 2.5 2.5 13.5 0 16 M12 4c-2.5 2.5-2.5 13.5 0 16"/></svg>
+          <span class="url">youtube.com/watch?v=refrata</span>
+          <span class="play">Reproduzir</span>
+        </div>
+        <div class="screen">
+          <span class="cast-chip"><svg viewBox="0 0 24 24"><path d="M3 18a3 3 0 0 1 3 3 M3 14a7 7 0 0 1 7 7 M3 10a11 11 0 0 1 11 11 M3 7V5a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4"/></svg>Sala de estar</span>
+          <span class="spin"></span>
+          <strong>Abrindo link do YouTube…</strong>
+          <small>Procurando a melhor qualidade. Isso leva alguns segundos.</small>
+        </div>
       </figure>
     </section>
 
@@ -194,9 +288,14 @@
           <p>Tocar a seguir, aleatório e repetir. Abre playlists M3U, PLS e XSPF, e repete um trecho A-B com uma tecla.</p>
         </article>
         <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" /><path d="M4 12h16 M12 4c2.5 2.5 2.5 13.5 0 16 M12 4c-2.5 2.5-2.5 13.5 0 16" /></svg></div>
-          <h3>Transmissões pela rede</h3>
-          <p>Cole um link do YouTube, do Vimeo ou um endereço HLS, RTSP ou RTMP e assista. Na TV? Transmita para o Chromecast.</p>
+          <div class="knob"><svg viewBox="0 0 24 24"><path d="M3 5h18v14H3z M7 9v6 M7 12h3 M10 9v6 M14 9v6 M14 12l3-3 M14 12l3 3" /></svg></div>
+          <h3>4K de verdade</h3>
+          <p>Vídeos 4K na resolução nativa, com a conversão de cor feita pela placa de vídeo. Gire, espelhe, dê zoom e desentrelace gravações de TV.</p>
+        </article>
+        <article class="card">
+          <div class="knob"><svg viewBox="0 0 24 24"><path d="M3 15h18 M7 12v6 M12 12v6 M17 12v6 M5 7h6 M13 7h6" /></svg></div>
+          <h3>Capítulos</h3>
+          <p>Marcas na barra de tempo com o nome de cada capítulo, uma lista para pular direto e os atalhos <kbd>Shift</kbd>+<kbd>N</kbd> e <kbd>Shift</kbd>+<kbd>P</kbd>.</p>
         </article>
         <article class="card">
           <div class="knob"><svg viewBox="0 0 24 24"><path d="M12 4v4 M12 16v4 M4 12h4 M16 12h4 M7 7l2 2 M15 15l2 2 M17 7l-2 2 M9 15l-2 2" /></svg></div>
@@ -207,6 +306,11 @@
           <div class="knob"><svg viewBox="0 0 24 24"><path d="M3 8h18v10H3z M7 13h2 M11 13h2 M15 13h2 M8 4l4 4 4-4" /></svg></div>
           <h3>Teclas de mídia do teclado</h3>
           <p>Tocar, pausar e pular pelo teclado, mesmo com o Refrata minimizado. Ele aparece no painel de mídia do Windows com o título e a capa.</p>
+        </article>
+        <article class="card">
+          <div class="knob"><svg viewBox="0 0 24 24"><path d="M4 6h9 M8.5 4v2 M6 6c1 4 4 7 7 8 M11 6c-1 4-4 7-7 8 M13 20l4-9 4 9 M14.5 17h5" /></svg></div>
+          <h3>Em 14 idiomas</h3>
+          <p>Português, inglês, espanhol, francês, alemão, japonês, hindi e mais sete. Segue o idioma do Windows, e dá para trocar em Ajustes.</p>
         </article>
       </div>
     </section>
@@ -262,6 +366,13 @@
           <p>A instalação roda em segundo plano e o app reabre na versão nova, com a biblioteca e os ajustes do jeito que estavam.</p>
         </li>
       </ol>
+      <div class="card engine-note">
+        <div class="knob"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6 M20 4v4h-4 M9 12l2 2 4-4" /></svg></div>
+        <div>
+          <h3>Motor sempre em dia</h3>
+          <p>Toda semana o projeto confere se a VideoLAN lançou um VLC novo e se o yt-dlp, que abre os links de sites, ganhou versão nova. Cada atualização do motor passa por quase cem cenários de teste automáticos antes de chegar até você.</p>
+        </div>
+      </div>
     </section>
 
     <!-- ======================================================= download -->
@@ -318,6 +429,22 @@
           <p>Porque o instalador ainda não tem assinatura digital, e o Windows desconfia de todo programa novo sem ela.
             O aviso não indica vírus. Para conferir, compare o SHA-256 do arquivo com o publicado no lançamento, ou
             gere o instalador você mesmo a partir do código.</p>
+        </details>
+        <details class="card">
+          <summary>Dá para assistir vídeos do YouTube?</summary>
+          <p>Sim. Copie o link do vídeo, abra a página Streams (<kbd>Ctrl</kbd>+<kbd>L</kbd>), cole e aperte Reproduzir.
+            Funciona também com Vimeo, Twitch, SoundCloud, Dailymotion e outros sites. O Refrata escolhe a melhor
+            qualidade disponível, e alguns vídeos levam uns segundos para abrir.</p>
+        </details>
+        <details class="card">
+          <summary>Funciona com Chromecast?</summary>
+          <p>Sim. Com o PC e o Chromecast na mesma rede Wi-Fi, clique no botão de transmitir no topo do player e escolha
+            a TV. Pausar, pular e o volume continuam no Refrata, que vira o controle remoto.</p>
+        </details>
+        <details class="card">
+          <summary>O motor do VLC dentro do Refrata fica desatualizado?</summary>
+          <p>Não. O projeto confere toda semana se a VideoLAN publicou uma versão nova do VLC. Quando sai, ela é testada
+            e entra numa atualização do Refrata, que chega pelo próprio app.</p>
         </details>
         <details class="card">
           <summary>Como deixo o Refrata como player padrão?</summary>

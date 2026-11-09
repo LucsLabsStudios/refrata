@@ -29,8 +29,9 @@
       <span>Refrata</span>
     </a>
     <nav class="links" aria-label="Secciones">
+      <a href="#destaques">Destacados</a>
       <a href="#video">Vídeo</a>
-      <a href="#rapido">Vista previa</a>
+      <a href="#rede">Enlaces y TV</a>
       <a href="#musica">Música</a>
       <a href="#recursos">Funciones</a>
       <a href="#duvidas">Preguntas</a>
@@ -56,7 +57,7 @@
       <div class="hero-copy">
         <p class="eyebrow">Gratis y de código abierto</p>
         <h1>Lo reproduce todo.<br><em>Con otra cara.</em></h1>
-        <p class="lead">El reproductor de vídeo y música para Windows que funciona con el motor de VLC. Películas, series, una carpeta de canciones o un enlace de streaming: abre casi cualquier archivo sin que tengas que buscar códecs. Y alrededor, una interfaz pensada para ver, no para configurar.</p>
+        <p class="lead">El reproductor de vídeo y música para Windows que funciona con el motor de VLC. Películas, series, una carpeta de canciones, un enlace de YouTube o una transmisión en directo: abre casi todo sin que tengas que buscar códecs. Y alrededor, una interfaz pensada para ver, no para configurar.</p>
         <div class="cta-row">
           <a class="btn-orb" href="#download" data-download>
             <span class="orb" aria-hidden="true">
@@ -94,6 +95,38 @@
     </section>
 
 
+    <!-- ======================================================= highlights -->
+    <section class="section" id="destaques">
+      <p class="eyebrow">Destacados</p>
+      <h2>El motor de VLC.<br><span class="dim">Y todo lo que le faltaba alrededor.</span></h2>
+      <div class="hl-grid">
+        <a class="card hl" href="#rapido">
+          <span class="tag">Explorador</span>
+          <h3>Vista previa con Espacio</h3> <p>Selecciona un vídeo o una canción en el Explorador y pulsa Espacio. La vista previa aparece al instante, sin abrir ningún programa.</p> <span class="go">Ver cómo funciona</span>
+        </a>
+        <a class="card hl" href="#rede">
+          <span class="tag">Enlaces</span>
+          <h3>YouTube en el reproductor</h3> <p>Pega un enlace de YouTube, Vimeo, Twitch y otros sitios y míralo en Refrata, con la mejor calidad disponible.</p> <span class="go">Enlaces y TV</span>
+        </a>
+        <a class="card hl" href="#pip">
+          <span class="tag">Nuevo</span>
+          <h3>Imagen en imagen</h3> <p>Con <kbd>Ctrl</kbd>+<kbd>P</kbd>, el vídeo pasa a una ventanita en la esquina de la pantalla, encima de todo, mientras trabajas.</p> <span class="go">Ver el PiP</span>
+        </a>
+        <a class="card hl" href="#rede">
+          <span class="tag">TV</span>
+          <h3>Chromecast</h3> <p>Envía el vídeo a la tele del salón con un clic. El PC se convierte en el mando: pausar, saltar y el volumen siguen en la aplicación.</p> <span class="go">Enlaces y TV</span>
+        </a>
+        <a class="card hl" href="#rede">
+          <span class="tag">Subtítulos</span>
+          <h3>Subtítulos en línea</h3> <p>Busca en OpenSubtitles sin salir del reproductor. Primero busca los subtítulos hechos para ese archivo exacto.</p> <span class="go">Enlaces y TV</span>
+        </a>
+        <a class="card hl" href="#musica">
+          <span class="tag">Música</span>
+          <h3>Un modo música de verdad</h3> <p>Carrusel de portadas, fondo con los colores del disco y las teclas multimedia del teclado funcionando con la aplicación minimizada.</p> <span class="go">Ver el modo música</span>
+        </a>
+      </div>
+    </section>
+
     <!-- ======================================================= video -->
     <section class="section split" id="video">
       <div class="split-copy">
@@ -104,7 +137,6 @@
           <li>Cambia el audio y los subtítulos con un clic, o arrastra un .srt a la ventana</li>
           <li>Ajusta brillo y contraste, gira, haz zoom o fuerza la relación de aspecto mientras ves</li>
           <li>Repite un fragmento con <kbd>L</kbd> y deja la ventana siempre visible con <kbd>T</kbd></li>
-          <li>Imagen en imagen con <kbd>Ctrl</kbd>+<kbd>P</kbd>: el video en una ventanita encima de todo mientras trabajas</li>
           <li>4K en resolución nativa, capítulos en la barra de tiempo y detalles del archivo con <kbd>I</kbd></li>
           <li>Velocidad de 0,25× a 4×, avance fotograma a fotograma y capturas</li>
         </ul>
@@ -114,8 +146,29 @@
       </figure>
     </section>
 
+    <!-- ======================================================= picture-in-picture -->
+    <section class="section split reverse" id="pip">
+      <div class="split-copy">
+        <p class="eyebrow">Imagen en imagen</p>
+        <h2>Mira mientras trabajas.<br><span class="dim">El vídeo se queda en la esquina, encima de todo.</span></h2>
+        <p class="lead">Pulsa <kbd>Ctrl</kbd>+<kbd>P</kbd> o el botón de arriba del reproductor. Refrata se aparta y el vídeo sigue, en el mismo segundo, en una ventanita que siempre queda encima de las demás.</p>
+        <ul class="ticks">
+          <li>Arrástrala a cualquier esquina y cambia el tamaño desde el borde</li>
+          <li>Pausa, retrocede y avanza 10 s y la barra de progreso en la propia ventanita</li>
+          <li>Doble clic o <kbd>Esc</kbd> vuelve a la aplicación completa, en el mismo punto del vídeo</li>
+        </ul>
+      </div>
+      <figure class="split-shot pip-scene">
+        <div class="workwin" aria-hidden="true">
+          <div class="bar"><i></i><i></i><i></i></div>
+          <div class="doc"><span class="h"></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+        </div>
+        <img class="pip-card" src="/img/pip.webp" alt="Ventanita de imagen en imagen de Refrata con el vídeo en pausa, los botones de volver a la aplicación y cerrar y la barra de progreso" width="640" height="360" loading="lazy">
+      </figure>
+    </section>
+
     <!-- ======================================================= quick -->
-    <section class="section split reverse" id="rapido">
+    <section class="section split" id="rapido">
       <div class="split-copy">
         <p class="eyebrow">Vista previa al instante</p>
         <h2>Pulsa <span class="keycap">Espacio</span>.<br><span class="dim">Míralo antes de abrirlo.</span></h2>
@@ -134,6 +187,32 @@
           <span class="keycap big press">Espacio</span>
         </div>
         <img class="quick-card" src="/img/es/quick-preview.webp" alt="Ventana de vista previa de Refrata flotando con un vídeo, el nombre del archivo y 3 de 4 en la carpeta" width="1280" height="720" loading="lazy">
+      </figure>
+    </section>
+
+    <!-- ======================================================= links + TV -->
+    <section class="section split reverse" id="rede">
+      <div class="split-copy">
+        <p class="eyebrow">Enlaces y TV</p>
+        <h2>Pega el enlace y mira.<br><span class="dim">O mándalo a la tele.</span></h2>
+        <p class="lead">En la página Streams, pega un enlace de YouTube, Vimeo o Twitch, o una dirección HLS, RTSP o RTMP. Refrata encuentra la mejor calidad y muestra lo que hace mientras abre.</p>
+        <ul class="ticks">
+          <li>Más de 20 sitios: YouTube, Vimeo, Twitch, SoundCloud, Dailymotion, TikTok y otros</li>
+          <li>Chromecast en la misma red Wi-Fi, con el PC como mando a distancia</li>
+          <li>Subtítulos de OpenSubtitles directamente en el reproductor, encontrados por el propio archivo</li>
+        </ul>
+      </div>
+      <figure class="split-shot link-scene" aria-hidden="true">
+        <div class="urlbar">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M4 12h16 M12 4c2.5 2.5 2.5 13.5 0 16 M12 4c-2.5 2.5-2.5 13.5 0 16"/></svg>
+          <span class="url">youtube.com/watch?v=refrata</span>
+          <span class="play">Reproducir</span>
+        </div>
+        <div class="screen">
+          <span class="cast-chip"><svg viewBox="0 0 24 24"><path d="M3 18a3 3 0 0 1 3 3 M3 14a7 7 0 0 1 7 7 M3 10a11 11 0 0 1 11 11 M3 7V5a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4"/></svg>Salón</span>
+          <span class="spin"></span>
+          <strong>Abriendo enlace de YouTube…</strong> <small>Buscando la mejor calidad. Tarda unos segundos.</small>
+        </div>
       </figure>
     </section>
 
@@ -174,9 +253,14 @@
           <p>Reproducir a continuación, aleatorio y repetir. Abre listas M3U, PLS y XSPF, y repite un fragmento A-B con una tecla.</p>
         </article>
         <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" /><path d="M4 12h16 M12 4c2.5 2.5 2.5 13.5 0 16 M12 4c-2.5 2.5-2.5 13.5 0 16" /></svg></div>
-          <h3>Streams de red</h3>
-          <p>Pega un enlace de YouTube o Vimeo, o una dirección HLS, RTSP o RTMP, y míralo. ¿En la tele? Transmite al Chromecast.</p>
+          <div class="knob"><svg viewBox="0 0 24 24"><path d="M3 5h18v14H3z M7 9v6 M7 12h3 M10 9v6 M14 9v6 M14 12l3-3 M14 12l3 3" /></svg></div>
+          <h3>4K de verdad</h3>
+          <p>Vídeos 4K en su resolución nativa, con la conversión de color hecha por la tarjeta gráfica. Gira, refleja, haz zoom y desentrelaza grabaciones de TV.</p>
+        </article>
+        <article class="card">
+          <div class="knob"><svg viewBox="0 0 24 24"><path d="M3 15h18 M7 12v6 M12 12v6 M17 12v6 M5 7h6 M13 7h6" /></svg></div>
+          <h3>Capítulos</h3>
+          <p>Marcas en la barra de tiempo con el nombre de cada capítulo, una lista para saltar directo y los atajos <kbd>Shift</kbd>+<kbd>N</kbd> y <kbd>Shift</kbd>+<kbd>P</kbd>.</p>
         </article>
         <article class="card">
           <div class="knob"><svg viewBox="0 0 24 24"><path d="M12 4v4 M12 16v4 M4 12h4 M16 12h4 M7 7l2 2 M15 15l2 2 M17 7l-2 2 M9 15l-2 2" /></svg></div>
@@ -187,6 +271,11 @@
           <div class="knob"><svg viewBox="0 0 24 24"><path d="M3 8h18v10H3z M7 13h2 M11 13h2 M15 13h2 M8 4l4 4 4-4" /></svg></div>
           <h3>Teclas multimedia del teclado</h3>
           <p>Reproduce, pausa y salta desde el teclado, incluso con Refrata minimizado. Aparece en el panel multimedia de Windows con título y portada.</p>
+        </article>
+        <article class="card">
+          <div class="knob"><svg viewBox="0 0 24 24"><path d="M4 6h9 M8.5 4v2 M6 6c1 4 4 7 7 8 M11 6c-1 4-4 7-7 8 M13 20l4-9 4 9 M14.5 17h5" /></svg></div>
+          <h3>En 14 idiomas</h3>
+          <p>Español, portugués, inglés, francés, alemán, japonés, hindi y siete más. Sigue el idioma de Windows, y puedes cambiarlo en Ajustes.</p>
         </article>
       </div>
     </section>
@@ -241,6 +330,13 @@
           <p>La instalación se hace en segundo plano y la aplicación se vuelve a abrir en la versión nueva, con tu biblioteca y tus ajustes tal como estaban.</p>
         </li>
       </ol>
+      <div class="card engine-note">
+        <div class="knob"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6 M20 4v4h-4 M9 12l2 2 4-4" /></svg></div>
+        <div>
+          <h3>Un motor siempre al día</h3>
+          <p>Cada semana el proyecto comprueba si VideoLAN publicó un VLC nuevo y si yt-dlp, que abre los enlaces de sitios, tiene versión nueva. Cada actualización del motor pasa por casi cien escenarios de prueba automáticos antes de llegar a ti.</p>
+        </div>
+      </div>
     </section>
 
     <!-- ======================================================= download -->
@@ -291,6 +387,18 @@
         <details class="card">
           <summary>¿Por qué Windows avisa de que el archivo puede ser peligroso?</summary>
           <p>Porque el instalador todavía no tiene firma digital, y Windows desconfía de cualquier programa nuevo sin ella. El aviso no indica un virus. Para comprobarlo, compara el SHA-256 del archivo con el publicado en la versión, o genera tú mismo el instalador a partir del código.</p>
+        </details>
+        <details class="card">
+          <summary>¿Puedo ver vídeos de YouTube?</summary>
+          <p>Sí. Copia el enlace del vídeo, abre la página Streams (<kbd>Ctrl</kbd>+<kbd>L</kbd>), pégalo y pulsa Reproducir. También funciona con Vimeo, Twitch, SoundCloud, Dailymotion y otros sitios. Refrata elige la mejor calidad disponible, y algunos vídeos tardan unos segundos en abrir.</p>
+        </details>
+        <details class="card">
+          <summary>¿Funciona con Chromecast?</summary>
+          <p>Sí. Con el PC y el Chromecast en la misma red Wi-Fi, haz clic en el botón de transmitir de arriba del reproductor y elige la tele. Pausar, saltar y el volumen siguen en Refrata, que se convierte en el mando.</p>
+        </details>
+        <details class="card">
+          <summary>¿El motor de VLC dentro de Refrata se queda desactualizado?</summary>
+          <p>No. El proyecto comprueba cada semana si VideoLAN publicó una versión nueva de VLC. Cuando sale, se prueba y entra en una actualización de Refrata, que llega por la propia aplicación.</p>
         </details>
         <details class="card">
           <summary>¿Cómo pongo Refrata como reproductor predeterminado?</summary>

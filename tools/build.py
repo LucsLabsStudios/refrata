@@ -2,7 +2,11 @@
 
     python tools/build.py              # vendor libVLC + PyInstaller + Inno Setup installer
     python tools/build.py --no-installer
-    python tools/build.py --vlc-zip <vlc-3.x-win64.zip>   # use a VLC zip instead of the installed VLC
+    python tools/build.py --vlc-zip <vlc-3.x-win64.zip>   # a VLC zip you already have
+    python tools/build.py --system-vlc                     # libVLC from the VLC installed on this PC
+
+By default libVLC comes from the official VideoLAN zip of the version in tools/vlc-version.txt
+(downloaded once, SHA-256 checked; see tools/vlc_engine.py).
 
 Result:
     dist/Refrata/Refrata.exe                portable app (no Python, no VLC needed)
@@ -26,6 +30,7 @@ from refrata import __version__  # noqa: E402
 
 sys.path.insert(0, str(ROOT / "tools"))
 import sign  # noqa: E402
+import vlc_engine  # noqa: E402
 
 VENDOR = ROOT / "vendor" / "vlc"
 BUILD = ROOT / "build"
@@ -41,8 +46,11 @@ def log(msg):
     print(f"[build] {msg}", flush=True)
 
 
-def vendor_vlc(zip_path: str | None):
+def vendor_vlc(zip_path: str | None, system: bool = False):
     """Copy the parts of VLC 3 that libVLC needs into vendor/vlc."""
+    if not zip_path and not system:
+        log(f"libVLC {vlc_engine.pinned()}: official VideoLAN zip")
+        zip_path = str(vlc_engine.fetch())
     if VENDOR.exists():
         shutil.rmtree(VENDOR)
     VENDOR.mkdir(parents=True)
@@ -318,6 +326,7 @@ def installer() -> Path:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--vlc-zip")
+    ap.add_argument("--system-vlc", action="store_true", help="take libVLC from the installed VLC")
     ap.add_argument("--no-installer", action="store_true")
     ap.add_argument("--no-msix", action="store_true")
     ap.add_argument("--skip-vendor", action="store_true")
@@ -326,7 +335,7 @@ def main():
     app = DIST / "Refrata"
     if not (a.skip_build and (app / "Refrata.exe").exists()):
         if not (a.skip_vendor and (VENDOR / "libvlc.dll").exists()):
-            vendor_vlc(a.vlc_zip)
+            vendor_vlc(a.vlc_zip, a.system_vlc)
         app = pyinstaller()
     if not sign.sign([app / "Refrata.exe"]):
         log("not signed (set REFRATA_SIGN_* — see tools/sign.py)")

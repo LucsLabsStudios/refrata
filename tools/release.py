@@ -50,6 +50,13 @@ def main():
     if dirty.strip():
         sys.exit("Há alterações sem commit. O lançamento precisa corresponder ao código publicado.")
 
+    # a release is a good moment to notice an old engine or an old yt-dlp
+    chk = subprocess.run([sys.executable, str(ROOT / "tools" / "check_updates.py")], capture_output=True, text=True)
+    if chk.returncode == 10:
+        print("\nAVISO: há componentes com versão nova (o lançamento segue assim mesmo):\n" + chk.stdout)
+    elif chk.returncode != 0:
+        print("(não foi possível verificar as versões do VLC e do yt-dlp agora)")
+
     if not args.skip_build:
         run(sys.executable, "tools/build.py", "--no-msix")
     setup = DIST / f"Refrata-Setup-{__version__}.exe"

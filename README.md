@@ -65,10 +65,29 @@ aviso de atualização e o botão de download do site aponta para a versão nova
 python tools/build.py                 # vendor/vlc + PyInstaller + zip portátil + instalador + MSIX
 python tools/build.py --no-installer --no-msix   # só a pasta dist/Refrata e o zip
 python tools/msix.py                  # só os pacotes MSIX (de teste e, com installer/store.json, o da Store)
-python tools/build.py --vlc-zip vlc-3.0.21-win64.zip   # usa um zip oficial do VLC em vez do instalado
+python tools/build.py --vlc-zip vlc-3.0.24-win64.zip   # usa um zip do VLC que você já tem
+python tools/build.py --system-vlc    # usa o VLC instalado neste PC
 ```
 
 Requer o Inno Setup 6 para o instalador (`winget install JRSoftware.InnoSetup`). Saídas em `dist/`.
+
+### Motor do VLC sempre atualizado
+
+A versão do libVLC que vai dentro do app está em `tools/vlc-version.txt`. O build baixa o zip oficial
+dessa versão da VideoLAN (uma vez, em `build/cache`), confere o SHA-256 publicado por ela e embute o
+motor. Assim todo build, aqui ou no GitHub Actions, leva o mesmo motor, não importa qual VLC está
+instalado na máquina.
+
+```powershell
+python tools/check_updates.py   # motor do VLC, yt-dlp e python-vlc: o que está no app × o mais recente
+```
+
+Toda segunda-feira, `.github/workflows/watch-updates.yml` roda essa verificação no GitHub e, se algo
+estiver para trás, abre (ou atualiza) uma issue com a etiqueta `atualizacoes`, que chega como
+notificação. O `tools/release.py` também avisa antes de publicar. Para atualizar: mude a versão em
+`tools/vlc-version.txt` (ou em `requirements.txt`, para o yt-dlp), gere o build, rode as duas baterias
+de testes e publique. Um salto de versão principal (VLC 4) muda a API do libVLC e exige adaptar o app;
+a verificação avisa quando for o caso.
 
 ### Assinatura digital
 

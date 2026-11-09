@@ -1,0 +1,49 @@
+# Weekly: is the VLC engine (or yt-dlp, python-vlc) behind? Opens or updates one issue, which
+# GitHub notifies the maintainer about. Nothing is changed in the code automatically.
+name: watch-updates
+
+on:
+  schedule:
+    - cron: "0 12 * * 1"   # Mondays, 09:00 in Brasília
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compare with the latest releases
+        id: check
+        run: |
+          set +e
+          python tools/check_updates.py
+          python tools/check_updates.py --markdown > report.md
+          code=$?
+          set -e
+          if [ "$code" = "10" ]; then echo "behind=true" >> "$GITHUB_OUTPUT"
+          elif [ "$code" = "0" ]; then echo "behind=false" >> "$GITHUB_OUTPUT"
+          else exit "$code"; fi
+
+      - name: Open or update the issue
+        if: steps.check.outputs.behind == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh label create atualizacoes --color FF6A1F --description "Motor do VLC e componentes com versão nova" 2>/dev/null || true
+          title="Atualizações disponíveis: motor do VLC e componentes"
+          num=$(gh issue list --label atualizacoes --state open --json number --jq '.[0].number')
+          if [ -n "$num" ]; then
+            gh issue edit "$num" --body-file report.md
+          else
+            gh issue create --title "$title" --label atualizacoes --body-file report.md
+          fi
