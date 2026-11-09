@@ -167,7 +167,6 @@
   "Atualizações": "アップデート",
   "Procurar atualizações automaticamente": "アップデートを自動で確認",
   "Esta cópia veio da Microsoft Store, que cuida das atualizações.": "このコピーは Microsoft Store から入手したものなので、アップデートはストアが管理します。",
-  "Ao abrir o app, no máximo duas vezes por dia. Nada é instalado sem você pedir.": "アプリを開いたときに、1 日 2 回まで確認します。許可なくインストールすることはありません。",
   "Versão %1": "バージョン %1",
   "Procurando…": "確認中…",
   "Você está com a versão mais recente.": "最新バージョンです。",
@@ -383,5 +382,6 @@
   "Picture-in-picture": "ピクチャー イン ピクチャー",
   "Picture-in-picture (Ctrl+P)": "ピクチャー イン ピクチャー (Ctrl+P)",
   "Voltar 10 s": "10 秒戻る",
-  "Voltar ao app": "アプリに戻る"
+  "Voltar ao app": "アプリに戻る",
+  "Ao abrir o app, no máximo duas vezes por dia; o app só é atualizado quando você pedir. O yt-dlp, que abre links de sites, se atualiza sozinho quando você usa links.": "アプリを開いたときに、1 日 2 回まで確認します。アプリの更新はあなたが選んだときだけ行います。サイトのリンクを開く yt-dlp は、リンクを使うときに自動で更新されます。"
 }

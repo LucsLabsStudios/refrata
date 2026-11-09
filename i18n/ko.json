@@ -167,7 +167,6 @@
   "Atualizações": "업데이트",
   "Procurar atualizações automaticamente": "업데이트 자동 확인",
   "Esta cópia veio da Microsoft Store, que cuida das atualizações.": "이 사본은 Microsoft Store에서 설치했으므로 업데이트는 스토어가 관리해요.",
-  "Ao abrir o app, no máximo duas vezes por dia. Nada é instalado sem você pedir.": "앱을 열 때 하루 최대 두 번 확인해요. 동의 없이 아무것도 설치하지 않아요.",
   "Versão %1": "버전 %1",
   "Procurando…": "확인 중…",
   "Você está com a versão mais recente.": "최신 버전을 사용 중이에요.",
@@ -383,5 +382,6 @@
   "Picture-in-picture": "PIP 모드",
   "Picture-in-picture (Ctrl+P)": "PIP 모드 (Ctrl+P)",
   "Voltar 10 s": "10초 뒤로",
-  "Voltar ao app": "앱으로 돌아가기"
+  "Voltar ao app": "앱으로 돌아가기",
+  "Ao abrir o app, no máximo duas vezes por dia; o app só é atualizado quando você pedir. O yt-dlp, que abre links de sites, se atualiza sozinho quando você usa links.": "앱을 열 때 하루 최대 두 번 확인합니다. 앱은 요청할 때만 업데이트됩니다. 사이트 링크를 여는 yt-dlp는 링크를 사용할 때 자동으로 업데이트됩니다."
 }

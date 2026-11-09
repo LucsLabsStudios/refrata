@@ -24,11 +24,6 @@ WHY = {
     "yt-dlp": "links do YouTube e de outros sites: versões antigas param de funcionar quando os sites mudam",
     "python-vlc": "a ponte entre o app e o libVLC",
 }
-HOW = {
-    "VLC (libVLC)": "mude `tools/vlc-version.txt`",
-    "yt-dlp": "mude a versão em `requirements.txt` e rode `pip install -r requirements.txt`",
-    "python-vlc": "mude a versão em `requirements.txt` e rode `pip install -r requirements.txt`",
-}
 
 
 def _pin(package: str) -> str:
@@ -65,13 +60,14 @@ def markdown(rows) -> str:
         if r["behind"]:
             note = f" ({r['note']})" if r["note"] else ""
             out.append(f"| {r['name']} | {r['have']} | **{r['latest']}**{note} | {WHY[r['name']]} |")
-    out += ["", "**Como atualizar**", ""]
-    for r in rows:
-        if r["behind"]:
-            out.append(f"- {r['name']}: {HOW[r['name']]}.")
-    out += ["- Depois: `python tools/build.py --no-msix`, as duas baterias de testes "
-            "(`dist\\Refrata\\Refrata.exe --selftest` e `python tests/robust.py --exe dist\\Refrata\\Refrata.exe`) "
-            "e `python tools/release.py`.", "",
+    out += ["", "**Como atualizar**", "",
+            "Os componentes entram sozinhos no próximo lançamento: `python tools/release.py` busca as versões "
+            "novas, gera o build, roda as duas baterias de testes e só publica se tudo passar (se algo falhar, "
+            "volta às versões anteriores). Sem mudanças no app, uma versão só de componentes sai com "
+            "`python tools/release.py --bump`.", ""]
+    if any(r["behind"] and r["note"] for r in rows):
+        out += ["Atenção: uma versão principal nova do VLC não entra sozinha; ela exige adaptar o app.", ""]
+    out += [
             "_Aberto automaticamente por `.github/workflows/watch-updates.yml`. Esta issue é atualizada a cada "
             "verificação e pode ser fechada depois do lançamento._"]
     return "\n".join(out)

@@ -7,8 +7,11 @@ only for a while.
 """
 from __future__ import annotations
 
+import threading
 import time
 from urllib.parse import urlparse
+
+from . import ytdlp
 
 PAGE_HOSTS = (
     "youtube.com", "youtu.be", "youtube-nocookie.com", "music.youtube.com", "vimeo.com", "dailymotion.com",
@@ -22,8 +25,7 @@ FRESH_SECONDS = 3 * 3600
 
 def available() -> bool:
     try:
-        import yt_dlp  # noqa: F401
-        return True
+        return ytdlp.available()
     except Exception:
         return False
 
@@ -66,11 +68,14 @@ def resolve(url: str) -> dict:
     hit = _cache.get(url)
     if hit and time.time() - hit["at"] < FRESH_SECONDS:
         return hit
-    import yt_dlp
-    opts = {"quiet": True, "no_warnings": True, "skip_download": True, "noplaylist": True,
-            "socket_timeout": 15, "format": FORMAT}
-    with yt_dlp.YoutubeDL(opts) as y:
-        info = y.extract_info(url, download=False)
+    ytdlp.check_soon()   # at most once a day, in the background
+    try:
+        info = _extract(url)
+    except Exception:
+        # sites change and break old yt-dlp versions: get the newest one and try once more
+        if not ytdlp.check(force=True):
+            raise
+        info = _extract(url)
     if info.get("_type") == "playlist":
         entries = [e for e in (info.get("entries") or []) if e]
         if not entries:
@@ -87,3 +92,22 @@ def resolve(url: str) -> dict:
            "live": bool(info.get("is_live")), "at": time.time()}
     _cache[url] = out
     return out
+
+
+_extract_lock = threading.Lock()   # a newer yt-dlp is swapped in between two lookups, never during one
+
+
+def _extract(url: str) -> dict:
+    with _extract_lock:
+        ytdlp.activate()
+        try:
+            import yt_dlp
+        except Exception:
+            if not ytdlp.active():
+                raise
+            ytdlp.reject()            # a downloaded copy that needs something this build lacks
+            import yt_dlp
+        opts = {"quiet": True, "no_warnings": True, "skip_download": True, "noplaylist": True,
+                "socket_timeout": 15, "format": FORMAT}
+        with yt_dlp.YoutubeDL(opts) as y:
+            return y.extract_info(url, download=False)

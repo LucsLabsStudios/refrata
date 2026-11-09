@@ -1,29 +1,51 @@
 """Publish a Refrata release on GitHub (feeds the website and the in-app updater).
 
-    python tools/release.py --notes "O que mudou"            # build + tag + release
-    python tools/release.py --skip-build --notes-file NOTES.md
-    python tools/release.py --draft ...                       # prepare without publishing
+    python tools/release.py --notes-file NOTES.md   # the usual: refresh components, build, test, publish
+    python tools/release.py --bump                  # engine-only release: next patch version (1.4.1 → 1.4.2)
+    python tools/release.py --keep-versions ...     # do not touch the VLC / yt-dlp / python-vlc versions
+    python tools/release.py --skip-build --skip-tests ...   # reuse dist/ as it is (you tested it yourself)
+    python tools/release.py --draft ...             # prepare without publishing
 
-Uploads Refrata-Setup-<v>.exe, its .sha256 (the updater refuses downloads that do not match)
-and Refrata-<v>-portable.zip to the tag v<version> of LucsLabsStudios/refrata.
+What it does, in order:
+1. Components: the newest VLC 3.x (VideoLAN), yt-dlp and python-vlc 3.x (PyPI) go into
+   tools/vlc-version.txt and requirements.txt, and pip installs them.
+2. Builds dist/ (tools/build.py --no-msix).
+3. Runs both test suites against the built app: the e2e battery (Refrata.exe --selftest) and the
+   robustness suite (tests/robust.py --exe). If anything fails, nothing is published, and new
+   component versions are rolled back (files and pip), so the next run starts from known-good ones.
+4. Commits the component versions (if they changed), tags v<version>, pushes, and uploads
+   Refrata-Setup-<v>.exe, its .sha256 (the updater refuses downloads that do not match) and
+   Refrata-<v>-portable.zip; the release notes get a line for each updated component.
 """
 import argparse
 import hashlib
+import json
+import os
+import re
 import subprocess
 import sys
+import tempfile
+import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from refrata import __version__  # noqa: E402
+sys.path.insert(0, str(ROOT / "tools"))
+import vlc_engine  # noqa: E402
 from refrata.updater import REPO  # noqa: E402
 
 DIST = ROOT / "dist"
+REQS = ROOT / "requirements.txt"
+INIT = ROOT / "refrata" / "__init__.py"
 
 
 def run(*cmd, **kw):
     print("$", " ".join(map(str, cmd)), flush=True)
     return subprocess.run(list(map(str, cmd)), check=True, cwd=str(ROOT), **kw)
+
+
+def git(*args) -> str:
+    return subprocess.run(["git", *args], capture_output=True, text=True, cwd=str(ROOT)).stdout.strip()
 
 
 def sha256(path: Path) -> str:
@@ -34,45 +56,168 @@ def sha256(path: Path) -> str:
     return h.hexdigest()
 
 
+def version() -> str:
+    return re.search(r'__version__ = "([^"]+)"', INIT.read_text(encoding="utf8")).group(1)
+
+
+def released(v: str) -> bool:
+    return subprocess.run(["gh", "release", "view", f"v{v}", "--repo", REPO], capture_output=True).returncode == 0
+
+
+def _vkey(v):
+    return tuple(int(x) for x in re.findall(r"\d+", v))
+
+
+# ------------------------------------------------------------------ components
+def _pypi_latest(package: str, major: str = "") -> str:
+    req = urllib.request.Request(f"https://pypi.org/pypi/{package}/json", headers={"User-Agent": vlc_engine.UA})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        meta = json.load(r)
+    if not major:
+        return meta["info"]["version"]
+    stable = [v for v, files in meta["releases"].items()
+              if files and re.fullmatch(r"[\d.]+", v) and v.split(".")[0] == major]
+    return max(stable, key=_vkey)
+
+
+def _pin(package: str) -> str:
+    m = re.search(rf"^{re.escape(package)}==([^\s#]+)", REQS.read_text(encoding="utf8"), re.M)
+    return m.group(1) if m else ""
+
+
+def _set_pin(package: str, v: str):
+    text = REQS.read_text(encoding="utf8")
+    REQS.write_text(re.sub(rf"^({re.escape(package)}==)[^\s#]+", rf"\g<1>{v}", text, flags=re.M), encoding="utf8")
+
+
+def refresh_components() -> list[tuple[str, str, str]]:
+    """Move to the newest compatible versions. Returns [(name, old, new)] for what changed."""
+    changed = []
+    old = vlc_engine.pinned()
+    new = vlc_engine.latest()
+    if vlc_engine.newer(new, old):
+        if vlc_engine.same_major(new, old):
+            vlc_engine.PIN_FILE.write_text(new + "\n", encoding="utf8")
+            changed.append(("VLC", old, new))
+        else:
+            print(f"AVISO: saiu o VLC {new}, uma versão principal nova; ela exige adaptar o app e não entra sozinha.")
+    for package, major in (("yt-dlp", ""), ("python-vlc", "3")):
+        old = _pin(package)
+        new = _pypi_latest(package, major)
+        if old and _vkey(new) > _vkey(old):
+            _set_pin(package, new)
+            changed.append((package, old, new))
+    if changed:
+        run(sys.executable, "-m", "pip", "install", "-q", "-r", REQS)
+    return changed
+
+
+def roll_back(changed):
+    run("git", "checkout", "--", vlc_engine.PIN_FILE, REQS)
+    run(sys.executable, "-m", "pip", "install", "-q", "-r", REQS)
+    print("versões anteriores restauradas: " + ", ".join(f"{name} {old}" for name, old, _new in changed))
+
+
+# ------------------------------------------------------------------ tests
+def run_tests() -> bool:
+    """Both suites against the built app, as a user would get it."""
+    exe = DIST / "Refrata" / "Refrata.exe"
+    env = dict(os.environ, REFRATA_NO_MEDIAKEYS="1")
+    log = ROOT / "build" / "selftest-release.log"
+    print("\n== testes e2e (app empacotado)", flush=True)
+    e2e = subprocess.run([str(exe), "--selftest", "--log", str(log)], cwd=str(ROOT), env=env).returncode
+    summary = [ln for ln in log.read_text(encoding="utf8", errors="replace").splitlines()
+               if "tests passed" in ln or "FAIL" in ln] if log.exists() else []
+    print("\n".join(summary[-8:]) or "(sem relatório)")
+    print("\n== testes de robustez (app empacotado)", flush=True)
+    robust = subprocess.run([sys.executable, "tests/robust.py", "--exe", str(exe),
+                             "--report", str(ROOT / "build" / "robust-release.json")], cwd=str(ROOT), env=env).returncode
+    return e2e == 0 and robust == 0
+
+
+# ------------------------------------------------------------------ main
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--skip-build", action="store_true")
     ap.add_argument("--notes", default="")
     ap.add_argument("--notes-file")
+    ap.add_argument("--bump", action="store_true", help="next patch version, for a release without app changes")
+    ap.add_argument("--keep-versions", action="store_true", help="do not update VLC / yt-dlp / python-vlc")
+    ap.add_argument("--skip-build", action="store_true")
+    ap.add_argument("--skip-tests", action="store_true")
     ap.add_argument("--draft", action="store_true")
     args = ap.parse_args()
 
-    tag = f"v{__version__}"
-    existing = subprocess.run(["gh", "release", "view", tag, "--repo", REPO], capture_output=True)
-    if existing.returncode == 0:
-        sys.exit(f"{tag} já foi publicado. Suba a versão em refrata/__init__.py antes.")
-    dirty = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True, cwd=str(ROOT)).stdout
-    if dirty.strip():
+    if git("status", "--porcelain"):
         sys.exit("Há alterações sem commit. O lançamento precisa corresponder ao código publicado.")
+    v = version()
+    if released(v):
+        if not args.bump:
+            sys.exit(f"v{v} já foi publicado. Suba a versão em refrata/__init__.py, ou use --bump.")
+        parts = v.split(".")
+        parts[-1] = str(int(parts[-1]) + 1)
+        nv = ".".join(parts)
+        INIT.write_text(INIT.read_text(encoding="utf8").replace(f'"{v}"', f'"{nv}"'), encoding="utf8")
+        print(f"versão: {v} → {nv}")
+        v = nv
 
-    # a release is a good moment to notice an old engine or an old yt-dlp
-    chk = subprocess.run([sys.executable, str(ROOT / "tools" / "check_updates.py")], capture_output=True, text=True)
-    if chk.returncode == 10:
-        print("\nAVISO: há componentes com versão nova (o lançamento segue assim mesmo):\n" + chk.stdout)
-    elif chk.returncode != 0:
-        print("(não foi possível verificar as versões do VLC e do yt-dlp agora)")
+    changed = [] if args.keep_versions else refresh_components()
+    for name, old, new in changed:
+        print(f"componente: {name} {old} → {new}")
+    if args.bump and not changed and not git("log", "--oneline", f"v{version_before(v)}..HEAD"):
+        run("git", "checkout", "--", INIT)
+        sys.exit("Nada novo desde a última versão (código e componentes iguais). Nada foi publicado.")
 
-    if not args.skip_build:
+    if not args.skip_build or changed:
         run(sys.executable, "tools/build.py", "--no-msix")
-    setup = DIST / f"Refrata-Setup-{__version__}.exe"
-    portable = DIST / f"Refrata-{__version__}-portable.zip"
+    if not args.skip_tests or changed:
+        if not run_tests():
+            if changed:
+                roll_back(changed)
+            if args.bump:
+                run("git", "checkout", "--", INIT)
+            sys.exit("\nOs testes falharam: NADA foi publicado. Veja os relatórios acima.")
+
+    setup = DIST / f"Refrata-Setup-{v}.exe"
+    portable = DIST / f"Refrata-{v}-portable.zip"
     for f in (setup, portable):
         if not f.exists():
             sys.exit(f"faltando: {f}")
     side = setup.with_name(setup.name + ".sha256")
     side.write_text(f"{sha256(setup)}  {setup.name}\n", encoding="ascii")
 
-    run("git", "tag", "-a", tag, "-m", f"Refrata {__version__}")
+    # the versions that were tested are the ones committed
+    if changed or args.bump:
+        msg = f"{v}: " + ", ".join(f"{n} {new}" for n, _old, new in changed) if changed else f"{v}"
+        run("git", "add", vlc_engine.PIN_FILE, REQS, INIT)
+        run("git", "commit", "-q", "-m", msg + (" (componentes atualizados)" if changed else ""))
+    run("git", "push", "origin", "HEAD")
+    tag = f"v{v}"
+    run("git", "tag", "-a", tag, "-m", f"Refrata {v}")
     run("git", "push", "origin", tag)
-    notes = ["--notes-file", args.notes_file] if args.notes_file else ["--notes", args.notes or f"Refrata {__version__}"]
+
+    notes = Path(args.notes_file).read_text(encoding="utf8") if args.notes_file else (args.notes or "")
+    if changed:
+        notes = notes.rstrip() + ("\n\n" if notes.strip() else "") + "**Componentes atualizados**\n" + "\n".join(
+            f"- {DESCR.get(n, n)} {new} (antes {old})." for n, old, new in changed)
+    if not notes.strip():
+        notes = f"Refrata {v}"
+    with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False, encoding="utf8") as f:
+        f.write(notes)
     run("gh", "release", "create", tag, setup, side, portable, "--repo", REPO,
-        "--title", f"Refrata {__version__}", *notes, *(["--draft"] if args.draft else []))
+        "--title", f"Refrata {v}", "--notes-file", f.name, *(["--draft"] if args.draft else []))
+    os.unlink(f.name)
     print(f"\npublicado: https://github.com/{REPO}/releases/tag/{tag}")
+
+
+DESCR = {"VLC": "Motor do VLC (libVLC)", "yt-dlp": "yt-dlp (links do YouTube e de outros sites)",
+         "python-vlc": "python-vlc"}
+
+
+def version_before(v: str) -> str:
+    """The version this --bump started from."""
+    parts = v.split(".")
+    parts[-1] = str(int(parts[-1]) - 1)
+    return ".".join(parts)
 
 
 if __name__ == "__main__":

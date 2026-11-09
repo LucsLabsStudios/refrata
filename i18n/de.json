@@ -167,7 +167,6 @@
   "Atualizações": "Updates",
   "Procurar atualizações automaticamente": "Automatisch nach Updates suchen",
   "Esta cópia veio da Microsoft Store, que cuida das atualizações.": "Diese Kopie stammt aus dem Microsoft Store, der sich um Updates kümmert.",
-  "Ao abrir o app, no máximo duas vezes por dia. Nada é instalado sem você pedir.": "Beim Öffnen der App, höchstens zweimal am Tag. Installiert wird nur, wenn du es willst.",
   "Versão %1": "Version %1",
   "Procurando…": "Suche läuft …",
   "Você está com a versão mais recente.": "Du hast die neueste Version.",
@@ -383,5 +382,6 @@
   "Picture-in-picture": "Bild-in-Bild",
   "Picture-in-picture (Ctrl+P)": "Bild-in-Bild (Strg+P)",
   "Voltar 10 s": "10 s zurück",
-  "Voltar ao app": "Zurück zur App"
+  "Voltar ao app": "Zurück zur App",
+  "Ao abrir o app, no máximo duas vezes por dia; o app só é atualizado quando você pedir. O yt-dlp, que abre links de sites, se atualiza sozinho quando você usa links.": "Beim Öffnen der App, höchstens zweimal am Tag; die App wird nur aktualisiert, wenn Sie es möchten. yt-dlp, das Links von Websites öffnet, aktualisiert sich selbst, wenn Sie Links nutzen."
 }

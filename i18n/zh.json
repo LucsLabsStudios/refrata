@@ -167,7 +167,6 @@
   "Atualizações": "更新",
   "Procurar atualizações automaticamente": "自动检查更新",
   "Esta cópia veio da Microsoft Store, que cuida das atualizações.": "此副本来自 Microsoft Store，更新由应用商店负责。",
-  "Ao abrir o app, no máximo duas vezes por dia. Nada é instalado sem você pedir.": "在打开应用时检查，每天最多两次。未经你同意不会安装任何内容。",
   "Versão %1": "版本 %1",
   "Procurando…": "正在检查…",
   "Você está com a versão mais recente.": "已是最新版本。",
@@ -383,5 +382,6 @@
   "Picture-in-picture": "画中画",
   "Picture-in-picture (Ctrl+P)": "画中画 (Ctrl+P)",
   "Voltar 10 s": "后退 10 秒",
-  "Voltar ao app": "返回应用"
+  "Voltar ao app": "返回应用",
+  "Ao abrir o app, no máximo duas vezes por dia; o app só é atualizado quando você pedir. O yt-dlp, que abre links de sites, se atualiza sozinho quando você usa links.": "打开应用时检查，每天最多两次；应用只在你同意后更新。用于打开网站链接的 yt-dlp 会在你使用链接时自动更新。"
 }

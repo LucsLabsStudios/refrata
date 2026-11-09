@@ -1062,6 +1062,91 @@ def feature_web_links_flow():
     check(e.currentPath.endswith("Tom B 660.wav") and e.state == "playing", "a late lookup does not take over")
 
 
+@scenario(timeout=90)
+def feature_ytdlp_self_update():
+    """yt-dlp updates itself from PyPI (a local stand-in here): a bad checksum is refused, a link
+    that fails with the installed copy fetches a newer one and plays, and the switch in Ajustes
+    turns it all off."""
+    import hashlib, http.server, io, socketserver, zipfile
+    from refrata import websites, ytdlp
+    base = _local_http()
+    stream = f"{base}/media/Filmes/Segundo%20Video.mkv"
+
+    def wheel(version, works, evil=False):
+        body = (f"__version__ = {version!r}\n"
+                "class YoutubeDL:\n"
+                "    def __init__(self, opts): pass\n"
+                "    def __enter__(self): return self\n"
+                "    def __exit__(self, *a): return False\n"
+                "    def extract_info(self, url, download=False):\n"
+                + ("        return {'title': 'Pelo yt-dlp ' + __version__, 'url': %r, 'duration': 30}\n" % stream
+                   if works else "        raise RuntimeError('Unable to extract (site changed)')\n"))
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as z:
+            z.writestr("yt_dlp/__init__.py", body)
+            z.writestr("yt_dlp/version.py", f"__version__ = {version!r}\n")
+            z.writestr("yt_dlp-%s.dist-info/METADATA" % version, "Name: yt-dlp\n")
+            if evil:   # a path escaping the folder: the whole wheel must be refused
+                z.writestr("yt_dlp/../../../fora.py", "x = 1\n")
+        return buf.getvalue()
+
+    files = {"/old.whl": wheel("2099.1.1", works=False), "/new.whl": wheel("2099.2.2", works=True),
+             "/evil.whl": wheel("2099.1.1", works=True, evil=True)}
+    served = {"json": b""}
+
+    def publish(version, path, sha=None):
+        served["json"] = json.dumps({"info": {"version": version}, "urls": [{
+            "packagetype": "bdist_wheel", "filename": f"yt_dlp-{version}-py3-none-any.whl",
+            "url": f"http://127.0.0.1:{port}{path}",
+            "digests": {"sha256": sha or hashlib.sha256(files[path]).hexdigest()}}]}).encode()
+
+    class Pypi(http.server.BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def do_GET(self):
+            body = served["json"] if self.path.startswith("/pypi") else files.get(self.path, b"")
+            self.send_response(200 if body else 404)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+    srv = socketserver.ThreadingTCPServer(("127.0.0.1", 0), Pypi)
+    srv.daemon_threads = True
+    port = srv.server_address[1]
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    os.environ["REFRATA_PYPI_URL"] = f"http://127.0.0.1:{port}/pypi/yt-dlp/json"
+    check(ytdlp.allowed(), "auto-update is on by default")
+
+    publish("2099.1.1", "/old.whl", sha="0" * 64)
+    check(not ytdlp.check(force=True) and not ytdlp._installed(), "a wheel with the wrong SHA-256 is refused")
+    ytdlp._last_forced = 0
+    publish("2099.1.1", "/evil.whl")
+    check(not ytdlp.check(force=True) and not ytdlp._installed(), "a wheel writing outside its folder is refused")
+    check(not (ytdlp.ROOT.parent.parent / "fora.py").exists() and not (ytdlp.ROOT / "fora.py").exists(), "nothing written outside")
+    check(not list(ytdlp.ROOT.glob("*.part")), "no half-installed folder left behind")
+    ytdlp._last_forced = 0
+    publish("2099.1.1", "/old.whl")
+    check(ytdlp.check(force=True) and [v for v, _ in ytdlp._installed()] == ["2099.1.1"], "a newer yt-dlp is installed",
+          str(ytdlp._installed()))
+    check(ytdlp.current_version() == "2099.1.1", "and counts as the current one")
+
+    # a link fails with the installed copy -> the app fetches a newer one and tries again
+    publish("2099.2.2", "/new.whl")
+    ytdlp._last_forced = 0
+    e = eng()
+    e.openUrl("https://www.youtube.com/watch?v=atualiza")
+    wait(lambda: e.state == "playing" and e._frames_seen > 2, 20, "the link plays after the update")
+    check(e.title == "Pelo yt-dlp 2099.2.2", "the new yt-dlp found the stream", e.title)
+    check(sys.modules["yt_dlp"].__version__ == "2099.2.2" and ytdlp.active() == "2099.2.2", "the new copy is the one loaded")
+
+    # Ajustes › automatic updates off: no more downloads
+    H.parts.settings.setValue("autoUpdate", False)
+    ytdlp._last_forced = ytdlp._last_check = 0
+    publish("2099.3.3", "/new.whl")
+    check(not ytdlp.check(force=True) and not ytdlp.check(), "nothing is downloaded with updates off")
+    H.parts.settings.setValue("autoUpdate", True)
+
+
 @scenario(timeout=60)
 def feature_link_loading_feedback():
     """A song is playing and a YouTube link is opened: while yt-dlp looks it up, the player must

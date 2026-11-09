@@ -51,13 +51,25 @@ instalado em Program Files.
 ## Publicar uma versão
 
 ```powershell
-# 1. suba a versão em refrata/__init__.py (ex.: 1.2.0) e faça o commit
-python tools/release.py --notes "O que mudou nesta versão"
+# suba a versão em refrata/__init__.py (ex.: 1.2.0), faça o commit e:
+python tools/release.py --notes-file notas.md
+# sem mudanças no app, só para levar um VLC ou yt-dlp novo (1.2.0 → 1.2.1):
+python tools/release.py --bump
 ```
 
-O `tools/release.py` gera o build, calcula o SHA-256, cria a tag `v1.2.0` e publica o lançamento no
-GitHub com o instalador, o `.sha256` e o zip portátil. A partir daí todo app instalado recebe o
-aviso de atualização e o botão de download do site aponta para a versão nova.
+O `tools/release.py`, em ordem:
+
+1. Atualiza os componentes: o VLC 3 mais recente da VideoLAN (`tools/vlc-version.txt`), o yt-dlp e o
+   python-vlc 3 mais recentes do PyPI (`requirements.txt`).
+2. Gera o build.
+3. Roda as duas baterias de testes no app empacotado (e2e e robustez). Se algo falhar, **nada é
+   publicado** e os componentes voltam às versões anteriores.
+4. Faz o commit das versões testadas, cria a tag, envia e publica o lançamento no GitHub com o
+   instalador, o `.sha256` e o zip portátil. As notas ganham uma linha para cada componente novo.
+
+A partir daí todo app instalado recebe o aviso de atualização e o botão de download do site aponta
+para a versão nova. `--keep-versions` publica sem mexer nos componentes; `--skip-build --skip-tests`
+reaproveita um `dist/` que você já testou.
 
 ## Empacotar
 
@@ -84,10 +96,15 @@ python tools/check_updates.py   # motor do VLC, yt-dlp e python-vlc: o que está
 
 Toda segunda-feira, `.github/workflows/watch-updates.yml` roda essa verificação no GitHub e, se algo
 estiver para trás, abre (ou atualiza) uma issue com a etiqueta `atualizacoes`, que chega como
-notificação. O `tools/release.py` também avisa antes de publicar. Para atualizar: mude a versão em
-`tools/vlc-version.txt` (ou em `requirements.txt`, para o yt-dlp), gere o build, rode as duas baterias
-de testes e publique. Um salto de versão principal (VLC 4) muda a API do libVLC e exige adaptar o app;
-a verificação avisa quando for o caso.
+notificação. Não é preciso mexer em nada: o próximo `tools/release.py` (ou `--bump`, para uma versão
+só de componentes) leva as versões novas, desde que passem nos testes. Um salto de versão principal
+(VLC 4) muda a API do libVLC e exige adaptar o app; ele não entra sozinho, e a verificação avisa.
+
+Entre um lançamento e outro, o próprio app mantém o yt-dlp em dia (`refrata/ytdlp.py`): quando você
+abre links de sites, no máximo uma vez por dia, e na hora quando um link falha, ele busca a versão
+nova no PyPI, confere o SHA-256 e passa a usá-la se for mais nova que a embutida (em
+`%LOCALAPPDATA%\Refrata\yt-dlp`). Uma cópia que não carrega é descartada e o app volta à embutida.
+Desliga junto com "Procurar atualizações automaticamente", nos Ajustes.
 
 ### Assinatura digital
 

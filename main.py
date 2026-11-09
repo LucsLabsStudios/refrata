@@ -188,6 +188,9 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
     ctl = AppController()
     updater = Updater(settings)
     updater.quitRequested.connect(app.quit)
+    # yt-dlp refreshes itself (refrata/ytdlp.py) under the same switch as app updates
+    from refrata import ytdlp
+    ytdlp.allowed = lambda: bool(settings.value("autoUpdate", True))
     quicklook = QuickLook(settings)
     tray = Tray(settings, quicklook, ROOT / "assets" / "icon.ico")
     i18n.changed.connect(tray.retranslate)

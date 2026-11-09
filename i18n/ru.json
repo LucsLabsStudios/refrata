@@ -167,7 +167,6 @@
   "Atualizações": "Обновления",
   "Procurar atualizações automaticamente": "Проверять обновления автоматически",
   "Esta cópia veio da Microsoft Store, que cuida das atualizações.": "Эта копия установлена из Microsoft Store, который сам следит за обновлениями.",
-  "Ao abrir o app, no máximo duas vezes por dia. Nada é instalado sem você pedir.": "При запуске приложения, не чаще двух раз в день. Без вашего согласия ничего не устанавливается.",
   "Versão %1": "Версия %1",
   "Procurando…": "Проверка…",
   "Você está com a versão mais recente.": "У вас последняя версия.",
@@ -383,5 +382,6 @@
   "Picture-in-picture": "Картинка в картинке",
   "Picture-in-picture (Ctrl+P)": "Картинка в картинке (Ctrl+P)",
   "Voltar 10 s": "Назад на 10 с",
-  "Voltar ao app": "Вернуться в приложение"
+  "Voltar ao app": "Вернуться в приложение",
+  "Ao abrir o app, no máximo duas vezes por dia; o app só é atualizado quando você pedir. O yt-dlp, que abre links de sites, se atualiza sozinho quando você usa links.": "При запуске приложения, не чаще двух раз в день; само приложение обновляется только по вашей команде. yt-dlp, который открывает ссылки с сайтов, обновляется сам, когда вы пользуетесь ссылками."
 }

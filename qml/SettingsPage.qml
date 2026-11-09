@@ -218,7 +218,7 @@ Flickable {
             SettingRow {
                 title: qsTr("Procurar atualizações automaticamente")
                 desc: updater.kind === "store" ? qsTr("Esta cópia veio da Microsoft Store, que cuida das atualizações.")
-                    : qsTr("Ao abrir o app, no máximo duas vezes por dia. Nada é instalado sem você pedir.")
+                    : qsTr("Ao abrir o app, no máximo duas vezes por dia; o app só é atualizado quando você pedir. O yt-dlp, que abre links de sites, se atualiza sozinho quando você usa links.")
                 Toggle { objectName: "toggleAutoUpdate"; enabled: updater.kind !== "store"; checked: updater.auto; onToggled: (on) => updater.auto = on }
             }
             SettingRow {

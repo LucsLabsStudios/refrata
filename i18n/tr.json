@@ -167,7 +167,6 @@
   "Atualizações": "Güncellemeler",
   "Procurar atualizações automaticamente": "Güncellemeleri otomatik denetle",
   "Esta cópia veio da Microsoft Store, que cuida das atualizações.": "Bu kopya Microsoft Store’dan geldi; güncellemeleri mağaza yönetir.",
-  "Ao abrir o app, no máximo duas vezes por dia. Nada é instalado sem você pedir.": "Uygulama açılırken, günde en fazla iki kez. Sen istemeden hiçbir şey yüklenmez.",
   "Versão %1": "Sürüm %1",
   "Procurando…": "Denetleniyor…",
   "Você está com a versão mais recente.": "En son sürümü kullanıyorsun.",
@@ -383,5 +382,6 @@
   "Picture-in-picture": "Resim içinde resim",
   "Picture-in-picture (Ctrl+P)": "Resim içinde resim (Ctrl+P)",
   "Voltar 10 s": "10 sn geri",
-  "Voltar ao app": "Uygulamaya dön"
+  "Voltar ao app": "Uygulamaya dön",
+  "Ao abrir o app, no máximo duas vezes por dia; o app só é atualizado quando você pedir. O yt-dlp, que abre links de sites, se atualiza sozinho quando você usa links.": "Uygulama açıldığında, günde en fazla iki kez; uygulama yalnızca siz isteyince güncellenir. Sitelerin bağlantılarını açan yt-dlp, bağlantı kullandığınızda kendini günceller."
 }
