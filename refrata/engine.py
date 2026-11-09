@@ -585,6 +585,8 @@ class Engine(QObject):
         self._eq_preamp = 0.0
 
         self._audio_off = False
+        self._hw_item = ""            # path decoding on the GPU right now
+        self._sw_paths: set[str] = set()   # items that showed subtitles: software from then on
         self._audio_dirty = True
         self._poll = QTimer(self)
         self._poll.setInterval(self.POLL_FAST)
@@ -1362,8 +1364,12 @@ class Engine(QObject):
         # libVLC 3 switches hardware decoding off for apps that take the pictures through callbacks
         # (as this one does) by setting the player's avcodec-hw to "none"; a per-media option wins
         # over it. The GPU then decodes and libVLC copies the picture back: ~70% less CPU at 4K60.
-        if self._settings.value("hwdec", True) and not casting:
+        # It cannot draw subtitles on those pictures, though: an item showing subtitles decodes in
+        # software (see _to_software).
+        self._hw_item = ""
+        if self._settings.value("hwdec", True) and not casting and e["path"] not in self._sw_paths:
             media.add_option(":avcodec-hw=any")
+            self._hw_item = e["path"]
         if not casting:
             self._mp.set_media(media)
             media.release()   # the player holds its own reference
@@ -1661,6 +1667,10 @@ class Engine(QObject):
                 if self._tracks_polled in (3, 10, 25):
                     self._refresh_tracks()
                     self._refresh_meta()
+                    # a subtitle the file turns on by itself (default / forced track) needs software decoding
+                    spu = self._mp.video_get_spu()
+                    if self._hw_item and spu not in (-1, 0):
+                        self._to_software(spu=spu)
         if self._sleep_deadline and time.time() >= self._sleep_deadline:
             self._sleep_deadline = 0
             self.pause()
@@ -1839,8 +1849,34 @@ class Engine(QObject):
 
     @Slot(int)
     def setSubtitleTrack(self, tid):
+        if tid not in (-1, 0) and self._to_software(spu=tid):
+            return
         self._mp.video_set_spu(tid)
         self.tracksChanged.emit()
+
+    def _to_software(self, spu=None) -> bool:
+        """Subtitles are drawn by libVLC on the decoded picture, which it cannot do for GPU-decoded
+        ones on this path: the item is opened again, decoding in software, at the same point and in
+        the same state, with the chosen subtitle on. False when it already decodes in software."""
+        if not self._hw_item or not (0 <= self._index < len(self._queue)) \
+                or self._queue[self._index]["path"] != self._hw_item:
+            return False
+        self._sw_paths.add(self._hw_item)
+        t, st = self._time, self._state
+        self._start_at = t
+        self._play_index(self._index)
+        if st == "paused":
+            self._pause_when_playing = True
+        if spu is not None:
+            def pick(tries=6):
+                if self._mp.video_get_spu() != spu:
+                    self._mp.video_set_spu(spu)
+                if self._mp.video_get_spu() == spu:
+                    self.tracksChanged.emit()
+                elif tries > 0:
+                    QTimer.singleShot(400, lambda: pick(tries - 1))
+            QTimer.singleShot(600, pick)
+        return True
 
     @Slot(str)
     def addSubtitle(self, path):
@@ -1855,6 +1891,8 @@ class Engine(QObject):
             subs = self._ext_subs.setdefault(self.currentPath, [])
             if uri not in subs:
                 subs.append(uri)
+            # decoding on the GPU: reopen in software, the file comes back selected (_play_index)
+            self._to_software()
         QTimer.singleShot(800, self._refresh_tracks)
 
     @Property(int, notify=tracksChanged)

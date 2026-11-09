@@ -20,6 +20,9 @@ Desempenho
 - **Decodificação por hardware (1.4.4).** Ela nunca funcionou: o libVLC 3 desliga a GPU quando o app recebe
   os quadros por callbacks (força `avcodec-hw=none` no player). Uma opção por mídia (`:avcodec-hw=any`) vence
   isso. 4K60 H.264: **1,14 → 0,36 núcleo (−68%)**, 60 fps, sem travadas.
+  Limite: nesse caminho o libVLC 3 não desenha legendas sobre quadros decodificados na GPU. Um item com legenda
+  ligada (escolhida, adicionada, ou ligada pelo próprio arquivo) é reaberto em software no mesmo ponto
+  (`Engine._to_software`); a bateria robust confere a legenda na tela comparando com o mesmo trecho sem ela.
 - **Sem conversão à toa (1.4.4).** O decodificador por software entrega I420, e pedíamos NV12, então o libVLC
   convertia cada quadro na CPU (~750 MB/s em 4K60). Agora aceitamos o formato dele: **−15% de CPU** sem GPU.
 - **GIL (1.4.4).** Intervalo de troca do Python em 1 ms (era 5): com outra thread Python ocupada, 4K60 passa de
