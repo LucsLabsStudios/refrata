@@ -21,7 +21,9 @@ os módulos do VLC 3 vêm embutidos. A instalação é por usuário (sem pedir a
   música e playlist, sem tomar o padrão de outro player à força;
 - mantém **uma única janela**: abrir outro arquivo pelo Explorer manda o arquivo para a janela aberta.
 
-Também há uma versão portátil: `Refrata-<versão>-portable.zip` (descompacte e rode `Refrata.exe`).
+Também há uma versão portátil: `Refrata-<versão>-portable.zip` (descompacte e rode `Refrata.exe`). Ela não mexe
+no Windows por conta própria; em **Ajustes › Abertura rápida › Player padrão do Windows**, o botão **Tornar padrão**
+registra a cópia em "Abrir com" e Apps padrão para o seu usuário (e corrige o caminho se a pasta mudar de lugar).
 
 ### Atualizações
 
@@ -153,7 +155,8 @@ passo está em [docs/SIGNING.md](docs/SIGNING.md).
 
 Atalhos: `Espaço` play/pausa · `F` tela cheia · `←/→` ±10 s · `↑/↓` volume · `M` mudo ·
 `N/P` próximo/anterior · `Shift+N/P` capítulo · `[ ] =` velocidade · `S` captura · `E` quadro a quadro · `L` trecho A-B · `T` sempre no topo ·
-`I` informações · `R` girar · `Ctrl+O` abrir · `Ctrl+L` streams · `Esc` sair/fechar.
+`I` informações · `R` girar · `Ctrl+P` picture-in-picture · `Ctrl+O` abrir · `Ctrl+L` streams · `Esc` sair/fechar.
+Todos, menos `Esc` e `F11`, podem ser trocados em **Ajustes › Atalhos de teclado** (clique na tecla e aperte a nova).
 
 ## Identidade visual
 

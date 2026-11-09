@@ -27,7 +27,7 @@ GridView {
             width: parent.width
             eyebrow: qsTr("Biblioteca")
             title: qsTr("Vídeos")
-            subtitle: qsTr("%n vídeo(s)", "", library.videoModel.count) + (library.scanning ? " · " + qsTr("atualizando…") : "")
+            subtitle: (library.videoModel.count ? qsTr("%n vídeo(s)", "", library.videoModel.count) : qsTr("Nenhum vídeo")) + (library.scanning ? " · " + qsTr("atualizando…") : "")
             SearchField {
                 width: 280
                 placeholder: qsTr("Filtrar vídeos")

@@ -32,7 +32,7 @@ QT_PRELOADED = preload_qt()
 os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
 
 import shiboken6  # noqa: E402
-from PySide6.QtCore import QObject, QTimer, QUrl, qInstallMessageHandler  # noqa: E402
+from PySide6.QtCore import QObject, QTimer, QUrl, Slot, qInstallMessageHandler  # noqa: E402
 from PySide6.QtGui import QFont, QGuiApplication, QIcon  # noqa: E402
 # QApplication (widgets): the tray icon and Explorer's COM automation (QuickLook-style preview) need it
 from PySide6.QtWidgets import QApplication  # noqa: E402
@@ -102,6 +102,8 @@ class AppParts:
     instance: InstanceServer | None = None
     mediakeys: object = None   # Windows media keys / overlay (refrata/mediakeys.py)
     subsearch: object = None   # online subtitles (refrata/subsearch.py)
+    assoc: object = None       # "Abrir com" / Apps padrão registration (refrata/assoc.py)
+    keys: object = None        # customizable shortcuts (refrata/shortcuts.py)
 
     def find(self, name: str) -> QObject:
         obj = self.win.findChild(QObject, name)
@@ -194,6 +196,12 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
     quicklook = QuickLook(settings)
     tray = Tray(settings, quicklook, ROOT / "assets" / "icon.ico")
     i18n.changed.connect(tray.retranslate)
+    from refrata.assoc import Associations
+    from refrata.shortcuts import Shortcuts
+    assoc = Associations(app)
+    if updater.kind == "portable":
+        assoc.repair()
+    keys = Shortcuts(settings, app)
     ctl.setAbout({
         "version": __version__,
         "vlcVersion": _vlc_version(),
@@ -216,6 +224,8 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
     ctx.setContextProperty("quicklook", quicklook)
     ctx.setContextProperty("tray", tray)
     ctx.setContextProperty("i18n", i18n)
+    ctx.setContextProperty("winassoc", assoc)
+    ctx.setContextProperty("keys", keys)
     subsearch = SubtitleSearch(engine, DATA_DIR, app)
     ctx.setContextProperty("subsearch", subsearch)
     i18n.attach(qml)
@@ -238,7 +248,7 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
     tray.showRequested.connect(lambda: QTimer.singleShot(0, lambda: root.showMain()))
     mediakeys = MediaKeys(engine, library, app)
     return AppParts(app, qml, win, settings, theme, engine, library, ctl, updater, quicklook, tray, i18n, instance,
-                    mediakeys, subsearch)
+                    mediakeys, subsearch, assoc, keys)
 
 
 def hard_exit(code: int = 0):
@@ -276,6 +286,16 @@ def _ensure_streams(log_path: Path | None):
         sys.stderr = sys.stderr or fh
 
 
+def close_splash():
+    """Hide the bootloader's splash (tools/build.py); nothing to do when run from source."""
+    try:
+        import pyi_splash  # noqa: PLC0415  (only exists inside the frozen app)
+        if pyi_splash.is_alive():
+            pyi_splash.close()
+    except Exception:
+        pass
+
+
 def main():
     import faulthandler
 
@@ -300,6 +320,8 @@ def main():
     crash_log = open(DATA_DIR / "crash.log", "w", encoding="utf8")
     faulthandler.enable(crash_log, all_threads=True)
 
+    if args.selftest or args.scenario:
+        close_splash()
     if args.selftest:
         from tests import e2e
         e2e.run(args.k, report=args.report or None)  # exits the process
@@ -315,6 +337,7 @@ def main():
         # hand the files to a running instance and leave (the QGuiApplication is reused by build)
         QApplication(sys.argv)
         if send_to_running(files):
+            close_splash()
             os._exit(0)
 
     # a single media file from Explorer opens in the quick player; --background starts in the tray
@@ -324,6 +347,23 @@ def main():
     parts = build(sys.argv, args.page, args.panel, args.theme, instance_name="" if single else None,
                   start_hidden=hidden and not args.screenshot)
     engine, library, win, app = parts.engine, parts.library, parts.win, parts.app
+    if hidden or args.screenshot:
+        close_splash()
+    else:
+        # the splash goes once the window has drawn its first frame (or after 20 s, whatever happens).
+        # frameSwapped comes from the render thread: a main-thread QObject receives it queued.
+        class _Splash(QObject):
+            done = False
+
+            @Slot()
+            def close(self):
+                if not self.done:
+                    self.done = True
+                    close_splash()
+                    win.frameSwapped.disconnect(self.close)
+        splash = _Splash(app)
+        win.frameSwapped.connect(splash.close)
+        QTimer.singleShot(20000, close_splash)
     if args.screenshot:
         w, h = (int(x) for x in args.size.split("x"))
         win.setWidth(w)

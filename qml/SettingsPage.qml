@@ -4,6 +4,7 @@ import QtQuick.Controls
 Flickable {
     id: page
     signal addFolder()
+    signal notify(string text)
     contentHeight: col.height + 120
     clip: true
     boundsBehavior: Flickable.StopAtBounds
@@ -191,6 +192,20 @@ Flickable {
         Card {
             title: qsTr("Abertura rápida")
             SettingRow {
+                objectName: "defaultAppRow"
+                visible: winassoc.available && updater.kind !== "store"
+                title: qsTr("Player padrão do Windows")
+                desc: winassoc.isDefault ? qsTr("O duplo clique num vídeo no Explorer já abre o Refrata.")
+                    : winassoc.registered ? qsTr("Para o duplo clique no Explorer abrir o Refrata, escolha-o como app padrão nas configurações do Windows.")
+                    : qsTr("Esta cópia portátil ainda não aparece no “Abrir com” do Windows. O botão a registra para o seu usuário e abre as configurações para você escolher o Refrata como padrão.")
+                PillButton {
+                    objectName: "defaultAppBtn"
+                    text: winassoc.isDefault ? qsTr("Configurações") : qsTr("Tornar padrão")
+                    variant: winassoc.isDefault ? "outline" : "filled"
+                    onClicked: winassoc.openDefaults()
+                }
+            }
+            SettingRow {
                 title: qsTr("Prévia com Espaço no Explorer")
                 desc: qsTr("Selecione um vídeo ou música no Explorer ou na área de trabalho e aperte Espaço. Espaço ou Esc fecha; ← → passa pelos arquivos da pasta.")
                 Toggle { objectName: "toggleQuickLook"; checked: quicklook.enabled; onToggled: (on) => quicklook.enabled = on }
@@ -198,7 +213,8 @@ Flickable {
             SettingRow {
                 title: qsTr("Abrir arquivos no player rápido")
                 desc: qsTr("Um vídeo ou música aberto pelo Explorer começa numa janela compacta e flutuante; ⤢ leva para o app completo.")
-                Toggle { objectName: "toggleQuickOpen"; checked: settings.value("quickOpen"); onToggled: (on) => settings.setValue("quickOpen", on) }
+                      + (settings.quickOpen && winassoc.available && !winassoc.isDefault ? " " + qsTr("Só vale para arquivos que o Windows abre com o Refrata (veja Player padrão do Windows, acima).") : "")
+                Toggle { objectName: "toggleQuickOpen"; checked: settings.quickOpen; onToggled: (on) => settings.quickOpen = on }
             }
             SettingRow {
                 title: qsTr("Manter em segundo plano")
@@ -257,33 +273,76 @@ Flickable {
         }
 
         Card {
+            id: keysCard
+            objectName: "keysCard"
             title: qsTr("Atalhos de teclado")
+            property string capturing: ""   // the action waiting for its new key
+            readonly property var names: ({
+                playPause: qsTr("Reproduzir / pausar"), fullscreen: qsTr("Tela cheia"),
+                back10: qsTr("Voltar 10 s"), fwd10: qsTr("Avançar 10 s"),
+                back3: qsTr("Voltar 3 s"), fwd3: qsTr("Avançar 3 s"),
+                back60: qsTr("Voltar 1 min"), fwd60: qsTr("Avançar 1 min"),
+                volUp: qsTr("Aumentar o volume"), volDown: qsTr("Diminuir o volume"),
+                mute: qsTr("Silenciar"), next: qsTr("Próximo"), prev: qsTr("Anterior"),
+                nextChapter: qsTr("Próximo capítulo"), prevChapter: qsTr("Capítulo anterior"),
+                faster: qsTr("Mais rápido"), slower: qsTr("Mais devagar"), normalSpeed: qsTr("Velocidade normal"),
+                snapshot: qsTr("Capturar quadro"), frame: qsTr("Avançar um quadro"),
+                loop: qsTr("Repetir um trecho (A-B)"), onTop: qsTr("Sempre no topo"),
+                info: qsTr("Informações da mídia"), rotate: qsTr("Girar o vídeo 90°"),
+                pip: qsTr("Picture-in-picture"), open: qsTr("Abrir arquivos"),
+                stream: qsTr("Abrir stream de rede"), settings: qsTr("Ajustes")
+            })
+            Text {
+                width: parent.width; wrapMode: Text.WordWrap; bottomPadding: 12
+                text: qsTr("Clique num atalho e aperte a tecla nova; Esc cancela. Esc, F11 e o duplo clique no vídeo são fixos.")
+                color: theme.textDim; font.pixelSize: 13
+            }
             Grid {
-                columns: 2
+                columns: parent.width > 760 ? 2 : 1
                 columnSpacing: 40
-                rowSpacing: 12
+                rowSpacing: 10
                 Repeater {
-                    model: [
-                        [qsTr("Espaço"), qsTr("Reproduzir / pausar")], [qsTr("F  ·  duplo clique"), qsTr("Tela cheia")],
-                        ["← / →", qsTr("Voltar / avançar 10 s")], ["↑ / ↓", qsTr("Volume")],
-                        ["M", qsTr("Silenciar")], ["N / P", qsTr("Próximo / anterior")],
-                        ["[  /  ]", qsTr("Velocidade − / +")], ["S", qsTr("Capturar quadro")],
-                        ["E", qsTr("Avançar um quadro")], ["L", qsTr("Repetir um trecho (A-B)")],
-                        ["T", qsTr("Sempre no topo")], ["I", qsTr("Informações da mídia")],
-                        ["R", qsTr("Girar o vídeo 90°")], ["Shift + N / P", qsTr("Próximo / anterior capítulo")],
-                        ["Ctrl + P", qsTr("Picture-in-picture")], ["Ctrl + O", qsTr("Abrir arquivos")],
-                        ["Ctrl + L", qsTr("Abrir stream de rede")], ["Esc", qsTr("Sair da tela cheia / fechar")],
-                    ]
+                    model: keys.actions
                     Row {
                         spacing: 14
                         Rectangle {
-                            width: 150; height: 32; radius: 10; color: theme.surface2
-                            Text { anchors.centerIn: parent; text: modelData[0]; color: theme.text; font.pixelSize: 13; font.weight: Font.DemiBold }
+                            id: chip
+                            objectName: "key_" + modelData
+                            readonly property bool listening: keysCard.capturing === modelData
+                            width: 150; height: 32; radius: 10
+                            color: listening ? theme.accent : km.containsMouse ? theme.surface3 : theme.surface2
+                            Behavior on color { ColorAnimation { duration: 140 } }
+                            Text {
+                                anchors.centerIn: parent; width: parent.width - 12; horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight
+                                text: chip.listening ? qsTr("Aperte uma tecla…") : keys.label(keys.map[modelData])
+                                color: chip.listening ? "white" : keys.map[modelData] ? theme.text : theme.textDim
+                                font.pixelSize: 13; font.weight: Font.DemiBold
+                            }
+                            MouseArea {
+                                id: km; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                onClicked: { keysCard.capturing = chip.listening ? "" : modelData; if (chip.listening) chip.forceActiveFocus() }
+                            }
+                            // while listening, every key (Space, arrows...) is the new shortcut, not a command
+                            Keys.onShortcutOverride: (e) => e.accepted = chip.listening
+                            Keys.onPressed: (e) => {
+                                if (!chip.listening) return
+                                e.accepted = true
+                                if (e.key === Qt.Key_Escape) { keysCard.capturing = ""; return }
+                                var seq = keys.fromKey(e.key, e.modifiers)
+                                if (!seq) return   // a lone Ctrl/Shift/Alt: wait for the key
+                                var took = keys.assign(modelData, seq)
+                                keysCard.capturing = ""
+                                if (took === "reserved") page.notify(qsTr("Essa tecla é fixa no Refrata"))
+                                else if (took) page.notify(qsTr("A tecla saiu de “%1”").arg(keysCard.names[took]))
+                            }
+                            onActiveFocusChanged: if (!activeFocus && listening) keysCard.capturing = ""
                         }
-                        Text { anchors.verticalCenter: parent.verticalCenter; text: modelData[1]; color: theme.textDim; font.pixelSize: 14; width: 240; wrapMode: Text.WordWrap }
+                        Text { anchors.verticalCenter: parent.verticalCenter; text: keysCard.names[modelData] || modelData; color: theme.textDim; font.pixelSize: 14; width: 240; wrapMode: Text.WordWrap }
                     }
                 }
             }
+            Item { width: 1; height: 12; visible: keys.customized }
+            PillButton { objectName: "keysReset"; visible: keys.customized; text: qsTr("Restaurar os atalhos padrão"); icon: "refresh"; variant: "outline"; onClicked: { keysCard.capturing = ""; keys.resetAll() } }
         }
 
         // ------------------------------------------------ about (brand card)

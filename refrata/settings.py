@@ -38,6 +38,7 @@ DEFAULTS = {
     "quickLook": True,        # Space preview in Explorer
     "background": False,      # close to the tray
     "language": "auto",       # auto (Windows language) or a code from refrata/i18n.py
+    "shortcuts": {},          # action -> key, only the ones changed in Ajustes (refrata/shortcuts.py)
 }
 
 
@@ -54,6 +55,8 @@ def _valid(key, v) -> bool:
         return isinstance(v, int) and not isinstance(v, bool) and 0 <= v <= 150
     if key == "folders":
         return isinstance(v, list) and all(isinstance(x, str) for x in v)
+    if key == "shortcuts":
+        return isinstance(v, dict) and all(isinstance(k, str) and isinstance(x, str) for k, x in v.items())
     return type(v) is type(d)
 
 
@@ -207,6 +210,7 @@ class Settings(QObject):
     autoplay = _mk("autoplay", bool)
     hwdec = _mk("hwdec", bool)
     folders = _mk("folders", list)
+    quickOpen = _mk("quickOpen", bool)
     del _mk
 
     @Slot(str)

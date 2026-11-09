@@ -22,7 +22,7 @@ ListView {
             width: parent.width
             eyebrow: qsTr("Biblioteca")
             title: qsTr("Músicas")
-            subtitle: qsTr("%n faixa(s)", "", library.musicModel.count)
+            subtitle: library.musicModel.count ? qsTr("%n faixa(s)", "", library.musicModel.count) : qsTr("Nenhuma faixa")
             SearchField { width: 260; placeholder: qsTr("Filtrar músicas"); onTextChanged: library.musicModel.search = text }
             PillButton { objectName: "musicShuffle"; text: qsTr("Aleatório"); icon: "shuffle"; variant: "outline"; h: 44; enabled: library.musicModel.count > 0
                 onClicked: { if (!player.shuffle) player.toggleShuffle(); var p = library.musicModel.paths(); page.playPaths(p, Math.floor(Math.random() * p.length)) } }

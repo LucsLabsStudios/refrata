@@ -1335,6 +1335,223 @@ def network_youtube_link_plays():
     check("zoo" in e.title.lower(), "YouTube title", e.title)
     H.notes.append(f"YouTube: {e.videoWidth}×{e.videoHeight}, {len(e.audioTracks) - 1} audio track(s)")
 
+# ------------------------------------------------ from a YouTuber's review of 1.3.1 (portable zip)
+def _item_center(item):
+    from PySide6.QtCore import QPointF
+    return item.mapToScene(QPointF(item.width() / 2, item.height() / 2)).toPoint()
+
+
+def _scroll_to(page, item, margin=220):
+    from PySide6.QtCore import QPointF
+    y = item.mapToItem(page.property("contentItem"), QPointF(0, 0)).y()
+    page.setProperty("contentY", max(0.0, y - margin))
+    pump(0.4)
+
+
+def _click(item):
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    pos = _item_center(item)
+    QTest.mouseMove(win(), pos)
+    pump(0.05)
+    QTest.mouseClick(win(), Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    pump(0.3)
+
+
+def _wheel(pos, steps):
+    from PySide6.QtCore import QPoint, QPointF, Qt
+    from PySide6.QtGui import QGuiApplication, QWheelEvent
+    for _ in range(abs(steps)):
+        ev = QWheelEvent(QPointF(pos), QPointF(win().mapToGlobal(pos)), QPoint(0, 0), QPoint(0, 120 if steps > 0 else -120),
+                         Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier, Qt.ScrollPhase.NoScrollPhase, False)
+        QGuiApplication.sendEvent(win(), ev)
+        pump(0.06)
+
+
+def _focus():
+    w = win()
+    w.show()
+    w.raise_()
+    w.requestActivate()
+    pump(0.3)
+
+
+@scenario(timeout=60)
+def feature_review_settings_and_open_with():
+    """The 'Abrir arquivos no player rápido' switch did not move when clicked (it read the setting
+    once). The portable copy never showed up in Explorer's 'Abrir com', so double-clicks went to
+    Windows' own player: Ajustes now registers it (here inside a throwaway registry key)."""
+    import sys
+    import winreg
+    from refrata import assoc
+    if not getattr(sys, "frozen", False):
+        os.environ["REFRATA_ASSOC_EXE"] = sys.executable
+    assoc.clear_test_keys()
+    w = win()
+    w.setProperty("page", 5)
+    pump(0.8)
+    page = H.parts.find("settingsPage")
+    toggle = H.parts.find("toggleQuickOpen")
+    _scroll_to(page, toggle)
+    check(toggle.property("checked") is False and H.parts.settings.value("quickOpen") is False, "quick player off by default")
+    _click(toggle)
+    check(H.parts.settings.value("quickOpen") is True, "a click turns the quick player on")
+    check(toggle.property("checked") is True, "and the switch shows it at once")
+    _click(toggle)
+    check(H.parts.settings.value("quickOpen") is False and toggle.property("checked") is False, "a second click turns it off")
+
+    wa = H.parts.assoc
+    wa.refresh()
+    check(not wa.registered, "nothing registered in the sandbox yet")
+    row, btn = H.parts.find("defaultAppRow"), H.parts.find("defaultAppBtn")
+    wa.changed.emit()
+    pump(0.3)
+    check(row.property("visible"), "Ajustes shows the 'Player padrão do Windows' row")
+    _scroll_to(page, btn)
+    _click(btn)
+    check(wa.registered and not wa.isDefault, "the button registers this copy", f"{wa.registered} {wa.isDefault}")
+    exe = os.environ.get("REFRATA_ASSOC_EXE") or sys.executable
+    root = assoc.TEST_ROOT + "\\"
+    rd = lambda sub, name="": assoc._read(winreg.HKEY_CURRENT_USER, root + sub, name)  # noqa: E731
+    check(rd(r"Software\RegisteredApplications", "Refrata") == assoc.CAP_KEY, "listed in Apps padrão")
+    check(rd(rf"Software\Classes\{assoc.PROGID}\shell\open\command") == f'"{exe}" "%1"', "open command runs this exe")
+    check(rd(r"Software\Classes\.mkv\OpenWithProgids", assoc.PROGID) == "", ".mkv lists Refrata in Abrir com")
+    check(rd(r"Software\Classes\.srt\OpenWithProgids", assoc.PROGID) is None, "subtitles are not claimed")
+    check(rd(assoc.CAP_KEY + r"\FileAssociations", ".mp3") == assoc.PROGID, "capabilities cover music too")
+    # the user picks Refrata in Windows' settings (UserChoice), then comes back to the app
+    with winreg.CreateKey(winreg.HKEY_CURRENT_USER, root + assoc._FILEEXTS + r"\.mp4\UserChoice") as k:
+        winreg.SetValueEx(k, "ProgId", 0, winreg.REG_SZ, assoc.PROGID)
+    wa.refresh()
+    pump(0.2)
+    check(wa.isDefault, "seen as the default player")
+    check(btn.property("text") != "Tornar padrão", "the button no longer asks to make it default", btn.property("text"))
+    # the portable folder moved: "Abrir com" points at an exe that is gone, and gets repaired
+    with winreg.CreateKey(winreg.HKEY_CURRENT_USER, root + rf"Software\Classes\{assoc.PROGID}\shell\open\command") as k:
+        winreg.SetValueEx(k, "", 0, winreg.REG_SZ, '"C:\\pasta-que-sumiu\\Refrata.exe" "%1"')
+    wa.refresh()
+    check(not wa.registered, "a registration pointing at a missing exe does not count")
+    wa.repair()
+    check(rd(rf"Software\Classes\{assoc.PROGID}\shell\open\command") == f'"{exe}" "%1"' and wa.registered,
+          "repair points it at this copy again")
+    assoc.clear_test_keys()
+    check(assoc._read(winreg.HKEY_CURRENT_USER, assoc.TEST_ROOT + r"\Software\RegisteredApplications", "Refrata") is None,
+          "test keys removed")
+
+
+@scenario(timeout=60)
+def feature_review_wheel_over_queue():
+    """Scrolling the 'A seguir' list past its top changed the volume (the list let the wheel through
+    to the player underneath). Over a panel the wheel never reaches the volume; over the video it does."""
+    e, w = eng(), win()
+    vids = [str(H.fx["video"])] + [str(p) for p in sorted(Path(H.fx["media_root"]).rglob("*.mkv"))][:6]
+    e.openFiles(vids)
+    w.setProperty("playerOpen", True)
+    playing_media(video=True)
+    e.volume = 50
+    from PySide6.QtCore import QPoint
+    from PySide6.QtTest import QTest
+    H.parts.find("pvQueue").clicked.emit()
+    panel = H.parts.find("queuePanel")
+    QTest.mouseMove(w, QPoint(w.width() // 2, w.height() // 2))   # the controls (and the panel) show
+    pump(0.8)
+    QTest.mouseMove(w, _item_center(panel))
+    pump(0.3)
+    check(panel.property("visible") and panel.property("x") < w.width() - 50, "the queue panel is open")
+    _wheel(_item_center(panel), 4)
+    _wheel(_item_center(panel), -1)
+    _wheel(_item_center(panel), 2)
+    check(e.volume == 50, "the wheel over the queue leaves the volume alone", str(e.volume))
+    _wheel(QPoint(int(w.width() * 0.25), int(w.height() * 0.4)), 1)
+    check(e.volume == 55, "the wheel over the video still sets the volume", str(e.volume))
+
+
+@scenario(timeout=60)
+def feature_review_custom_shortcuts():
+    """Shortcuts can be changed in Ajustes: click a key, press the new one. The key moves away from
+    the action that had it, the change applies at once and is saved; the player does not react to
+    the key being recorded; one button restores every default."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QGuiApplication
+    from PySide6.QtTest import QTest
+    e, w, keys = eng(), win(), H.parts.keys
+    e.openFiles([str(H.fx["tone_a"])])
+    playing_media(video=False)
+    _focus()
+    keys.assign("mute", "K")
+    pump(0.2)
+    check(keys.map["mute"] == "K" and H.parts.settings.value("shortcuts") == {"mute": "K"}, "the new key is stored",
+          str(H.parts.settings.value("shortcuts")))
+    was = e.muted   # the battery starts muted, so compare against the state before each key
+    QTest.keyClick(w, Qt.Key.Key_M)
+    pump(0.3)
+    check(e.muted == was, "the old key no longer mutes", f"focus={type(QGuiApplication.focusObject()).__name__}")
+    QTest.keyClick(w, Qt.Key.Key_K)
+    pump(0.3)
+    check(e.muted != was, "the new key mutes / unmutes")
+    QTest.keyClick(w, Qt.Key.Key_K)
+    pump(0.3)
+    check(e.muted == was, "and toggles back")
+    # record a key from Ajustes: Space goes to "mute" and leaves play/pause without a key
+    w.setProperty("page", 5)
+    pump(0.8)
+    page, chip = H.parts.find("settingsPage"), H.parts.find("key_mute")
+    _scroll_to(page, chip)
+    _click(chip)
+    check(H.parts.find("keysCard").property("capturing") == "mute", "clicking a key starts listening")
+    playing = e.playing
+    QTest.keyClick(w, Qt.Key.Key_Space)
+    pump(0.4)
+    check(e.playing == playing, "Space while recording is not play/pause")
+    check(keys.map["mute"] == "Space" and keys.map["playPause"] == "", "Space moved to Silenciar", str(keys.map))
+    check(H.parts.find("keysCard").property("capturing") == "", "listening ends after one key")
+    _click(chip)
+    QTest.keyClick(w, Qt.Key.Key_Escape)
+    pump(0.3)
+    check(keys.map["mute"] == "Space" and H.parts.find("keysCard").property("capturing") == "", "Esc cancels")
+    check(keys.assign("pip", "Esc") == "reserved" and keys.map["pip"] == "Ctrl+P", "Esc can't be taken")
+    reset = H.parts.find("keysReset")
+    _scroll_to(page, reset)
+    _click(reset)
+    check(keys.map["mute"] == "M" and keys.map["playPause"] == "Space" and not keys.customized, "defaults restored")
+    check(H.parts.settings.value("shortcuts") == {}, "nothing custom left in the settings")
+
+
+@scenario(timeout=90)
+def feature_review_library_lists_duplicates_once():
+    """Adding all of C:\\ listed Windows' sample clips several times: the same file is hard-linked
+    from several folders (WinSxS) or copied with the same content. Each media shows once; a
+    different file with the same name stays; overlapping folders list a file once."""
+    import shutil
+    lib, st = H.parts.library, H.parts.settings
+    root = Path(os.environ["REFRATA_E2E_TMP"]) / "disco"
+    shutil.rmtree(root, ignore_errors=True)
+    src = Path(H.fx["video"])
+    mine = root / "Filmes" / "amostra.mkv"
+    mine.parent.mkdir(parents=True)
+    shutil.copyfile(src, mine)
+    link = root / "Windows" / "WinSxS" / "pacote" / "amostra.mkv"
+    link.parent.mkdir(parents=True)
+    os.link(mine, link)                                   # hard link: same file
+    copy = root / "Sistema" / "amostra.mkv"
+    copy.parent.mkdir(parents=True)
+    shutil.copyfile(src, copy)                            # same content, another file
+    diff = root / "Outro" / "amostra.mkv"
+    diff.parent.mkdir(parents=True)
+    data = bytearray(src.read_bytes())
+    data[-10] ^= 0xFF                                     # same name and size, different tail
+    diff.write_bytes(bytes(data))
+    st.setValue("folders", [str(root), str(root / "Filmes")])
+    pump(0.3)
+    wait(lambda: not lib.scanning, 20, "scan ends")
+    lib.rescan()
+    pump(0.3)
+    wait(lambda: not lib.scanning, 20, "rescan ends")
+    paths = [os.path.normcase(it["path"]) for it in lib._model._items]
+    same = [p for p in paths if p in {os.path.normcase(str(x)) for x in (mine, link, copy)}]
+    check(len(same) == 1, "the sample (link, copy, overlapping folder) is listed once", str(paths))
+    check(os.path.normcase(str(diff)) in paths, "a different file with the same name stays", str(paths))
+
+
 
 # ============================================================ layout: every language, every screen
 def _overflowing_texts(root_item, where):
@@ -1484,6 +1701,7 @@ def layout_smallest_window_at_150_percent():
 MONKEY_DENY = ("Open", "AddFolder", "addSubBtn", "pvReveal", "aboutContact", "aboutSource", "aboutChip_",
                "toggleAutostart", "toggleAutoUpdate", "toggleBackground", "toggleQuickLook", "update",
                "settingsAddFolder", "rescanBtn", "adev_", "settingsDev_",
+               "defaultAppBtn", "keysReset", "key_",   # registry / remapping: own scenarios
                "pvPip",   # minimises the window the monkey is clicking in (covered by its own scenario)
                "cast_")   # never cast to a real TV on the person's network
 
@@ -1603,7 +1821,8 @@ def run_one(sc: Scenario, fixtures: dict, exe: str | None, work: Path, extra_env
     data = base / "data"
     data.mkdir(parents=True)
     settings = {"folders": [fixtures["fx"]["media_root"]], "snapshotDir": str(base / "snaps"), "volume": 30}
-    env = dict(os.environ, REFRATA_DATA=str(data), REFRATA_NO_HOOK="1", REFRATA_LANG="pt",
+    # REFRATA_E2E_TMP: no real autostart entry, file types or update check (refrata/tray.py, assoc.py)
+    env = dict(os.environ, REFRATA_DATA=str(data), REFRATA_E2E_TMP=str(base), REFRATA_NO_HOOK="1", REFRATA_LANG="pt",
                REFRATA_NO_MEDIAKEYS="0" if "mediakeys" in sc.name else "1",
                REFRATA_FX=json.dumps(fixtures["fx"]), REFRATA_FMT=json.dumps(fixtures["fmt"]),
                REFRATA_SCENARIO_OUT=str(base / "result.json"), PYTHONIOENCODING="utf8", **extra_env)

@@ -182,9 +182,13 @@ a = Analysis(
     noarchive=False,
 )
 pyz = PYZ(a.pure)
-exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name='Refrata', console=False,
+# shown by the bootloader the moment Refrata.exe starts, before Python and Qt load (main.py
+# closes it once the window draws): a click on the icon answers at once, even on a slow PC
+splash = Splash({r(ROOT / 'assets' / 'brand' / 'splash.png')}, binaries=a.binaries, datas=a.datas,
+                text_pos=None, always_on_top=False, minify_script=True)
+exe = EXE(pyz, a.scripts, splash, [], exclude_binaries=True, name='Refrata', console=False,
           icon={r(ROOT / 'assets' / 'icon.ico')}, version={r(vfile)}, manifest={r(mfile)}, upx=False)
-coll = COLLECT(exe, a.binaries, a.datas, name='Refrata', upx=False)
+coll = COLLECT(exe, a.binaries, a.datas, splash.binaries, name='Refrata', upx=False)
 """, encoding="utf8")
     return spec
 

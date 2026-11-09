@@ -134,8 +134,8 @@ Window {
         }
     }
 
-    Shortcut { sequence: "Space"; onActivated: player.togglePlay() }
-    Shortcut { sequence: "Left"; onActivated: player.skip(-10000) }
-    Shortcut { sequence: "Right"; onActivated: player.skip(10000) }
+    Shortcut { sequence: keys.map.playPause; onActivated: player.togglePlay() }
+    Shortcut { sequence: keys.map.back10; onActivated: player.skip(-10000) }
+    Shortcut { sequence: keys.map.fwd10; onActivated: player.skip(10000) }
     Shortcut { sequence: "Esc"; onActivated: pip.backRequested() }
 }

@@ -125,33 +125,35 @@ Window {
     }
 
     // ------------------------------------------------------------ shortcuts
-    Shortcut { sequence: "Space"; onActivated: player.togglePlay() }
-    Shortcut { sequences: ["F", "F11"]; onActivated: win.toggleFullscreen() }
-    Shortcut { sequence: "Left"; onActivated: { player.skip(-10000); pv.poke() } }
-    Shortcut { sequence: "Right"; onActivated: { player.skip(10000); pv.poke() } }
-    Shortcut { sequence: "Shift+Left"; onActivated: player.skip(-3000) }
-    Shortcut { sequence: "Shift+Right"; onActivated: player.skip(3000) }
-    Shortcut { sequence: "Ctrl+Left"; onActivated: player.skip(-60000) }
-    Shortcut { sequence: "Ctrl+Right"; onActivated: player.skip(60000) }
-    Shortcut { sequence: "Up"; onActivated: { player.volume = player.volume + 5; toast.show(qsTr("Volume %1%").arg(player.volume)) } }
-    Shortcut { sequence: "Down"; onActivated: { player.volume = player.volume - 5; toast.show(qsTr("Volume %1%").arg(player.volume)) } }
-    Shortcut { sequence: "M"; onActivated: { player.toggleMute(); toast.show(player.muted ? qsTr("Sem som") : qsTr("Som ativado")) } }
-    Shortcut { sequence: "N"; onActivated: player.next() }
-    Shortcut { sequence: "P"; onActivated: player.previous() }
-    Shortcut { sequence: "S"; onActivated: player.snapshot() }
-    Shortcut { sequence: "L"; onActivated: { player.cycleLoop(); pv.poke() } }
-    Shortcut { sequence: "T"; onActivated: win.alwaysOnTop = !win.alwaysOnTop }
-    Shortcut { sequence: "E"; onActivated: player.frameStep() }
-    Shortcut { sequence: "I"; onActivated: if (win.playerOpen) pv.togglePanel("info") }
-    Shortcut { sequence: "R"; onActivated: if (win.playerOpen && !player.isAudio) { pv.rotate(90); toast.show(qsTr("Girado %1°").arg(pv.videoRotation)) } }
-    Shortcut { sequence: "Shift+N"; onActivated: if (player.chapters.length) { player.nextChapter(); pv.poke() } }
-    Shortcut { sequence: "Shift+P"; onActivated: if (player.chapters.length) { player.previousChapter(); pv.poke() } }
-    Shortcut { sequence: "]"; onActivated: { player.rate = player.rate + 0.25; toast.show(qsTr("Velocidade %1×").arg(player.rate)) } }
-    Shortcut { sequence: "["; onActivated: { player.rate = player.rate - 0.25; toast.show(qsTr("Velocidade %1×").arg(player.rate)) } }
-    Shortcut { sequence: "="; onActivated: { player.rate = 1; toast.show(qsTr("Velocidade normal")) } }
-    Shortcut { sequence: "Ctrl+O"; onActivated: openDialog.open() }
-    Shortcut { sequence: "Ctrl+L"; onActivated: { win.playerOpen = false; win.page = 4 } }
-    Shortcut { sequence: "Ctrl+,"; onActivated: { win.playerOpen = false; win.page = 5 } }
+    // keys come from Ajustes › Atalhos de teclado (refrata/shortcuts.py); an action without a
+    // key has an empty sequence, which Qt leaves disabled
+    Shortcut { sequence: keys.map.playPause; onActivated: player.togglePlay() }
+    Shortcut { sequences: keys.map.fullscreen ? [keys.map.fullscreen, "F11"] : ["F11"]; onActivated: win.toggleFullscreen() }
+    Shortcut { sequence: keys.map.back10; onActivated: { player.skip(-10000); pv.poke() } }
+    Shortcut { sequence: keys.map.fwd10; onActivated: { player.skip(10000); pv.poke() } }
+    Shortcut { sequence: keys.map.back3; onActivated: player.skip(-3000) }
+    Shortcut { sequence: keys.map.fwd3; onActivated: player.skip(3000) }
+    Shortcut { sequence: keys.map.back60; onActivated: player.skip(-60000) }
+    Shortcut { sequence: keys.map.fwd60; onActivated: player.skip(60000) }
+    Shortcut { sequence: keys.map.volUp; onActivated: { player.volume = player.volume + 5; toast.show(qsTr("Volume %1%").arg(player.volume)) } }
+    Shortcut { sequence: keys.map.volDown; onActivated: { player.volume = player.volume - 5; toast.show(qsTr("Volume %1%").arg(player.volume)) } }
+    Shortcut { sequence: keys.map.mute; onActivated: { player.toggleMute(); toast.show(player.muted ? qsTr("Sem som") : qsTr("Som ativado")) } }
+    Shortcut { sequence: keys.map.next; onActivated: player.next() }
+    Shortcut { sequence: keys.map.prev; onActivated: player.previous() }
+    Shortcut { sequence: keys.map.snapshot; onActivated: player.snapshot() }
+    Shortcut { sequence: keys.map.loop; onActivated: { player.cycleLoop(); pv.poke() } }
+    Shortcut { sequence: keys.map.onTop; onActivated: win.alwaysOnTop = !win.alwaysOnTop }
+    Shortcut { sequence: keys.map.frame; onActivated: player.frameStep() }
+    Shortcut { sequence: keys.map.info; onActivated: if (win.playerOpen) pv.togglePanel("info") }
+    Shortcut { sequence: keys.map.rotate; onActivated: if (win.playerOpen && !player.isAudio) { pv.rotate(90); toast.show(qsTr("Girado %1°").arg(pv.videoRotation)) } }
+    Shortcut { sequence: keys.map.nextChapter; onActivated: if (player.chapters.length) { player.nextChapter(); pv.poke() } }
+    Shortcut { sequence: keys.map.prevChapter; onActivated: if (player.chapters.length) { player.previousChapter(); pv.poke() } }
+    Shortcut { sequence: keys.map.faster; onActivated: { player.rate = player.rate + 0.25; toast.show(qsTr("Velocidade %1×").arg(player.rate)) } }
+    Shortcut { sequence: keys.map.slower; onActivated: { player.rate = player.rate - 0.25; toast.show(qsTr("Velocidade %1×").arg(player.rate)) } }
+    Shortcut { sequence: keys.map.normalSpeed; onActivated: { player.rate = 1; toast.show(qsTr("Velocidade normal")) } }
+    Shortcut { sequence: keys.map.open; onActivated: openDialog.open() }
+    Shortcut { sequence: keys.map.stream; onActivated: { win.playerOpen = false; win.page = 4 } }
+    Shortcut { sequence: keys.map.settings; onActivated: { win.playerOpen = false; win.page = 5 } }
     Shortcut {
         sequence: "Esc"
         onActivated: {
@@ -247,7 +249,7 @@ Window {
             }
             PageSlot {
                 index: 5
-                SettingsPage { id: settingsPage; objectName: "settingsPage"; anchors.fill: parent; onAddFolder: addFolderDialog.open() }
+                SettingsPage { id: settingsPage; objectName: "settingsPage"; anchors.fill: parent; onAddFolder: addFolderDialog.open(); onNotify: (text) => toast.show(text) }
             }
 
             UpdateBanner {
@@ -409,7 +411,12 @@ Window {
         target: player
         function onRenderersChanged() { if (player.castingTo !== "") win.leavePip(true) }
     }
-    Shortcut { sequence: "Ctrl+P"; onActivated: win.togglePip() }
+    Shortcut { sequence: keys.map.pip; onActivated: win.togglePip() }
+    // back from Windows' Apps padrão: show whether Refrata is now the default player
+    Connections {
+        target: Qt.application
+        function onStateChanged() { if (Qt.application.state === Qt.ApplicationActive) winassoc.refresh() }
+    }
 
     Toast { id: toast; objectName: "toast" }
 }

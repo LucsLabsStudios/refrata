@@ -511,7 +511,7 @@ Item {
         geometryTick: pv.glassTick + width + height
         tint: Qt.rgba(0.07, 0.07, 0.09, 0.66)
         blurMax: 64
-        MouseArea { anchors.fill: parent; hoverEnabled: true; onPositionChanged: pv.poke() }
+        MouseArea { anchors.fill: parent; hoverEnabled: true; onPositionChanged: pv.poke(); onWheel: (w) => { w.accepted = true; pv.poke() } }
         Loader {
             id: panelLoader
             x: 28; y: 28
@@ -908,7 +908,7 @@ Item {
         backdrop: backdrop
         geometryTick: pv.glassTick
         tint: Qt.rgba(0.07, 0.07, 0.09, 0.6)
-        MouseArea { anchors.fill: parent; hoverEnabled: true; onPositionChanged: pv.poke() }
+        MouseArea { anchors.fill: parent; hoverEnabled: true; onPositionChanged: pv.poke(); onWheel: (w) => { w.accepted = true; pv.poke() } }
 
         Text { x: 24; y: 24; text: qsTr("A seguir"); color: "white"; font.family: theme.displayFont; font.pixelSize: 26; font.weight: Font.DemiBold }
         Text { anchors.right: parent.right; anchors.rightMargin: 24; y: 34; text: qsTr("%n item(ns)", "", player.queueCount); color: Qt.rgba(1, 1, 1, 0.55); font.pixelSize: 13 }
