@@ -340,6 +340,7 @@ Window {
                         anchors.verticalCenter: parent.verticalCenter
                         width: parent.width - 44 - 12 * 3 - 90
                         value: mp.position; to: Math.max(1, mp.duration)
+                        onScrub: (ms) => mp.position = ms      // the preview follows the drag too
                         onSeekRequested: (ms) => mp.position = ms
                     }
                     Text {

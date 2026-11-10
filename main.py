@@ -79,7 +79,7 @@ _IGNORED = (
     "propagateComposedEvents",
     # Qt's clipboard watcher, when another app holds the Windows clipboard at that instant
     # (the user copying something while the app runs); Qt retries and recovers by itself
-    "Retrying to obtain clipboard",
+    "Retrying to obtain clipboard", "Unable to obtain clipboard",
     # QtMultimedia's FFmpeg (quick player) on MKVs without a stream duration: it falls back by itself
     "AVStream duration",
     # font fallback walking past fonts without a script (e.g. Devanagari for "हिन्दी") before it

@@ -542,6 +542,17 @@ class Engine(QObject):
         self._switchDone.connect(self._on_switch_done, Qt.ConnectionType.QueuedConnection)
         self._resolved.connect(self._on_resolved, Qt.ConnectionType.QueuedConnection)
         self._deinterlace = "auto"
+        # live scrubbing: while the seek bar is dragged the picture follows it. A seek libVLC is
+        # still decoding delays everything queued behind it (a Pause pressed right after the drop
+        # waited seconds), so the next point goes only once the last one is on screen
+        self._scrub_target = None
+        self._scrub_sent = None
+        self._scrub_frames = 0
+        self._scrub_at = 0.0
+        self._want_pause_at = 0.0            # Pause pressed, libVLC not paused yet (see _tick)
+        self._scrub_timer = QTimer(self)
+        self._scrub_timer.setInterval(self.SCRUB_MS)
+        self._scrub_timer.timeout.connect(self._scrub_step)
         self._devices: list[dict] = []
         self._vlc = None
         self._make_player()
@@ -597,6 +608,8 @@ class Engine(QObject):
 
     # ------------------------------------------------------------ libVLC setup
     POLL_FAST, POLL_IDLE = 120, 1000   # ms between libVLC state checks (see _pace)
+    SCRUB_MS = 30                      # how often a drag checks whether libVLC is ready for the next point
+    SCRUB_WAIT = 0.3                   # ...and the longest it waits for the last point's picture
     SUB_SIZES = {"small": 75, "normal": 100, "large": 135, "huge": 175}
     SUB_COLORS = {"white": 0xFFFFFF, "yellow": 0xFFE14D}
 
@@ -606,6 +619,8 @@ class Engine(QObject):
         s = self._settings
         # --verbose=-1 also silences ffmpeg's own stderr chatter (e.g. swscaler notices)
         args = ["--quiet", "--verbose=-1", "--no-video-title-show", "--no-snapshot-preview", "--no-osd"]
+        if os.environ.get("REFRATA_VLC_VERBOSE"):   # diagnosis: libVLC's whole log on stderr
+            args[:2] = ["--verbose=2"]
         if not s.value("hwdec", True):
             args.append("--avcodec-hw=none")
         if s.value("normalize", False):
@@ -1329,6 +1344,8 @@ class Engine(QObject):
         return pos
 
     def _play_index(self, index):
+        self._end_scrub()
+        self._want_pause_at = 0.0
         self._wake()
         self._audio_off = False   # "Desativado" was for the previous item
         self._save_resume()
@@ -1531,6 +1548,7 @@ class Engine(QObject):
         if self._state in ("idle", "ended", "stopped", "error") and self._queue:
             self._play_index(max(0, self._index))
             return
+        self._want_pause_at = 0.0
         self._mp.set_pause(0) if self._state == "paused" else self._mp.play()
         if self._state == "paused":
             self._expect("playing")
@@ -1539,6 +1557,7 @@ class Engine(QObject):
     def pause(self):
         self._wake()
         self._mp.set_pause(1)
+        self._want_pause_at = time.time()
         if self._state == "playing":
             self._expect("paused")
 
@@ -1565,8 +1584,35 @@ class Engine(QObject):
         elif self._queue:
             self.seek(0)
 
+    @Slot(float)
+    def scrub(self, ms):
+        """The seek bar is being dragged to `ms`: show that point now (see SCRUB_MS)."""
+        if self._length <= 0 or not self.seekable:
+            return
+        self._scrub_target = int(ms)
+        if not self._scrub_timer.isActive():
+            self._scrub_step()          # the first one right away, the rest paced
+            self._scrub_timer.start()
+
+    def _scrub_step(self):
+        t = self._scrub_target
+        if t is None or t == self._scrub_sent:
+            self._scrub_timer.stop()    # the finger stopped: nothing new to show
+            return
+        if (self._scrub_sent is not None and self._frames_seen == self._scrub_frames
+                and time.time() - self._scrub_at < self.SCRUB_WAIT):
+            return                      # the last point is still being decoded
+        self._scrub_sent, self._scrub_frames, self._scrub_at = t, self._frames_seen, time.time()
+        self._wake()
+        self._mp.set_time(max(0, min(t, self._length - 500)))
+
+    def _end_scrub(self):
+        self._scrub_target = self._scrub_sent = None
+        self._scrub_timer.stop()
+
     @Slot(int)
     def seek(self, ms):
+        self._end_scrub()               # the drop point wins over a paced scrub still pending
         self._wake()
         if self._length > 0:
             ms = max(0, min(int(ms), self._length - 500))
@@ -1622,6 +1668,14 @@ class Engine(QObject):
             vlc.State.NothingSpecial: "idle",
         }
         new_state = mapping.get(st, "idle")
+        if self._want_pause_at:
+            # libVLC drops or delays a pause that lands while it is busy (a seek being decoded):
+            # the person asked for it, so it is asked again until it holds
+            if st == vlc.State.Paused or st not in (vlc.State.Playing, vlc.State.Buffering):
+                self._want_pause_at = 0.0
+            elif time.time() - self._want_pause_at > 0.4:
+                self._mp.set_pause(1)
+                self._want_pause_at = time.time()
         if self._resolving:
             # yt-dlp is still looking up a web page's stream
             if time.time() > self._open_deadline:

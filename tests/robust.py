@@ -40,17 +40,27 @@ class Fail(Exception):
     pass
 
 
+# Scenarios that need the keyboard focus (Qt hands shortcuts only to the active window) or that
+# register system-wide hooks run alone, after the parallel batch (see main_cli).
+SOLO_MARKERS = ("keyClick", "keyPress", "keySequence", "mediakeys")
+
+
 class Scenario:
-    def __init__(self, fn, setup=None, verify=None, timeout=90, data=None, env=None):
+    def __init__(self, fn, setup=None, verify=None, timeout=90, data=None, env=None, solo=None):
         self.fn, self.setup, self.verify, self.timeout = fn, setup, verify, timeout
+        if solo is None:
+            import inspect
+            src = inspect.getsource(fn)
+            solo = any(m in src for m in SOLO_MARKERS) or "mediakeys" in fn.__name__
+        self.solo = solo
         self.env = env or {}
         self.name = fn.__name__
         self.data = data   # extra settings for settings.json, merged before launch
 
 
-def scenario(setup=None, verify=None, timeout=90, data=None, env=None):
+def scenario(setup=None, verify=None, timeout=90, data=None, env=None, solo=None):
     def deco(fn):
-        SCENARIOS[fn.__name__] = Scenario(fn, setup, verify, timeout, data, env)
+        SCENARIOS[fn.__name__] = Scenario(fn, setup, verify, timeout, data, env, solo)
         return fn
     return deco
 
@@ -1586,6 +1596,64 @@ def feature_review_wheel_over_queue():
 
 
 @scenario(timeout=60)
+def feature_live_scrubbing():
+    """Dragging the seek bar moves the picture while the button is still down (playing and paused),
+    not only on release; the drop point is where it ends up."""
+    from PySide6.QtCore import QPoint, QPointF
+    from PySide6.QtTest import QTest
+    e, w = eng(), win()
+    e.openFiles([str(H.fx["video"])])
+    w.setProperty("playerOpen", True)
+    playing_media(video=True)
+    wait(lambda: e.length > 20_000, 5, "the video length is known")
+    bar = H.parts.find("seekBar")
+
+    def at(frac):
+        return bar.mapToScene(QPointF(bar.width() * frac, bar.height() / 2)).toPoint()
+
+    def drag(fracs, settle=0.35):
+        """Press at the first point, move through the rest; returns libVLC's clock and the frames
+        shown after each move, all before the button goes up."""
+        QTest.mouseMove(w, QPoint(w.width() // 2, w.height() // 2))
+        pump(0.6)                                  # the controls slide in (hidden, the bar sits below the window)
+        QTest.mouseMove(w, at(fracs[0]))
+        pump(0.2)
+        QTest.mousePress(w, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, at(fracs[0]))
+        seen = []
+        for f in fracs[1:]:
+            for k in range(1, 5):                  # a few small moves, like a real hand
+                prev = fracs[fracs.index(f) - 1]
+                QTest.mouseMove(w, at(prev + (f - prev) * k / 4))
+                pump(0.02)
+            frames = e._frames_seen
+            t0 = time.time()
+            while time.time() - t0 < settle + 1.5 and not (abs(e._mp.get_time() - f * e.length) < 1500
+                                                          and e._frames_seen > frames):
+                pump(0.03)
+            seen.append((f, e._mp.get_time(), e._frames_seen - frames))
+        return seen
+
+    from PySide6.QtCore import Qt
+    moves = drag([0.1, 0.35, 0.6, 0.85])
+    for f, t, frames in moves:
+        check(abs(t - f * e.length) < 1500, f"playing: the clock follows the drag to {f:.0%} before release",
+              f"{t} vs {int(f * e.length)}")
+        check(frames > 0, f"playing: a new picture at {f:.0%} while dragging", str(frames))
+    QTest.mouseRelease(w, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, at(0.5))
+    wait(lambda: abs(e._mp.get_time() - 0.5 * e.length) < 1500, 3, "released: it lands on the drop point")
+
+    e.pause()
+    wait(lambda: e.state == "paused", 3, "paused")
+    moves = drag([0.5, 0.2, 0.7])
+    for f, t, frames in moves:
+        check(abs(t - f * e.length) < 1500, f"paused: the clock follows the drag to {f:.0%}", f"{t} vs {int(f * e.length)}")
+        check(frames > 0, f"paused: the still picture changes at {f:.0%}", str(frames))
+    QTest.mouseRelease(w, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, at(0.7))
+    pump(0.5)
+    check(e.state == "paused", "still paused after the drag", e.state)
+
+
+@scenario(timeout=60)
 def feature_review_custom_shortcuts():
     """Shortcuts can be changed in Ajustes: click a key, press the new one. The key moves away from
     the action that had it, the change applies at once and is saved; the player does not react to
@@ -1745,7 +1813,8 @@ def layout_every_language_fits():
     e.openFiles([str(H.fx["video"])])
     playing_media(video=True)
     problems = []
-    for code in CODES:
+    part, parts = (int(x) for x in os.environ.get("REFRATA_LAYOUT_PART", "0/1").split("/"))
+    for code in list(CODES)[part::parts]:      # one slice of the languages per process (see below)
         i18n.setProperty("language", code)
         pump(0.4)
         win().setProperty("playerOpen", False)
@@ -1780,6 +1849,17 @@ def layout_every_language_fits():
     H.notes.append(f"{len(uniq)} overflowing text(s)")
     check(not uniq, "every text fits in every language", "\n          " + "\n          ".join(uniq[:60]))
 
+
+
+
+# 14 languages x every page, tab and panel take minutes in one process: four processes, a slice each
+LAYOUT_PARTS = 4
+for _i in range(LAYOUT_PARTS):
+    _sc = Scenario(layout_every_language_fits, timeout=300, env={"REFRATA_LAYOUT_PART": f"{_i}/{LAYOUT_PARTS}"},
+                   solo=False)
+    _sc.name = f"layout_every_language_fits_{_i + 1}of{LAYOUT_PARTS}"
+    SCENARIOS[_sc.name] = _sc
+del SCENARIOS["layout_every_language_fits"]
 
 @scenario(timeout=400, env={"QT_SCALE_FACTOR": "1.5"})
 def layout_smallest_window_at_150_percent():
@@ -1944,6 +2024,9 @@ def _fixtures(cache: Path):
     return json.loads(marker.read_text(encoding="utf8"))
 
 
+_SETUP_LOCK = threading.Lock()
+
+
 def run_one(sc: Scenario, fixtures: dict, exe: str | None, work: Path, extra_env: dict) -> dict:
     base = work / sc.name
     shutil.rmtree(base, ignore_errors=True)
@@ -1959,7 +2042,8 @@ def run_one(sc: Scenario, fixtures: dict, exe: str | None, work: Path, extra_env
     env["REFRATA_SCENARIO_TIMEOUT"] = str(sc.timeout)
     env["REFRATA_SCENARIO_TIMEOUT"] = str(sc.timeout)
     os.environ.update({"REFRATA_FX": env["REFRATA_FX"]})   # setups read it
-    extra = sc.setup(data) if sc.setup else None
+    with _SETUP_LOCK:                 # setups share the fixture cache (the big library is built once)
+        extra = sc.setup(data) if sc.setup else None
     if not (data / "settings.json").exists():
         settings.update(extra or {})
         (data / "settings.json").write_text(json.dumps({"settings": settings, "history": []}), encoding="utf8")
@@ -2017,6 +2101,16 @@ def run_one(sc: Scenario, fixtures: dict, exe: str | None, work: Path, extra_env
     return res
 
 
+def _last_durations(report: str) -> dict:
+    """Scenario times from the previous report (orders the parallel batch); {} without one."""
+    for p in (report, str(ROOT / "build" / "robust-release.json"), str(ROOT / "build" / "robust-last.json")):
+        try:
+            return {r["name"]: r["took"] for r in json.loads(Path(p).read_text(encoding="utf8"))}
+        except Exception:
+            continue
+    return {}
+
+
 def main_cli():
     ap = argparse.ArgumentParser()
     ap.add_argument("-k", default="")
@@ -2025,6 +2119,8 @@ def main_cli():
     ap.add_argument("--monkey-seconds", type=float, default=120)
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--report", default="")
+    ap.add_argument("--jobs", type=int, default=min(8, max(1, (os.cpu_count() or 2) // 3)),
+                    help="scenarios at once (each is its own app process); 1 = one by one")
     a = ap.parse_args()
     t = time.time()
     fixtures = _fixtures(Path(a.cache))
@@ -2036,23 +2132,43 @@ def main_cli():
             if s.name.startswith("monkey"):
                 s.timeout = int(a.monkey_seconds + 120)
     for old in Path(tempfile.gettempdir()).glob("refrata_robust_*"):
-        if old.name != Path(a.cache).name and old.is_dir():
+        # only stale ones: another run going on right now keeps its logs
+        if old.name != Path(a.cache).name and old.is_dir() and time.time() - old.stat().st_mtime > 6 * 3600:
             shutil.rmtree(old, ignore_errors=True)
     os.environ["REFRATA_ROBUST_CACHE"] = a.cache
     work = Path(tempfile.mkdtemp(prefix="refrata_robust_"))
     extra = {"REFRATA_MONKEY_SECONDS": str(a.monkey_seconds), "REFRATA_MONKEY_SEED": str(a.seed)}
-    results, ok = [], 0
-    for sc in chosen:
-        r = run_one(sc, fixtures, a.exe or None, work, extra)
+    results = []
+
+    def report(r):
         results.append(r)
         good = not r["problems"]
-        ok += good
-        print(f"  {'PASS' if good else 'FAIL'}  {sc.name}  ({r['took']}s)" +
+        print(f"  {'PASS' if good else 'FAIL'}  {r['name']}  ({r['took']}s)" +
               ("".join(f"\n        - {n}" for n in r["notes"])) +
               ("".join(f"\n        ! {p}" for p in r["problems"])), flush=True)
-    print(f"\n{ok}/{len(chosen)} scenarios passed  (work dir: {work})")
-    if a.report:
-        Path(a.report).write_text(json.dumps(results, indent=1, ensure_ascii=False), encoding="utf8")
+
+    t_all = time.time()
+    batch = [s for s in chosen if not s.solo] if a.jobs > 1 else []
+    alone = [s for s in chosen if s not in batch]
+    if batch:
+        # longest first, so the long ones are not left running alone at the end
+        last = _last_durations(a.report)
+        batch.sort(key=lambda s: -last.get(s.name, s.timeout / 3))
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        with ThreadPoolExecutor(a.jobs) as pool:
+            for f in as_completed([pool.submit(run_one, s, fixtures, a.exe or None, work, extra) for s in batch]):
+                report(f.result())
+    for sc in alone:                   # the window must be in front: one at a time
+        report(run_one(sc, fixtures, a.exe or None, work, extra))
+    ok = sum(1 for r in results if not r["problems"])
+    print(f"\n{ok}/{len(chosen)} scenarios passed in {time.time() - t_all:.0f}s "
+          f"({len(batch)} in parallel x{a.jobs}, {len(alone)} alone)  (work dir: {work})")
+    out = Path(a.report) if a.report else ROOT / "build" / "robust-last.json"
+    try:
+        out.parent.mkdir(exist_ok=True)
+        out.write_text(json.dumps(results, indent=1, ensure_ascii=False), encoding="utf8")
+    except OSError:
+        pass
     sys.exit(0 if ok == len(chosen) else 1)
 
 

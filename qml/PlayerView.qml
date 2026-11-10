@@ -38,6 +38,8 @@ Item {
     // music mode keeps its dock on screen; video hides the chrome while playing
     readonly property bool idleHide: player.playing && !player.isAudio && panel === "" && !queueOpen && !pinned
     property bool pinned: false        // mouse over controls
+    // the timer only looks once: hiding allowed again (a panel closed, the mouse left the bar) counts anew
+    onIdleHideChanged: if (idleHide) hideTimer.restart()
     function poke() { controlsVisible = true; hideTimer.restart() }
     function togglePanel(name) { panel = (panel === name ? "" : name); poke() }
     onWidthChanged: Qt.callLater(function () { pv.glassTick++ })
@@ -410,6 +412,7 @@ Item {
                     loopA: player.loopA; loopB: player.loopB
                     chapters: player.chapters
                     enabled: player.seekable
+                    onScrub: (ms) => player.scrub(ms)      // the picture follows the drag
                     onSeekRequested: (ms) => player.seek(ms)
                 }
                 Text {

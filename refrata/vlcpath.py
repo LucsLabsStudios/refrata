@@ -40,6 +40,8 @@ def preload_qt() -> int:
     qtquickdialogsplugin.dll failed with "module not found". Once a DLL is in the process, later
     loads by name are satisfied from the loaded-module list, in every install mode alike.
     """
+    if sys.platform.startswith("linux"):
+        return len(prefer_system_ffmpeg())
     if not getattr(sys, "frozen", False) or sys.platform != "win32":
         return 0
     import ctypes
@@ -78,3 +80,55 @@ def configure() -> Path | None:
             os.environ["PATH"] = str(cand) + os.pathsep + os.environ.get("PATH", "")
             return cand
     return None
+
+
+FFMPEG_LIBS = ("avutil", "swresample", "swscale", "avcodec", "avformat")   # dependency order
+
+
+def prefer_system_ffmpeg() -> list[str]:
+    """Linux: when the system's FFmpeg has the same major version (soname) as the copy Qt brings
+    for QtMultimedia, load the system's first and let both Qt and libVLC share it.
+
+    A process holds one library per soname: whichever loads first serves everyone. Qt's copy
+    (FFmpeg 7.0 in PySide6 6.8) loaded first left libVLC's avcodec plugin, built against the
+    system's newer 7.1 (Debian 13), without a symbol it needs: no video decoder at all, sound with
+    a black picture. Same major means same ABI, newer minors only add: the system's one serves both.
+    Returns the paths loaded."""
+    import ctypes
+    import re
+    import subprocess
+    try:
+        import PySide6
+        qt_lib = Path(PySide6.__file__).parent / "Qt" / "lib"
+    except Exception:
+        return []
+    bundled = {}
+    for name in FFMPEG_LIBS:
+        found = sorted(qt_lib.glob(f"lib{name}.so.*"))
+        if found:
+            bundled[name] = re.match(r"(lib\w+\.so\.\d+)", found[0].name).group(1)
+    if not bundled:
+        return []
+    try:
+        listing = subprocess.run(["/sbin/ldconfig", "-p"], capture_output=True, text=True, timeout=5).stdout
+    except Exception:
+        return []
+    system = {}
+    for line in listing.splitlines():
+        m = re.match(r"\s*(\S+) \((libc6,x86-64|libc6,AArch64)[^)]*\) => (\S+)", line)
+        if m and m.group(1) not in system:
+            system[m.group(1)] = m.group(3)
+    if bundled.get("avcodec") not in system:
+        return []           # a different major (Ubuntu 24.04 has FFmpeg 6): no clash, nothing to do
+    loaded = []
+    for name in FFMPEG_LIBS:
+        soname = bundled.get(name)
+        path = system.get(soname or "")
+        if not path:
+            continue
+        try:
+            ctypes.CDLL(path, mode=ctypes.RTLD_GLOBAL)
+            loaded.append(path)
+        except OSError:
+            break
+    return loaded

@@ -39,14 +39,20 @@ QT_DROP = ("Qt6WebEngine", "QtWebEngineProcess", "Qt6WebChannel", "Qt6WebSockets
            "Qt63D", "Qt6Quick3D", "Qt6Charts", "Qt6DataVisualization", "Qt6Graphs", "Qt6Location", "Qt6Positioning",
            "Qt6Sensors", "Qt6Bluetooth", "Qt6Nfc", "Qt6Sql", "Qt6Scxml", "Qt6StateMachine", "Qt6TextToSpeech",
            "Qt6RemoteObjects", "Qt6VirtualKeyboard", "Qt6SpatialAudio", "Qt6Designer", "Qt6Help", "Qt6HttpServer",
-           "Qt6SerialPort", "Qt6SerialBus", "Qt6QuickTimeline")
+           "Qt6SerialPort", "Qt6SerialBus", "Qt6QuickTimeline",
+           "Qt6QmlLocalStorage")   # LocalStorage needs Qt6Sql, dropped above; the app does not use it
 QT_DROP_PLUGIN_DIRS = {"sqldrivers", "position", "geoservices", "sensors", "webview", "designer", "qmltooling",
                        "virtualkeyboard", "canbus", "scxmldatamodel", "renderers", "sceneparsers",
                        "geometryloaders", "renderplugins", "assetimporters", "texttospeech"}
 # built on Ubuntu 24.04 with its Python: older systems (glibc < 2.39) are refused by apt instead of
 # installing an app that cannot start
-DEPENDS = ["libc6 (>= 2.39)", "libvlc5","vlc-plugin-base", "libxcb-cursor0", "libxkbcommon-x11-0", "libegl1", "libfontconfig1",
-           "libdbus-1-3"]
+# Qt's X11 (xcb) and Wayland platform plugins load these from the system; a desktop usually has
+# them, a minimal install does not and the app would not open at all (found installing the 1.4.5
+# .deb in clean Ubuntu 24.04 / Debian 13 containers: libxcb-icccm4, libwayland-cursor0 missing)
+DEPENDS = ["libc6 (>= 2.39)", "libvlc5", "vlc-plugin-base", "libegl1", "libgl1", "libfontconfig1", "libdbus-1-3",
+           "libxkbcommon0", "libxkbcommon-x11-0", "libx11-xcb1", "libxcb-cursor0", "libxcb-icccm4", "libxcb-image0",
+           "libxcb-keysyms1", "libxcb-randr0", "libxcb-render-util0", "libxcb-shape0", "libxcb-shm0", "libxcb-sync1",
+           "libxcb-util1", "libxcb-xfixes0", "libxcb-xkb1", "libwayland-client0", "libwayland-cursor0", "libwayland-egl1"]
 RECOMMENDS = ["vlc-plugin-video-output", "xdg-utils", "libpulse0"]
 
 
@@ -220,14 +226,71 @@ def test(archive: Path) -> bool:
     return r.returncode == 0
 
 
+# The .deb installed with apt on clean systems, as a person gets it: no library a desktop
+# happens to have can hide a missing dependency. Then the whole e2e battery in the installed app.
+CLEAN_IMAGES = ("ubuntu:24.04", "debian:trixie")
+CLEAN_SCRIPT = r"""
+set -e
+export DEBIAN_FRONTEND=noninteractive
+# the mirrors drop a connection now and then: apt retries instead of failing the release
+echo 'Acquire::Retries "6";' > /etc/apt/apt.conf.d/80retries
+apt-get update -qq >/dev/null
+apt-get install -y -qq /pkg/refrata.deb >/tmp/apt.log 2>&1 || { tail -20 /tmp/apt.log; echo "CLEAN: apt install failed"; exit 1; }
+test -x /usr/bin/refrata && test -f /usr/share/applications/refrata.desktop || { echo "CLEAN: launcher or menu entry missing"; exit 1; }
+Q=/opt/refrata/_internal/PySide6/Qt
+missing=0
+for f in $Q/plugins/platforms/libqxcb.so $Q/plugins/platforms/libqwayland-generic.so \
+         $Q/plugins/platforms/libqwayland-egl.so $Q/plugins/xcbglintegrations/*.so $Q/lib/libQt6*.so.6 \
+         /opt/refrata/_internal/PySide6/*.so*; do
+  if ldd "$f" 2>/dev/null | grep -q "not found"; then
+    echo "CLEAN: $(basename $f) needs: $(ldd "$f" | grep "not found" | awk '{print $1}' | tr '\n' ' ')"; missing=1
+  fi
+done
+[ $missing = 0 ] || exit 1
+# what any desktop has and a container does not: a sound server (a silent one) and a UTF-8 locale
+apt-get install -y -qq xvfb xauth dbus pulseaudio >/dev/null 2>&1
+useradd -m tester
+su tester -c 'cd ~ && export LANG=C.UTF-8 && pulseaudio -D --exit-idle-time=-1 && pactl load-module module-null-sink >/dev/null && QT_QPA_PLATFORM=xcb timeout 2400 dbus-run-session -- xvfb-run -a -s "-screen 0 1920x1080x24" refrata --selftest --log /tmp/st.log >/dev/null 2>&1'; code=$?
+grep -E "FAIL|tests passed" /tmp/st.log | tail -12
+exit $code
+"""
+
+
+def docker_ok() -> bool:
+    return bool(shutil.which("docker")) and subprocess.run(["docker", "info"], capture_output=True).returncode == 0
+
+
+def test_clean(pkg: Path, image: str) -> bool:
+    d = Path(tempfile.mkdtemp(prefix="refrata-clean-", dir=WORK))
+    shutil.copy2(pkg, d / "refrata.deb")
+    (d / "run.sh").write_text(CLEAN_SCRIPT, encoding="utf8")
+    r = subprocess.run(["docker", "run", "--rm", "-v", f"{d}:/pkg:ro", image, "bash", "/pkg/run.sh"],
+                       capture_output=True, text=True, timeout=3600)
+    shutil.rmtree(d, ignore_errors=True)
+    lines = [ln for ln in r.stdout.splitlines() if ln.strip()]
+    print(f"[clean {image}]\n  " + "\n  ".join(lines[-14:]), flush=True)
+    return r.returncode == 0
+
+
 def main():
     if not sys.platform.startswith("linux"):
         raise SystemExit("run on Linux (or WSL): python3 tools/build_linux.py [--test]")
     app = pyinstaller()
-    deb(app)
+    pkg = deb(app)
     archive = targz(app)
-    if "--test" in sys.argv and not test(archive):
-        raise SystemExit("[build-linux] the e2e battery failed in the Linux package")
+    if "--test" not in sys.argv:
+        return
+    # the .tar.gz battery and one clean install per distribution, all at once
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(3) as pool:
+        jobs = {"tar.gz": pool.submit(test, archive)}
+        if docker_ok():
+            jobs.update({img: pool.submit(test_clean, pkg, img) for img in CLEAN_IMAGES})
+        else:
+            log("docker not available: skipping the clean-install tests")
+        failed = [k for k, f in jobs.items() if not f.result()]
+    if failed:
+        raise SystemExit(f"[build-linux] the Linux package failed: {', '.join(failed)}")
 
 
 if __name__ == "__main__":

@@ -151,9 +151,11 @@ def write_keys():
     if not key and path.exists():  # keep a key saved there by hand
         m = re.search(r"OPENSUBTITLES\s*=\s*['\"]([^'\"]*)['\"]", path.read_text(encoding="utf8"))
         key = m.group(1).strip() if m else ""
-    path.write_text(
-        "# written by tools/build.py from REFRATA_OPENSUBTITLES_KEY; not in git\n"
-        f"OPENSUBTITLES = {key!r}\n", encoding="utf8")
+    text = ("# written by tools/build.py from REFRATA_OPENSUBTITLES_KEY; not in git\n"
+            f"OPENSUBTITLES = {key!r}\n")
+    # unchanged: left alone (the Linux build in WSL may be reading it at this moment)
+    if not path.exists() or path.read_text(encoding="utf8") != text:
+        path.write_text(text, encoding="utf8")
     log("OpenSubtitles key: " + ("set" if key else "not set (online subtitle search hidden)"))
 
 

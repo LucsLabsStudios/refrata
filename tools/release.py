@@ -26,6 +26,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import urllib.request
 from pathlib import Path
 
@@ -124,12 +125,9 @@ def run_tests() -> bool:
     """Both suites against the built app, as a user would get it."""
     exe = DIST / "Refrata" / "Refrata.exe"
     env = dict(os.environ, REFRATA_NO_MEDIAKEYS="1")
-    log = ROOT / "build" / "selftest-release.log"
-    print("\n== testes e2e (app empacotado)", flush=True)
-    e2e = subprocess.run([str(exe), "--selftest", "--log", str(log)], cwd=str(ROOT), env=env).returncode
-    summary = [ln for ln in log.read_text(encoding="utf8", errors="replace").splitlines()
-               if "tests passed" in ln or "FAIL" in ln] if log.exists() else []
-    print("\n".join(summary[-8:]) or "(sem relatório)")
+    print("\n== testes e2e (app empacotado; vários processos ao mesmo tempo, os de teclado no fim)", flush=True)
+    e2e = subprocess.run([sys.executable, "tests/e2e_parallel.py", "--exe", str(exe),
+                          "--report", str(ROOT / "build" / "e2e-release.json")], cwd=str(ROOT), env=env).returncode
     print("\n== testes de robustez (app empacotado)", flush=True)
     robust = subprocess.run([sys.executable, "tests/robust.py", "--exe", str(exe),
                              "--report", str(ROOT / "build" / "robust-release.json")], cwd=str(ROOT), env=env).returncode
@@ -151,8 +149,18 @@ def linux_package(v: str) -> list[Path] | None:
     script = (f'cd "{root}" && grep -vi "^winrt" requirements.txt > /tmp/refrata-req.txt && '
               f'~/refrata-venv/bin/pip install -q -r /tmp/refrata-req.txt pyinstaller && '
               f'~/refrata-venv/bin/python tools/build_linux.py --test')
-    print("\n== Linux: pacote .deb e .tar.gz, com a bateria e2e dentro do pacote (WSL)", flush=True)
-    if subprocess.run(["wsl", "-d", WSL_DISTRO, "--", "bash", "-lc", script]).returncode != 0:
+    # runs while Windows builds and tests (see main): its output goes to a log, the summary at the end
+    log = ROOT / "build" / "linux-release.log"
+    log.parent.mkdir(exist_ok=True)
+    t0 = time.time()
+    with open(log, "w", encoding="utf8", errors="replace") as out:
+        code = subprocess.run(["wsl", "-d", WSL_DISTRO, "--", "bash", "-lc", script],
+                              stdout=out, stderr=subprocess.STDOUT).returncode
+    text = log.read_text(encoding="utf8", errors="replace").splitlines()
+    keep = [ln for ln in text if "tests passed" in ln or "FAIL" in ln or ln.startswith(("[clean", "  ", "[build-linux]"))]
+    print(f"\n== Linux: .deb e .tar.gz (WSL), bateria e2e no .tar.gz e instalação limpa em "
+          f"Ubuntu 24.04 e Debian 13 ({time.time() - t0:.0f}s; log: {log})\n" + "\n".join(keep[-40:]), flush=True)
+    if code != 0:
         return None
     out = [DIST / "linux" / f"refrata_{v}_amd64.deb", DIST / "linux" / f"Refrata-{v}-linux-x86_64.tar.gz"]
     return out if all(f.exists() for f in out) else None
@@ -196,6 +204,10 @@ def main():
         run("git", "checkout", "--", INIT)
         sys.exit("Nada novo desde a última versão (código e componentes iguais). Nada foi publicado.")
 
+    # Linux builds and tests in WSL meanwhile: the two take about as long, so they overlap
+    from concurrent.futures import ThreadPoolExecutor
+    linux_pool = ThreadPoolExecutor(1)
+    linux_job = None if args.no_linux else linux_pool.submit(linux_package, v)
     if not args.skip_build or changed:
         run(sys.executable, "tools/build.py", "--no-msix")
     if not args.skip_tests or changed:
@@ -205,7 +217,7 @@ def main():
             if args.bump:
                 run("git", "checkout", "--", INIT)
             sys.exit("\nOs testes falharam: NADA foi publicado. Veja os relatórios acima.")
-    linux = [] if args.no_linux else linux_package(v)
+    linux = [] if linux_job is None else linux_job.result()
     if linux is None:
         if changed:
             roll_back(changed)

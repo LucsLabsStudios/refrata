@@ -98,8 +98,19 @@ Item {
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
         function msAt(x) { return Math.max(0, Math.min(1, x / root.width)) * root.to }
-        onPressed: (m) => { root.dragValue = msAt(m.x); root.scrub(root.dragValue) }
-        onPositionChanged: (m) => { if (pressed) { root.dragValue = msAt(m.x); root.scrub(root.dragValue) } }
-        onReleased: (m) => root.seekRequested(msAt(m.x))
+        onPressed: (m) => { root.dragValue = msAt(m.x); root.scrub(root.dragValue); scrubPace.restart() }
+        onPositionChanged: (m) => { if (pressed) { root.dragValue = msAt(m.x); scrubPace.pending = true } }
+        onReleased: (m) => { scrubPace.stop(); scrubPace.pending = false; root.seekRequested(msAt(m.x)) }
+        onCanceled: { scrubPace.stop(); scrubPace.pending = false }
+    }
+    // a mouse reports far more moves than a player can seek: the newest point every 40 ms
+    Timer {
+        id: scrubPace
+        property bool pending: false
+        interval: 40; repeat: true
+        onTriggered: {
+            if (!ma.pressed) { stop(); return }
+            if (pending) { pending = false; root.scrub(root.dragValue) }
+        }
     }
 }

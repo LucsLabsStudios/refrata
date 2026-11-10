@@ -215,6 +215,20 @@ def stop_playback():
     pump(0.3)
 
 
+def baseline():
+    """The app as it opens: nothing playing, player and side panels closed, the Home page."""
+    w = C.parts.win
+    pv = C.parts.find("playerView")
+    if pv is not None:
+        pv.setProperty("panel", "")
+    if w.property("fullscreen"):
+        w.showNormal()
+    w.setProperty("playerOpen", False)
+    w.setProperty("page", 0)
+    eng().clearQueue()
+    pump(0.6)
+
+
 # ===================================================================== TESTS
 @test
 def t01_app_boots_without_qml_warnings():
@@ -823,6 +837,10 @@ def t27_controls_autohide_and_mouse():
     # the sheet slides up; without a GPU (CI, WSL) the animation can take a few seconds or stop a
     # fraction of a pixel short
     wait(lambda: abs(pv.property("y")) < 0.5, 8, "player visible")
+    # the pointer rests on the picture (an earlier test may have left it over the control bar,
+    # which rightly keeps the controls up)
+    move_mouse(C.parts, QPoint(C.parts.win.width() // 2, C.parts.win.height() // 3))
+    pump(0.2)
     call(pv, "poke")
     check(pv.property("controlsVisible") is True, "controls visible after activity")
     wait(lambda: pv.property("controlsVisible") is False, 6, "controls auto-hide while playing")
@@ -866,9 +884,14 @@ def t29_keyboard_shortcuts():
     e, w = eng(), C.parts.win
     w.requestActivate()
     wait(lambda: QGuiApplication.focusWindow() is w, 5, "window focused for shortcuts")
+    if not e.queue:                    # run on its own (tests/e2e_parallel.py): its own video, in the player
+        e.openFiles([str(C.fx["video"])])
+        w.setProperty("playerOpen", True)
+        pv = C.parts.find("playerView")
+        wait(lambda: abs(pv.property("y")) < 0.5, 8, "player visible")
     if e.state != "playing":
         e.play()
-        wait(lambda: e.state == "playing", 5)
+        wait(lambda: e.state == "playing", 8)
     key(C.parts, Qt.Key.Key_Space)
     wait(lambda: e.state == "paused", 3, "Space pauses")
     key(C.parts, Qt.Key.Key_Space)
@@ -1169,6 +1192,12 @@ def t34_mini_player_by_mouse():
 @test
 def t35_pages_by_mouse():
     e, s, lib = eng(), C.parts.settings, C.parts.library
+    if True:
+        # watch something first, so Home offers it: whatever ran before in this process (alone, in
+        # tests/e2e_parallel.py) may have left a broken file as the latest video, or no history at all
+        e.openFiles([str(C.fx["video"])])
+        wait(lambda: e.state == "playing" and e.time > 1500, 8, "a video plays before Home is checked")
+        stop_playback()
     # home
     win().setProperty("page", 0)
     pump(0.4)
@@ -2148,13 +2177,21 @@ def run(filter_text="", report=None):
 
     keys = [k for k in filter_text.split(",") if k] or [""]
     selected = sorted((f for f in TESTS if any(k in f.__name__ for k in keys)), key=lambda f: f.__name__)
+    order = sorted(f.__name__ for f in TESTS)
     ok = 0
+    prev = None
     for fn in selected:
         name = fn.__name__
         t0 = time.time()
         CURRENT["test"] = name
         try:
             main.QT_MESSAGES.clear()
+            # a share of the battery (tests/e2e_parallel.py) starts a chain without the test that
+            # usually runs before it: back to the state the app opens in first
+            i = order.index(name)
+            if prev is not None and i > 0 and order[i - 1] != prev:
+                baseline()
+            prev = name
             fn()
             # zero-warning policy: any Qt/QML warning during a test fails it
             check(not main.QT_MESSAGES, "no Qt/QML warnings during the test", "; ".join(main.QT_MESSAGES[:4]))
