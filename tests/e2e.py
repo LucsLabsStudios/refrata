@@ -375,8 +375,8 @@ def t07_play_video_from_ui_function():
     check(eng().title == "Filme Teste 2024", "title shown", eng().title)
     check(eng().hasMedia and eng().seekable, "hasMedia / seekable")
     t0 = eng().time
-    pump(1.2)
-    check(eng().time > t0 + 600, "time advances while playing", f"{t0} -> {eng().time}")
+    # the clock waits for the audio output to start: a busy machine (WSL's sound server) takes a while
+    wait(lambda: eng().time > t0 + 600, 5, f"time advances while playing (from {t0})")
     check(abs(eng().length - 30000) < 600, "length known", str(eng().length))
 
 

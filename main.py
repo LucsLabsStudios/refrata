@@ -34,6 +34,11 @@ if __name__ == "__main__":
 # (tools/perf.py). Lower than that, the threads spend their time handing the GIL back and forth.
 sys.setswitchinterval(float(os.environ.get("REFRATA_SWITCH_INTERVAL", "0.001")))
 
+# Tests (REFRATA_E2E_TMP) keep out of the person's own files: Qt's shader pipeline cache lives in
+# the user's AppData/Refrata/cache, and parallel test apps fought over its lock file there
+if os.environ.get("REFRATA_E2E_TMP") or "--selftest" in sys.argv or "--scenario" in sys.argv:
+    os.environ.setdefault("QSG_RHI_DISABLE_DISK_CACHE", "1")
+
 # --selftest must isolate the data dir before refrata.settings computes DATA_DIR
 if "--selftest" in sys.argv and not os.environ.get("REFRATA_E2E_TMP"):
     _tmp = Path(tempfile.mkdtemp(prefix="refrata_e2e_"))
