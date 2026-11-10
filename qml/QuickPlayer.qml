@@ -14,6 +14,10 @@ Window {
     id: qw
     objectName: "quickPlayer"
     flags: Qt.Window | Qt.FramelessWindowHint | (pinned ? Qt.WindowStaysOnTopHint : 0)
+    // its own top-level window, not the main window's child: Qt counts a parent as active while
+    // its child is, so the main window's shortcuts (Space, arrows) fired over the preview and
+    // drove the player behind it
+    transientParent: null
     color: "transparent"
     title: name ? name + "  —  Refrata" : "Refrata"
 

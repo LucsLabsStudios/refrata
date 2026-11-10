@@ -53,8 +53,17 @@ Window {
         player.openFiles(paths, index || 0)
         if (!isAudioPath(paths[index || 0])) playerOpen = true
     }
+    // Qt forgets "maximised" once a window is minimised: bringing it back with showNormal() left a
+    // maximised window small. The shape it last had on screen is kept here and restored.
+    property int restoreTo: Window.Windowed
+    function restoreWindow() {
+        if (win.visibility !== Window.Minimized && win.visibility !== Window.Hidden) return
+        if (restoreTo === Window.Maximized) win.showMaximized()
+        else if (restoreTo === Window.FullScreen) win.showFullScreen()
+        else win.showNormal()
+    }
     function showMain() {
-        if (win.visibility === Window.Hidden) win.show()
+        restoreWindow()          // hidden in the tray or minimised (it stayed down before)
         appctl.activateWindow(win)
     }
     // A single media file from Explorer goes to the quick player (when that option is on) — but
@@ -429,7 +438,7 @@ Window {
         pip.hide()
         if (back) {
             if (player.hasMedia && !player.isAudio) win.playerOpen = true
-            if (win.visibility === Window.Minimized || win.visibility === Window.Hidden) win.showNormal()
+            win.restoreWindow()
             appctl.activateWindow(win)
         }
     }
@@ -441,8 +450,12 @@ Window {
     }
     // the app came back (taskbar, Alt+Tab): the small window is not needed any more
     // (ignored while the window is still settling after entering PiP)
-    onVisibilityChanged: if (pipOn && Date.now() - pipSince > 1200 && !pipMinimize.running
-                             && (win.visibility === Window.Windowed || win.visibility === Window.Maximized)) leavePip(true)
+    onVisibilityChanged: {
+        if (win.visibility === Window.Windowed || win.visibility === Window.Maximized || win.visibility === Window.FullScreen)
+            restoreTo = win.visibility   // see restoreWindow
+        if (pipOn && Date.now() - pipSince > 1200 && !pipMinimize.running
+                && (win.visibility === Window.Windowed || win.visibility === Window.Maximized)) leavePip(true)
+    }
     // nothing left to show (queue cleared, cast started)
     Connections {
         target: player

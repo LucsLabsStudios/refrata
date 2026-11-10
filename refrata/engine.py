@@ -584,6 +584,7 @@ class Engine(QObject):
         self._open_deadline = 0.0
         self._expected, self._expected_until = None, 0.0
         self._start_at = 0
+        self._item_start = 0
         self._pause_when_playing = False   # a rebuild while paused resumes paused
         self._error_handled = False
         self._loop_a, self._loop_b = -1, -1   # A-B repeat (ms), -1 = unset
@@ -1377,6 +1378,7 @@ class Engine(QObject):
     def _play_index(self, index):
         self._end_scrub()
         self._want_pause_at = 0.0
+        self._item_start = 0             # where this item was asked to start (see _tick)
         self._wake()
         self._audio_off = False   # "Desativado" was for the previous item
         self._save_resume()
@@ -1406,6 +1408,7 @@ class Engine(QObject):
                 start = self._start_ms(e)
                 if start:
                     media.add_option(f":start-time={start / 1000:.1f}")
+                self._item_start = start
         elif e["isUrl"]:
             media = self._vlc.media_new_location(e["path"])
             self._start_at = 0
@@ -1414,6 +1417,7 @@ class Engine(QObject):
             start = self._start_ms(e)
             if start:
                 media.add_option(f":start-time={start / 1000:.2f}")
+            self._item_start = start
         for uri in self._ext_subs.get(e["path"], []):
             media.slaves_add(vlc.MediaSlaveType.subtitle, 4, uri)   # 4 = highest priority
         casting = self._cast_ptr is not None
@@ -1422,11 +1426,17 @@ class Engine(QObject):
         # over it. The GPU then decodes and libVLC copies the picture back: ~70% less CPU at 4K60.
         # It cannot draw subtitles on those pictures, though: an item showing subtitles decodes in
         # software (see _to_software).
+        was_hw = bool(self._hw_item)
         self._hw_item = ""
         if self._settings.value("hwdec", True) and not casting and e["path"] not in self._sw_paths:
             media.add_option(":avcodec-hw=any")
             self._hw_item = e["path"]
         if not casting:
+            if was_hw:
+                # libVLC keeps the video output for the next item; after GPU decoding, the copy into
+                # our frames stayed tied to the old decoder and every picture came out empty (a green
+                # screen with the sound playing). stop() lets that output go; set_media alone does not
+                self._mp.stop()
             self._mp.set_media(media)
             media.release()   # the player holds its own reference
         self._meta = {"title": e["title"], "artist": "", "album": "", "artwork": ""}
@@ -1644,6 +1654,7 @@ class Engine(QObject):
     @Slot(int)
     def seek(self, ms):
         self._end_scrub()               # the drop point wins over a paced scrub still pending
+        self._item_start = 0
         self._wake()
         if self._length > 0:
             ms = max(0, min(int(ms), self._length - 500))
@@ -1747,6 +1758,12 @@ class Engine(QObject):
             self._apply_volume()
         if new_state in ("playing", "paused", "loading"):
             t, ln = max(0, self._mp.get_time()), max(0, self._mp.get_length())
+            if t == 0 and self._item_start:
+                # opened at a point (resume, the preview's hand-over): libVLC plays from there but
+                # reports 0 for its first second, and the clock showed 0:00, then jumped
+                t = self._item_start
+            elif t > 0:
+                self._item_start = 0
             if t != self._time or ln != self._length:
                 self._time, self._length = t, ln
                 self.timeChanged.emit()
@@ -1985,6 +2002,10 @@ class Engine(QObject):
             return False
         self._sw_paths.add(self._hw_item)
         t, st = self._time, self._state
+        if t <= 0 or st == "loading":
+            # still starting (a subtitle the file turns on by itself is seen this early): the clock
+            # has not reached the point asked for yet, and reopening "here" went back to 0:00
+            t = max(t, self._mp.get_time(), self._item_start)
         self._start_at = t
         self._play_index(self._index)
         if st == "paused":

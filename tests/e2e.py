@@ -215,6 +215,36 @@ def stop_playback():
     pump(0.3)
 
 
+def picture_problem() -> str:
+    """"" when the video frame on screen is a real picture; frames arriving is not enough (an empty
+    YUV picture, all green, came through after every GPU-decoded item and no test looked)."""
+    f = eng()._last_frame
+    if f is None:
+        return "no picture yet"
+    img = f.toImage()
+    if img.isNull():
+        return "the frame does not convert to an image"
+    w, h = img.width(), img.height()
+    rgb = [(c.red(), c.green(), c.blue()) for c in
+           (img.pixelColor(int(w * x / 6), int(h * y / 5)) for x in range(1, 6) for y in range(1, 5))]
+    if all(r < 12 and b < 12 and 110 < g < 160 for r, g, b in rgb):
+        return f"green screen (an empty YUV picture): {rgb[0]}"
+    if max(max(abs(a - b) for a, b in zip(rgb[0], c)) for c in rgb) < 6:
+        return f"a flat picture, one colour everywhere: {rgb[0]}"
+    return ""
+
+
+def final_picture_check():
+    """After every test: a video still playing shows a real picture."""
+    e = eng()
+    if e.state == "playing" and not e.isAudio and e._frames_seen > 5 and e.castingTo == "":
+        t_end = time.time() + 2
+        while picture_problem() and time.time() < t_end:
+            pump(0.05)
+        p = picture_problem()
+        check(not p, f"at the end, the video on screen shows a picture ({Path(e.currentPath).name})", p)
+
+
 def baseline():
     """The app as it opens: nothing playing, player and side panels closed, the Home page."""
     w = C.parts.win
@@ -1880,14 +1910,15 @@ def soft_focus(window, what):
 
 
 def wkey(window, k):
-    """Key press+release delivered to the quick player's key handler (independent of which
-    window Windows lets have the focus at that moment)."""
-    from PySide6.QtCore import QEvent
-    from PySide6.QtGui import QKeyEvent
-    target = window.findChild(QObject, "quickKeys") or window
-    for typ in (QEvent.Type.KeyPress, QEvent.Type.KeyRelease):
-        QGuiApplication.sendEvent(target, QKeyEvent(typ, k, Qt.KeyboardModifier.NoModifier))
-    pump(0.05)
+    """A key the way the keyboard delivers it: to the window that has the focus, through Qt's
+    shortcut matching. (This used to hand the key straight to the preview's key handler, around
+    the focus and the shortcuts: the main window's shortcuts eating the preview's keys never showed.)"""
+    soft_focus(window, "keys")
+    target = QGuiApplication.focusWindow()
+    check(target is window, f"the {window.objectName()} window has the keyboard",
+          str(target and target.objectName()))
+    QTest.keyClick(target, k)
+    pump(0.08)
 
 
 def wclick(window, item):
@@ -2194,6 +2225,7 @@ def run(filter_text="", report=None):
                 baseline()
             prev = name
             fn()
+            final_picture_check()
             # zero-warning policy: any Qt/QML warning during a test fails it
             check(not main.QT_MESSAGES, "no Qt/QML warnings during the test", "; ".join(main.QT_MESSAGES[:4]))
             RESULTS.append((name, True, ""))

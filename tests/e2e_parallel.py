@@ -23,7 +23,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 EVERY = ("t01_", "t99_")                 # per process, not per share
-KEY_MARKERS = ("keyClick", "keyPress", "keySequence", "QTest.key", "key(C.parts", "type_text(", "ensure_focus(")
+KEY_MARKERS = ("keyClick", "keyPress", "keySequence", "QTest.key", "key(C.parts", "type_text(", "ensure_focus(", "wkey(")
 LAST = ROOT / "build" / "e2e-last.json"
 # Tests build on the ones before them (t07 opens a video, t08..t15 use it). A share may only begin at
 # one of these, which set up what they need themselves; whatever runs between two of them stays

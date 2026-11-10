@@ -146,6 +146,38 @@ def rss_mb() -> float:
     return pmc.PrivateUsage / 1048576
 
 
+def picture_problem(e=None) -> str:
+    """What is wrong with the picture on screen right now ("" if it shows a real picture). Frames
+    arriving is not enough: after a GPU-decoded item every picture came through empty, a green
+    screen (YUV all zero), while the frame count looked healthy."""
+    e = e or eng()
+    f = e._last_frame
+    if f is None:
+        return "no picture yet"
+    img = f.toImage()
+    if img.isNull():
+        return "the frame does not convert to an image"
+    w, h = img.width(), img.height()
+    px = [img.pixelColor(int(w * x / 6), int(h * y / 5)) for x in range(1, 6) for y in range(1, 5)]
+    rgb = [(c.red(), c.green(), c.blue()) for c in px]
+    if all(r < 12 and b < 12 and 110 < g < 160 for r, g, b in rgb):
+        return f"green screen (an empty YUV picture): {rgb[0]}"
+    if max(max(abs(a - b) for a, b in zip(rgb[0], c)) for c in rgb) < 6:
+        return f"a flat picture, one colour everywhere: {rgb[0]}"
+    return ""
+
+
+def _final_picture_check():
+    """Every scenario: a video still playing at the end must show a real picture."""
+    e = eng()
+    if e.state in ("playing", "paused") and not e.isAudio and e._frames_seen > 5 and e.castingTo == "":
+        t_end = time.time() + 2
+        while picture_problem(e) and time.time() < t_end:
+            pump(0.05)
+        problem = picture_problem(e)
+        check(not problem, f"at the end, the video on screen shows a picture ({Path(e.currentPath).name})", problem)
+
+
 def playing_media(timeout=10, video=None):
     e = eng()
     if video is None:
@@ -155,6 +187,13 @@ def playing_media(timeout=10, video=None):
     else:
         cond = lambda: e.state == "playing" and e.time > 300
     wait(cond, timeout, f"media playing ({Path(e.currentPath).name})")
+    if video or (video is None and not e.isAudio):
+        # and the picture is a picture (the test videos are colourful test patterns)
+        t_end = time.time() + 3
+        while picture_problem(e) and time.time() < t_end:
+            pump(0.05)
+        problem = picture_problem(e)
+        check(not problem, f"the picture shows ({Path(e.currentPath).name})", problem)
 
 
 def child(name: str):
@@ -226,6 +265,7 @@ def child(name: str):
         app.aboutToQuit.connect(on_quit)
         pump(0.3)
         sc.fn()
+        _final_picture_check()
         result["ok"] = True
     except Exception as exc:
         result["error"] = (str(exc) if isinstance(exc, Fail) else traceback.format_exc())[-3000:]
@@ -440,6 +480,49 @@ def stress_next_prev_storm():
     e.playAt(1)     # a good video
     playing_media(video=True, timeout=10)
     check(e.currentIndex == 1, "ends on the requested item")
+
+
+@scenario(timeout=120)
+def feature_every_way_to_switch_videos_keeps_the_picture():
+    """Each way of going from a video that is showing to another (or the same one again), the
+    new one shows its picture. After a GPU-decoded video every following one came out green with
+    the sound playing, whatever the switch; a fast storm of switches never let a picture settle,
+    so it passed."""
+    e, w = eng(), win()
+    a, b = str(H.fx["video"]), str(H.fx["video2"])
+    w.setProperty("playerOpen", True)
+    e.openFiles([a, b])
+    playing_media(video=True)
+    steps = [
+        ("Next", lambda: e.next(), b),
+        ("Previous", lambda: (e.seek(0), e.previous()), a),
+        ("a click in the queue", lambda: e.playAt(1), b),
+        ("opening another file", lambda: e.openFiles([a]), a),
+        ("the same file again, at a point", lambda: e.openFilesAt([a], 0, 6000), a),
+        ("pause, then another file", lambda: (e.pause(), pump(0.3), e.openFiles([b])), b),
+    ]
+    for what, go, expect in steps:
+        playing_media(video=True)
+        pump(0.8)                                 # the current one really is on screen
+        go()
+        wait(lambda: Path(e.currentPath).name == Path(expect).name, 5, f"{what}: switched")
+        playing_media(video=True)
+        H.notes.append(f"{what}: picture ok")
+    # the end of a video moves on to the next one by itself
+    e.openFiles([a, b])
+    playing_media(video=True)
+    e.seek(max(0, e.length - 1500))
+    wait(lambda: Path(e.currentPath).name == Path(b).name, 8, "the end of a video moves on to the next")
+    playing_media(video=True)
+    # and with hardware decoding off
+    H.parts.settings.setValue("hwdec", False)
+    pump(1.5)
+    e.openFiles([a, b])
+    playing_media(video=True)
+    pump(0.8)
+    e.next()
+    wait(lambda: Path(e.currentPath).name == Path(b).name, 5)
+    playing_media(video=True)
 
 
 @scenario(timeout=90)
@@ -1624,6 +1707,397 @@ def feature_subtitle_on_then_off_quickly():
         check(e.subtitleTrack == subs[-1], f"{key}: chosen again, it stays on", str(e.subtitleTrack))
 
 
+def _key_to_focus(key, what):
+    """A key the way a keyboard delivers it: to whichever window the system has in front, through
+    Qt's shortcut matching. (QTest.keyClick(some_window) picks the window itself, which is how
+    the main window's shortcuts eating the preview's keys went unnoticed.)"""
+    from PySide6.QtGui import QGuiApplication
+    from PySide6.QtTest import QTest
+    target = QGuiApplication.focusWindow()
+    check(target is not None, f"a window has the keyboard for {what}")
+    QTest.keyClick(target, key)
+    pump(0.15)
+    return target
+
+
+def _ui_stall(fn, seconds):
+    """Run fn, then keep the event loop going for `seconds`: the longest the UI went without a
+    turn (a 10 ms timer that should tick on time), in seconds."""
+    from PySide6.QtCore import QTimer
+    gaps, last = [0.0], [time.perf_counter()]
+
+    def tick():
+        now = time.perf_counter()
+        gaps[0] = max(gaps[0], now - last[0])
+        last[0] = now
+    t = QTimer()
+    t.setInterval(10)
+    t.timeout.connect(tick)
+    t.start()
+    last[0] = time.perf_counter()
+    fn()
+    tick()
+    pump(seconds)
+    t.stop()
+    return gaps[0]
+
+
+@scenario(timeout=90, solo=True)
+def feature_quick_preview_over_the_open_app():
+    """Space on a file in Explorer while Refrata is open with a video: the preview takes the keys
+    (← → browse, Space closes) and the player behind is left alone; Enter opens the file in the
+    player at the same point, with its picture, without the UI stalling."""
+    from PySide6.QtCore import QMetaObject, Qt
+    from PySide6.QtGui import QGuiApplication
+    e, w, q = eng(), win(), quick_window()
+    a, b = str(H.fx["video"]), str(H.fx["video2"])
+    e.openFiles([a])
+    w.setProperty("playerOpen", True)
+    playing_media(video=True)
+    e.seek(8000)
+    pump(0.5)
+
+    H.parts.quicklook.previewRequested.emit(a, [a, b])
+    wait(lambda: q.isVisible() and QGuiApplication.focusWindow() is q, 5, "the preview opens with the keyboard")
+    wait(lambda: e.state == "paused", 3, "the player behind pauses for the preview")
+    check(not w.isActive(), "the main window is not active behind the preview (its shortcuts would fire)")
+    behind, vol = e.time, e.volume
+    pump(0.4)                                   # past the guard for the Space that opened it
+    _key_to_focus(Qt.Key.Key_Right, "→")
+    check(q.property("index") == 1, "→ goes to the next file in the preview", str(q.property("index")))
+    _key_to_focus(Qt.Key.Key_Left, "←")
+    check(q.property("index") == 0, "← comes back", str(q.property("index")))
+    check(abs(e.time - behind) < 400 and e.state == "paused", "← → left the player behind alone",
+          f"{behind} -> {e.time}, {e.state}")
+    _key_to_focus(Qt.Key.Key_Up, "↑")
+    check(e.volume == min(150, vol + 5), "↑ raises the volume once (not twice: preview and player)", f"{vol} -> {e.volume}")
+    e.volume = vol
+    _key_to_focus(Qt.Key.Key_Space, "Space")
+    wait(lambda: not q.isVisible(), 3, "Space closes the preview")
+    wait(lambda: e.state == "playing", 4, "the player behind picks up again")
+    check(abs(e.time - behind) < 1500, "from where it was", f"{behind} -> {e.time}")
+
+    # again, and Enter: the file opens in the player at the preview's point
+    H.parts.quicklook.previewRequested.emit(b, [a, b])
+    wait(lambda: q.isVisible() and QGuiApplication.focusWindow() is q, 5, "the preview opens again")
+    wait(lambda: q.property("index") == 1, 2)
+    pump(2.5)                                    # it plays a little
+    # how it feels: the time to the picture, and the longest gap between two drawn frames
+    swaps, picture_at = [], [0.0]
+    on_swap = lambda: swaps.append(time.perf_counter())
+    w.frameSwapped.connect(on_swap)
+    t_enter = time.perf_counter()
+
+    def enter_and_watch():
+        _key_to_focus(Qt.Key.Key_Return, "Enter")
+        end = time.perf_counter() + 3
+        while time.perf_counter() < end and not picture_at[0]:
+            if Path(e.currentPath).name == Path(b).name and e._frames_seen > 1 and not picture_problem(e):
+                picture_at[0] = time.perf_counter()
+            pump(0.01)
+    stall = _ui_stall(enter_and_watch, 0.8)
+    w.frameSwapped.disconnect(on_swap)
+    wait(lambda: not q.isVisible() and Path(e.currentPath).name == Path(b).name, 4, "Enter opens it in the player")
+    playing_media(video=True)                    # with its picture (it came out green after a GPU item)
+    to_picture = (picture_at[0] - t_enter) if picture_at[0] else 99
+    gaps = [b2 - a2 for a2, b2 in zip(swaps, swaps[1:])]
+    worst_frame = max(gaps) if gaps else 99
+    H.notes.append(f"preview → player: picture after {to_picture * 1000:.0f} ms, {len(swaps)} frames drawn, "
+                   f"worst frame gap {worst_frame * 1000:.0f} ms")
+    check(to_picture < 1.0, "the player shows the picture within a second of Enter", f"{to_picture * 1000:.0f} ms")
+    check(worst_frame < 0.25, "the window keeps drawing smoothly through the hand-over", f"{worst_frame * 1000:.0f} ms gap")
+    check(e.time > 1500, "at the point the preview had reached", str(e.time))
+    check(w.property("playerOpen") is True, "in the player view")
+    check(QGuiApplication.focusWindow() is w, "and the main window has the keyboard",
+          str(QGuiApplication.focusWindow() and QGuiApplication.focusWindow().objectName()))
+    H.notes.append(f"preview → player: longest UI stall {stall * 1000:.0f} ms")
+    check(stall < 0.35, "the hand-over does not freeze the UI", f"{stall * 1000:.0f} ms")
+    # the keys are the player's again
+    t = e.time
+    _key_to_focus(Qt.Key.Key_Right, "→ in the player")
+    wait(lambda: e.time > t + 5000, 3, "→ in the player skips forward")
+
+
+@scenario(timeout=90, solo=True)
+def feature_quick_preview_to_player_from_every_window_state():
+    """Enter in the preview opens the file in the player whatever state the app was in: minimised,
+    hidden in the tray, or open on another page. The window comes up, in front, with the
+    keyboard, showing the picture at the preview's point."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QGuiApplication, QWindow
+    e, w, q = eng(), win(), quick_window()
+    H.parts.tray.background = True               # hidden = still running in the tray
+    a, b = str(H.fx["video"]), str(H.fx["video2"])
+    for state in ("minimised", "hidden in the tray", "on the Home page", "maximised, then minimised"):
+        e.openFiles([a])
+        w.setProperty("playerOpen", True)
+        playing_media(video=True)
+        if state == "maximised, then minimised":
+            w.showMaximized()
+            wait(lambda: w.visibility() == QWindow.Visibility.Maximized, 3)
+            pump(0.4)
+            w.showMinimized()
+        elif state == "minimised":
+            w.showMinimized()
+        elif state == "hidden in the tray":
+            w.hide()
+        else:
+            w.setProperty("playerOpen", False)
+            w.setProperty("page", 0)
+        pump(0.6)
+        H.parts.quicklook.previewRequested.emit(b, [a, b])
+        wait(lambda: q.isVisible() and QGuiApplication.focusWindow() is q, 5, f"{state}: the preview opens with the keyboard")
+        pump(1.5)
+        from PySide6.QtCore import QObject
+        at = q.findChild(QObject, "quickSeek").property("value")
+        H.notes.append(f"{state}: preview at {at:.0f} ms on Enter")
+        _key_to_focus(Qt.Key.Key_Return, "Enter")
+        wait(lambda: not q.isVisible() and Path(e.currentPath).name == Path(b).name, 4, f"{state}: Enter opens it in the player")
+        wait(lambda: w.isVisible() and w.visibility() not in (QWindow.Visibility.Minimized, QWindow.Visibility.Hidden), 4,
+             f"{state}: the app window comes up")
+        wait(lambda: QGuiApplication.focusWindow() is w, 4, f"{state}: in front, with the keyboard")
+        check(w.property("playerOpen") is True, f"{state}: in the player view")
+        if state.startswith("maximised"):
+            check(w.visibility() == QWindow.Visibility.Maximized, "it comes back maximised, as it was", str(w.visibility()))
+            w.showNormal()
+        # the clock on screen starts at the preview's point and never shows 0:00 meanwhile (libVLC
+        # reports 0 for its first second: the clock read 0:00, then jumped)
+        seen = []
+        t_end = time.time() + 1.6
+        while time.time() < t_end:
+            if e.state == "playing" and Path(e.currentPath).name == Path(b).name:
+                seen.append(e.time)
+            pump(0.05)
+        check(seen and min(seen) > at - 700, f"{state}: the clock shows the preview's point from the start",
+              f"preview at {at:.0f}, clock went {seen[:3]}…")
+        playing_media(video=True)
+    H.parts.tray.background = False
+
+
+@scenario(timeout=60, solo=True)
+def feature_second_launch_and_tray_bring_the_window_back_as_it_was():
+    """A file opened from Explorer while Refrata sits minimised (maximised before), and the tray's
+    "show": the window comes back in front, maximised as it was, playing the file with its picture."""
+    from PySide6.QtGui import QGuiApplication, QWindow
+    e, w = eng(), win()
+    H.parts.tray.background = True
+    a, b = str(H.fx["video"]), str(H.fx["video2"])
+    e.openFiles([a])
+    w.setProperty("playerOpen", True)
+    playing_media(video=True)
+    w.showMaximized()
+    wait(lambda: w.visibility() == QWindow.Visibility.Maximized, 3)
+    pump(0.4)
+    w.showMinimized()
+    pump(0.6)
+    # what a second Refrata.exe hands over (refrata/single.py → main.build)
+    H.parts.ctl.handOver([b])
+    H.parts.instance.activateRequested.emit() if H.parts.instance is not None else H.parts.tray.showRequested.emit()
+    wait(lambda: Path(e.currentPath).name == Path(b).name, 4, "the file handed over plays")
+    wait(lambda: w.visibility() == QWindow.Visibility.Maximized, 4, "the window comes back maximised", )
+    wait(lambda: QGuiApplication.focusWindow() is w, 4, "in front, with the keyboard")
+    playing_media(video=True)
+    # hidden in the tray, then the tray's show
+    w.hide()
+    pump(0.6)
+    H.parts.tray.showRequested.emit()
+    wait(lambda: w.isVisible() and w.visibility() == QWindow.Visibility.Maximized, 4, "the tray brings it back maximised")
+    playing_media(video=True)
+    w.showNormal()
+    H.parts.tray.background = False
+
+
+def _click_on(item, what="", window=None):
+    """A real mouse click at the centre of `item`, on the window it lives in (main by default; the
+    PiP or the preview passed in). Not item.window(): PySide then drops the Python side of the
+    main window, which main.build wrapped by hand, and every later call on it fails."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    check(item is not None, f"{what or 'the control'} exists")
+    check(item.isVisible() and item.opacity() > 0.5, f"{what or item.objectName()} is on screen before the click")
+    win_ = window or win()
+    pos = _item_center(item)
+    check(0 <= pos.x() < win_.width() and 0 <= pos.y() < win_.height(), f"{what or item.objectName()} is inside its window",
+          f"{pos.x()},{pos.y()} in {win_.width()}x{win_.height()}")
+    QTest.mouseMove(win_, pos)
+    pump(0.05)
+    QTest.mouseClick(win_, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    pump(0.25)
+
+
+def _find_in(window, name):
+    from PySide6.QtCore import QObject
+    return window.findChild(QObject, name)
+
+
+@scenario(timeout=120)
+def feature_every_button_does_what_it_says():
+    """Clicked with the mouse, each control changes what it promises: the player's A-B, info and
+    picture controls (rotate, mirror, zoom, aspect), the PiP's skip buttons, the music mode's
+    repeat / mute / speed / timer, and the preview's play button. (They were only ever clicked at
+    random, checking nothing but that the app survived.)"""
+    from PySide6.QtCore import QPoint
+    from PySide6.QtGui import QWindow
+    from PySide6.QtTest import QTest
+    e, w = eng(), win()
+    pv = H.parts.find("playerView")
+    e.openFiles([str(H.fx["video"])])
+    w.setProperty("playerOpen", True)
+    playing_media(video=True)
+
+    def controls():
+        QTest.mouseMove(w, QPoint(w.width() // 2, w.height() // 3))
+        pump(0.1)
+        pv.setProperty("controlsVisible", True)
+        pump(0.35)
+
+    # A-B: start, end, off
+    controls()
+    e.seek(4000); pump(0.4)
+    _click_on(H.parts.find("pvLoop"), "A-B")
+    check(e.loopA >= 3000 and e.loopB < 0, "A-B first click marks the start", f"{e.loopA}/{e.loopB}")
+    pump(1.2); controls()
+    _click_on(H.parts.find("pvLoop"), "A-B")
+    check(e.loopB > e.loopA, "second click marks the end", f"{e.loopA}/{e.loopB}")
+    controls()
+    _click_on(H.parts.find("pvLoop"), "A-B")
+    check(e.loopA < 0 and e.loopB < 0, "third click clears it", f"{e.loopA}/{e.loopB}")
+    # info panel
+    controls()
+    _click_on(H.parts.find("pvInfo"), "info")
+    check(pv.property("panel") == "info", "the info button opens the info panel", pv.property("panel"))
+    controls()
+    _click_on(H.parts.find("pvInfo"), "info")
+    check(pv.property("panel") == "", "and closes it")
+    # picture: rotate, mirror, zoom, aspect
+    controls()
+    _click_on(H.parts.find("pvAdjust"), "Imagem")
+    check(pv.property("panel") == "adjust", "Imagem opens the picture panel")
+    for name, prop, expect in (("rotateRight", "videoRotation", 90), ("rotateLeft", "videoRotation", 0),
+                               ("mirror", "videoMirror", True), ("zoom_1.5", "videoZoom", 1.5),
+                               ("aspect_16:9", "videoAspect", "16:9"), ("aspect_auto", "videoAspect", ""),
+                               ("zoom_1", "videoZoom", 1), ("mirror", "videoMirror", False)):
+        controls()
+        _click_on(H.parts.find(name), name)
+        got = pv.property(prop)
+        ok = abs(got - expect) < 0.01 if isinstance(expect, float) else got == expect
+        check(ok, f"{name} sets {prop} to {expect!r}", repr(got))
+        check(not picture_problem(e), f"the picture still shows after {name}", picture_problem(e))
+    pv.setProperty("panel", "")
+
+    # PiP's own buttons
+    pip = H.parts.qml.rootObjects()[0].findChild(QWindow, "pipWindow")
+    H.parts.find("pvPip").clicked.emit()
+    wait(lambda: pip.isVisible(), 3, "PiP open")
+    pump(0.8)
+    if pip.width() < 300:
+        pip.setWidth(420); pip.setHeight(236); pump(0.4)
+    QTest.mouseMove(pip, QPoint(pip.width() // 2, pip.height() // 2)); pump(0.4)
+    e.seek(12000); pump(0.5)
+    t = e.time
+    _click_on(_find_in(pip, "pipFwd10"), "PiP +10 s", pip)
+    wait(lambda: e.time > t + 8000, 2, "PiP +10 s skips forward")
+    t = e.time
+    QTest.mouseMove(pip, QPoint(pip.width() // 2, pip.height() // 2)); pump(0.2)
+    _click_on(_find_in(pip, "pipBack10"), "PiP -10 s", pip)
+    wait(lambda: e.time < t - 7000, 2, "PiP -10 s skips back")
+    from PySide6.QtCore import QMetaObject
+    QMetaObject.invokeMethod(H.parts.qml.rootObjects()[0], "leavePip", Qt_arg_bool(True))
+    wait(lambda: not pip.isVisible(), 3, "back from the PiP")
+
+    # music mode
+    e.openFiles([str(H.fx["tone_long"]), str(H.fx["tone_a"])])
+    playing_media(video=False)
+    wait(lambda: e.isAudio, 3)
+    pump(0.8)
+    rep = e.repeat
+    _click_on(H.parts.find("mpRepeat"), "repeat")
+    check(e.repeat == (rep + 1) % 3, "repeat cycles", f"{rep} -> {e.repeat}")
+    muted = e.muted
+    _click_on(H.parts.find("mpMute"), "mute")
+    check(e.muted != muted, "mute toggles", f"{muted} -> {e.muted}")
+    _click_on(H.parts.find("mpMute"), "mute")
+    _click_on(H.parts.find("mpSpeed"), "speed")
+    check(pv.property("panel") == "speed", "speed opens the speed panel", pv.property("panel"))
+    _click_on(H.parts.find("speed_1.5"), "1.5×")
+    check(abs(e.rate - 1.5) < 0.01, "1.5× sets the speed", str(e.rate))
+    _click_on(H.parts.find("speed_1"), "1×")      # JavaScript writes 1.0 as "1"
+    pv.setProperty("panel", "")
+    pump(0.3)
+    _click_on(H.parts.find("mpSleep"), "sleep timer")
+    check(pv.property("panel") == "sleep", "the timer button opens the sleep panel", pv.property("panel"))
+    pv.setProperty("panel", "")
+    while e.repeat != 0:
+        e.cycleRepeat()
+
+    # the preview's play button
+    q = quick_window()
+    open_quick(H.fx["video"], "preview")
+    wait(lambda: q.isVisible(), 3)
+    seek = _find_in(q, "quickSeek")
+    wait(lambda: seek.property("value") > 300, 4, "the preview plays")
+    QTest.mouseMove(q, QPoint(q.width() // 2, q.height() // 2)); pump(0.3)
+    _click_on(_find_in(q, "quickPlay"), "preview play/pause", q)
+    v = seek.property("value"); pump(0.6)
+    check(abs(seek.property("value") - v) < 120, "the preview's button pauses it", f"{v} -> {seek.property('value')}")
+    _click_on(_find_in(q, "quickPlay"), "preview play/pause", q)
+    pump(0.6)
+    check(seek.property("value") > v + 250, "and plays it again", f"{v} -> {seek.property('value')}")
+    _click_on(_find_in(q, "quickClose"), "preview close", q)
+    wait(lambda: not q.isVisible(), 3, "the close button closes the preview")
+
+
+def Qt_arg_bool(v):
+    from PySide6.QtCore import Q_ARG
+    return Q_ARG("QVariant", v)
+
+
+@scenario(timeout=60, solo=True)
+def feature_pip_keys_drive_the_video_once():
+    """With the PiP window in front, its keys (Space, → ←) act on the video exactly once: the
+    minimised main window must not answer them too."""
+    from PySide6.QtCore import QMetaObject, Q_ARG, QObject, Qt
+    from PySide6.QtGui import QGuiApplication, QWindow
+    e, w = eng(), win()
+    e.openFiles([str(H.fx["video"])])
+    w.setProperty("playerOpen", True)
+    playing_media(video=True)
+    pip = H.parts.qml.rootObjects()[0].findChild(QWindow, "pipWindow")
+    H.parts.find("pvPip").clicked.emit()
+    wait(lambda: pip.isVisible(), 3, "PiP open")
+    QMetaObject.invokeMethod(H.parts.ctl, "activateWindow", Q_ARG(QObject, pip))
+    wait(lambda: QGuiApplication.focusWindow() is pip, 4, "the PiP window has the keyboard")
+    check(not w.isActive(), "the main window is not active behind it")
+    _key_to_focus(Qt.Key.Key_Space, "Space")
+    wait(lambda: e.state == "paused", 2, "Space in the PiP pauses")
+    pump(0.4)
+    check(e.state == "paused", "and stays paused (not toggled twice)", e.state)
+    t = e.time
+    _key_to_focus(Qt.Key.Key_Right, "→")
+    wait(lambda: e.time > t + 8000, 2, "→ in the PiP skips 10 s")
+    pump(0.4)
+    check(e.time < t + 13000, "once (not 20 s: two windows answering)", f"{t} -> {e.time}")
+    _key_to_focus(Qt.Key.Key_Space, "Space")
+    wait(lambda: e.state == "playing", 2, "Space plays again")
+    playing_media(video=True)
+    _key_to_focus(Qt.Key.Key_Escape, "Esc")
+    wait(lambda: not pip.isVisible() and w.visibility() != QWindow.Visibility.Minimized, 4, "Esc goes back to the app")
+    playing_media(video=True)
+    # a maximised app comes back from the PiP maximised (Qt forgets it once minimised)
+    w.showMaximized()
+    wait(lambda: w.visibility() == QWindow.Visibility.Maximized, 3)
+    pump(0.4)
+    H.parts.find("pvPip").clicked.emit()
+    wait(lambda: pip.isVisible() and w.visibility() == QWindow.Visibility.Minimized, 4, "PiP again, app minimised")
+    pump(1.5)
+    QMetaObject.invokeMethod(H.parts.ctl, "activateWindow", Q_ARG(QObject, pip))
+    wait(lambda: QGuiApplication.focusWindow() is pip, 4)
+    _key_to_focus(Qt.Key.Key_Escape, "Esc")
+    wait(lambda: not pip.isVisible() and w.visibility() == QWindow.Visibility.Maximized, 4,
+         "back from the PiP, maximised as it was")
+    w.showNormal()
+
+
 @scenario(timeout=60)
 def feature_live_scrubbing():
     """Dragging the seek bar moves the picture while the button is still down (playing and paused),
@@ -1978,10 +2452,18 @@ def monkey_random_use():
     trace = open(Path(os.environ["REFRATA_DATA"]) / "monkey.trace", "w", encoding="utf8")
     worst_gap = 0.0
     steps = 0
+    from PySide6.QtGui import QGuiApplication
+    behind = None                              # the main player as the preview found it
     while time.time() < end:
         steps += 1
         r = rnd.random()
         t = time.time()
+        q = quick_window()
+        previewing = q.isVisible() and q.property("shown") and QGuiApplication.focusWindow() is q
+        if previewing:
+            if behind is None:
+                behind = (e.currentPath, e.state, e.time)
+            r = 0.2 + rnd.random() * 0.25     # with the preview in front, only keys (what a person does)
         if r < 0.08:
             k = rnd.randint(1, 3)
             e.openFiles(rnd.sample(files, k))
@@ -1992,11 +2474,22 @@ def monkey_random_use():
         elif r < 0.16:
             win().setProperty("page", rnd.randrange(6))
             log.append("page")
+        elif r < 0.19:
+            # the Space preview over whatever is going on (Explorer would ask for it)
+            if not quick_window().isVisible():
+                f = rnd.choice(files)
+                H.parts.quicklook.previewRequested.emit(f, files)
+                log.append(f"preview {Path(f).name}")
+            else:
+                log.append("preview (already open)")
         elif r < 0.45:
-            k = rnd.choice(keys)
-            if w.isActive() or True:
-                QTest.keyClick(w, k)
-            log.append(f"key {k.name}")
+            # to the window the system has in front, as a keyboard would (the preview's keys
+            # reached the main window's shortcuts this way, never by sending to a chosen window)
+            from PySide6.QtGui import QGuiApplication
+            k = rnd.choice(keys + [Qt.Key.Key_Return])
+            target = QGuiApplication.focusWindow() or w
+            QTest.keyClick(target, k)
+            log.append(f"key {k.name} -> {target.objectName() or 'main'}")
         else:
             items = visible_named()
             if items:
@@ -2012,13 +2505,31 @@ def monkey_random_use():
         trace.flush()
         pump(rnd.choice((0.01, 0.05, 0.15, 0.4)))
         worst_gap = max(worst_gap, time.time() - t)
+        # rule: while the preview has the keyboard, the player behind it is left alone
+        q = quick_window()
+        if behind is not None:
+            still = q.isVisible() and q.property("shown")
+            if still and QGuiApplication.focusWindow() is q:
+                path, state, at = behind
+                moved = e.currentPath != path or (state == "paused" and (e.state != "paused" or abs(e.time - at) > 1500))
+                if moved:
+                    raise Fail(f"a key in the preview drove the player behind it: {Path(path).name} {state} {at} -> "
+                               f"{Path(e.currentPath).name} {e.state} {e.time}; steps: " + " | ".join(log[-8:]))
+            elif not still:
+                behind = None
+
         import main
         if main.QT_MESSAGES or H.errors:
             raise Fail("warning or error after steps: " + " | ".join(log[-12:]) +
                        " :: " + "; ".join(main.QT_MESSAGES[:2] + H.errors[:1])[:900])
-        if quick_window().isVisible():
+        if quick_window().isVisible() and rnd.random() < 0.08:
             from PySide6.QtCore import QMetaObject
             QMetaObject.invokeMethod(quick_window(), "close")
+        if steps % 10 == 0 and not quick_window().isVisible():
+            try:
+                _final_picture_check()        # a video on screen shows a picture, every so often
+            except Fail as exc:
+                raise Fail(f"{exc} after steps: " + " | ".join(log[-12:]))
         if H.parts.win.visibility() == __import__("PySide6.QtGui", fromlist=["QWindow"]).QWindow.Visibility.FullScreen and rnd.random() < 0.3:
             H.parts.win.showNormal()
     H.notes.append(f"monkey: {steps} steps, worst step {worst_gap:.2f}s")

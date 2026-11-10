@@ -84,10 +84,15 @@ class AppController(QObject):
         """Bring the window to the front (Windows only lets the foreground app steal focus)."""
         # show / restore through Qt only: a native ShowWindow left Qt believing a hidden window was
         # still hidden, so closing it (to the tray) did nothing afterwards
-        if not window.isVisible():
-            window.show()
-        elif window.visibility() == QWindow.Visibility.Minimized:
-            window.showNormal()
+        if not window.isVisible() or window.visibility() == QWindow.Visibility.Minimized:
+            # back in the shape it last had (maximised stays maximised: see Main.qml restoreWindow)
+            if window.metaObject().indexOfMethod("restoreWindow()") >= 0:
+                from PySide6.QtCore import QMetaObject
+                QMetaObject.invokeMethod(window, "restoreWindow")
+            elif not window.isVisible():
+                window.show()
+            else:
+                window.showNormal()
         window.raise_()
         window.requestActivate()
         if sys.platform == "win32":
