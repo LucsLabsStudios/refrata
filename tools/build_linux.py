@@ -40,7 +40,8 @@ QT_DROP = ("Qt6WebEngine", "QtWebEngineProcess", "Qt6WebChannel", "Qt6WebSockets
            "Qt6Sensors", "Qt6Bluetooth", "Qt6Nfc", "Qt6Sql", "Qt6Scxml", "Qt6StateMachine", "Qt6TextToSpeech",
            "Qt6RemoteObjects", "Qt6VirtualKeyboard", "Qt6SpatialAudio", "Qt6Designer", "Qt6Help", "Qt6HttpServer",
            "Qt6SerialPort", "Qt6SerialBus", "Qt6QuickTimeline",
-           "Qt6QmlLocalStorage")   # LocalStorage needs Qt6Sql, dropped above; the app does not use it
+           "Qt6QmlLocalStorage",   # LocalStorage needs Qt6Sql, dropped above; the app does not use it
+           "Qt6WaylandCompositor")  # the server side of Wayland (for writing compositors), not a client
 QT_DROP_PLUGIN_DIRS = {"sqldrivers", "position", "geoservices", "sensors", "webview", "designer", "qmltooling",
                        "virtualkeyboard", "canbus", "scxmldatamodel", "renderers", "sceneparsers",
                        "geometryloaders", "renderplugins", "assetimporters", "texttospeech"}
@@ -232,9 +233,12 @@ CLEAN_IMAGES = ("ubuntu:24.04", "debian:trixie")
 CLEAN_SCRIPT = r"""
 set -e
 export DEBIAN_FRONTEND=noninteractive
-# the mirrors drop a connection now and then: apt retries instead of failing the release
+# the mirrors drop connections and crawl at times: apt retries, and the packages it downloads stay
+# in a Docker volume for the next run (the system still starts clean: only the downloads are kept)
 echo 'Acquire::Retries "6";' > /etc/apt/apt.conf.d/80retries
-apt-get update -qq >/dev/null
+rm -f /etc/apt/apt.conf.d/docker-clean
+echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/81keep
+apt-get update -qq >/dev/null || echo "apt-get update failed: using the package lists from the last run"
 apt-get install -y -qq /pkg/refrata.deb >/tmp/apt.log 2>&1 || { tail -20 /tmp/apt.log; echo "CLEAN: apt install failed"; exit 1; }
 test -x /usr/bin/refrata && test -f /usr/share/applications/refrata.desktop || { echo "CLEAN: launcher or menu entry missing"; exit 1; }
 Q=/opt/refrata/_internal/PySide6/Qt
@@ -248,7 +252,7 @@ for f in $Q/plugins/platforms/libqxcb.so $Q/plugins/platforms/libqwayland-generi
 done
 [ $missing = 0 ] || exit 1
 # what any desktop has and a container does not: a sound server (a silent one) and a UTF-8 locale
-apt-get install -y -qq xvfb xauth dbus pulseaudio >/dev/null 2>&1
+apt-get install -y -qq xvfb xauth dbus pulseaudio >/tmp/tools.log 2>&1 || { tail -8 /tmp/tools.log; echo "CLEAN: could not install the test tools (xvfb, pulseaudio)"; exit 1; }
 useradd -m tester
 su tester -c 'cd ~ && export LANG=C.UTF-8 && pulseaudio -D --exit-idle-time=-1 && pactl load-module module-null-sink >/dev/null && QT_QPA_PLATFORM=xcb timeout 2400 dbus-run-session -- xvfb-run -a -s "-screen 0 1920x1080x24" refrata --selftest --log /tmp/st.log >/dev/null 2>&1'; code=$?
 grep -E "FAIL|tests passed" /tmp/st.log | tail -12
@@ -264,10 +268,12 @@ def test_clean(pkg: Path, image: str) -> bool:
     d = Path(tempfile.mkdtemp(prefix="refrata-clean-", dir=WORK))
     shutil.copy2(pkg, d / "refrata.deb")
     (d / "run.sh").write_text(CLEAN_SCRIPT, encoding="utf8")
-    r = subprocess.run(["docker", "run", "--rm", "-v", f"{d}:/pkg:ro", image, "bash", "/pkg/run.sh"],
+    cache = "refrata-apt-" + image.replace(":", "-").replace(".", "")
+    r = subprocess.run(["docker", "run", "--rm", "-v", f"{d}:/pkg:ro", "-v", f"{cache}-archives:/var/cache/apt/archives",
+                        "-v", f"{cache}-lists:/var/lib/apt/lists", image, "bash", "/pkg/run.sh"],
                        capture_output=True, text=True, timeout=3600)
     shutil.rmtree(d, ignore_errors=True)
-    lines = [ln for ln in r.stdout.splitlines() if ln.strip()]
+    lines = [ln for ln in (r.stdout + r.stderr).splitlines() if ln.strip()]
     print(f"[clean {image}]\n  " + "\n  ".join(lines[-14:]), flush=True)
     return r.returncode == 0
 

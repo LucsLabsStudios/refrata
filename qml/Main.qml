@@ -38,7 +38,11 @@ Window {
     function isAudioPath(p) { return /\.(mp3|flac|wav|m4a|aac|ogg|opus|wma|alac|aiff|ape|mka|mid|midi|amr|ac3|dts)$/i.test(p) }
     // the other pages are built in the background once the window has settled (see PageSlot)
     property bool pagesWarm: false
-    Timer { interval: 1500; running: true; onTriggered: win.pagesWarm = true }
+    // then one page per step, built whole: an incubation spread over frames (Loader.asynchronous)
+    // was left half-evaluated on a busy machine (Settings' About card lost its version text)
+    property int warmStep: -1
+    Timer { interval: 1500; running: true; onTriggered: { win.pagesWarm = true; win.warmStep = 0 } }
+    Timer { interval: 150; repeat: true; running: win.warmStep >= 0 && win.warmStep < 8; onTriggered: win.warmStep++ }
     function showAbout() {
         win.page = 5   // builds the settings page at once if it was not yet
         if (settingsSlot.item) settingsSlot.item.showAbout()
@@ -203,14 +207,14 @@ Window {
             anchors.left: sidebar.right; anchors.right: parent.right
             anchors.top: parent.top; anchors.bottom: parent.bottom
 
-            // A page is built the first time it is shown, or in the background shortly after the
-            // window is up (win.pagesWarm): opening the app builds only the page on screen.
+            // A page is built the first time it is shown, or shortly after the window is up, one
+            // at a time (win.warmStep): opening the app builds only the page on screen.
             component PageSlot: Item {
                 id: slot
                 property int index: 0
                 property Component page: null      // pages given this way are built on demand
                 readonly property Item item: lazy.item
-                readonly property bool wanted: win.page === index || win.pagesWarm
+                readonly property bool wanted: win.page === index || (win.pagesWarm && win.warmStep > index)
                 property bool everWanted: false
                 onWantedChanged: if (wanted) everWanted = true
                 Component.onCompleted: if (wanted) everWanted = true
@@ -218,8 +222,6 @@ Window {
                     id: lazy
                     anchors.fill: parent
                     active: slot.page !== null && slot.everWanted
-                    // in the background, unless it is the page being opened (then at once)
-                    asynchronous: win.page !== slot.index
                     sourceComponent: slot.page
                 }
                 anchors.fill: parent

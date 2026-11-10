@@ -2042,7 +2042,7 @@ def t49_ab_repeat_and_always_on_top():
     wait(lambda: e.time >= 5000, 3)
     key(C.parts, Qt.Key.Key_L)
     check(e.loopA >= 4500 and e.loopB < 0, "L marks the start of the stretch", str(e.loopA))
-    wait(lambda: e.time >= e.loopA + 2200, 5, "plays past the start")
+    wait(lambda: e.time >= e.loopA + 2200, 10, "plays past the start")   # a busy machine slows the audio clock
     ui_click("mpLoop")   # music mode: the dock button
     a, b = e.loopA, e.loopB
     check(b > a + 1500, "second press marks the end", f"{a}-{b}")

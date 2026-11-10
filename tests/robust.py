@@ -50,7 +50,10 @@ class Scenario:
         self.fn, self.setup, self.verify, self.timeout = fn, setup, verify, timeout
         if solo is None:
             import inspect
-            src = inspect.getsource(fn)
+            try:
+                src = inspect.getsource(fn)
+            except OSError:   # inside the packaged app there is no source; only the runner needs this
+                src = ""
             solo = any(m in src for m in SOLO_MARKERS) or "mediakeys" in fn.__name__
         self.solo = solo
         self.env = env or {}
