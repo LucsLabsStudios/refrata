@@ -1184,8 +1184,14 @@ def feature_ytdlp_self_update():
     publish("2099.2.2", "/new.whl")
     ytdlp._last_forced = 0
     e = eng()
+    msgs = []
+    e.message.connect(msgs.append)
     e.openUrl("https://www.youtube.com/watch?v=atualiza")
-    wait(lambda: e.state == "playing" and e._frames_seen > 2, 20, "the link plays after the update")
+    try:
+        wait(lambda: e.state == "playing" and e._frames_seen > 2, 20, "the link plays after the update")
+    except Exception as exc:   # say which step broke: the lookup, the update or the stream
+        raise AssertionError(f"{exc} | messages={msgs} active={ytdlp.active()!r} installed={ytdlp._installed()} "
+                             f"resolved={e._queue[0].get('resolved') if e._queue else None}") from None
     check(e.title == "Pelo yt-dlp 2099.2.2", "the new yt-dlp found the stream", e.title)
     check(sys.modules["yt_dlp"].__version__ == "2099.2.2" and ytdlp.active() == "2099.2.2", "the new copy is the one loaded")
 
