@@ -1728,7 +1728,7 @@ def t46_music_mode_carousel_and_dock_by_mouse():
     # panels and queue from the dock
     ui_click("mpEq")
     check(pv.property("panel") == "eq", "dock opens the equalizer")
-    wait(lambda: C.parts.find("popover").property("opacity") > 0.9, 2, "equalizer popover visible")
+    wait(lambda: C.parts.find("popover").property("opacity") > 0.9, 5, "equalizer popover visible")
     ui_click("mpEq")
     check(pv.property("panel") == "", "equalizer closes again")
     ui_click("mpQueue")
@@ -1802,7 +1802,7 @@ def t47_in_app_update_check_download_verify_install():
         wait(lambda: up.state == "available", 5, "check finds the newer release")
         check(up.latest == "9.9.9" and up.canSelfUpdate, "latest version parsed", up.latest)
         banner = C.parts.find("updateBanner")
-        wait(lambda: banner.property("opacity") > 0.95, 2, "update banner slides in")
+        wait(lambda: banner.property("opacity") > 0.95, 5, "update banner slides in")
         ui_click("updateAction")
         wait(lambda: up.state in ("ready", "error"), 10, "download finished")
         check(up.state == "ready", "installer downloaded and verified", up.error)
@@ -1835,7 +1835,7 @@ def t47_in_app_update_check_download_verify_install():
         check(banner.property("opacity") > 0.5, "banner explains the failure")
         pump(0.4)  # the pill re-sizes to the error text before the click
         ui_click("updateDismiss")
-        wait(lambda: banner.property("opacity") < 0.05, 2, "banner can be dismissed")
+        wait(lambda: banner.property("opacity") < 0.05, 5, "banner can be dismissed")
 
         # not signed, or signed by another key: refused before downloading anything
         for label, kw in (("unsigned", {"signed": False}), ("signed by another key", {"signer": other_key})):
@@ -1963,7 +1963,8 @@ def t48_quick_player_preview_compact_and_background():
     QMetaObject.invokeMethod(quick, "open", Q_ARG("QVariant", video), Q_ARG("QVariant", sib), Q_ARG("QVariant", "preview"))
     wait(lambda: quick.isVisible(), 3, "preview window shows")
     card = C.parts.find("quickCard")
-    wait(lambda: card.property("opacity") > 0.99 and abs(card.property("scale") - 1) < 0.01, 2, "preview grows in")
+    # 340 ms of animation; animations advance with frames, slow under Xvfb's CPU rendering when busy
+    wait(lambda: card.property("opacity") > 0.99 and abs(card.property("scale") - 1) < 0.01, 5, "preview grows in")
     check(quick.property("path") == video, "previews the selected file")
     wait(lambda: quick.findChild(QObject, "quickSeek").property("value") > 300, 8, "preview plays")
     check(e.state in ("idle", "stopped", "ended") or not e.playing, "the main player is left alone")
@@ -1979,7 +1980,7 @@ def t48_quick_player_preview_compact_and_background():
     c = close_btn.mapToScene(QPointF(close_btn.width() / 2, close_btn.height() / 2)).toPoint()
     QTest.mouseMove(quick, c)
     tip = next(ch for ch in close_btn.childItems() if ch.property("shown") is not None)
-    wait(lambda: tip.property("opacity") > 0.9, 2, "close button shows its tooltip")
+    wait(lambda: tip.property("opacity") > 0.9, 5, "close button shows its tooltip")
     pump(0.15)
     # inside the rounded card (the window has a transparent shadow margin that the card mask cuts)
     tl = tip.mapToScene(QPointF(0, 0))
