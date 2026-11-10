@@ -1764,7 +1764,9 @@ class Engine(QObject):
                     self._refresh_meta()
                     # a subtitle the file turns on by itself (default / forced track) needs software decoding
                     spu = self._mp.video_get_spu()
-                    if self._hw_item and spu not in (-1, 0):
+                    if self._spu_wanted in (-1, 0):
+                        pass             # the person turned subtitles off: _hold_spu keeps them off
+                    elif self._hw_item and spu not in (-1, 0):
                         self._to_software(spu=spu)
         if self._sleep_deadline and time.time() >= self._sleep_deadline:
             self._sleep_deadline = 0
@@ -1949,6 +1951,30 @@ class Engine(QObject):
             return
         self._mp.video_set_spu(tid)
         self.tracksChanged.emit()
+        self._hold_spu(tid)
+
+    def _hold_spu(self, spu, tries=8):
+        """Make a subtitle choice stick. Given while the item is still opening (a reopen in
+        software, say), libVLC takes it before the file's tracks exist and then turns on the file's
+        default subtitle by itself: "off" came back on. Applied again until the item plays with
+        its tracks known."""
+        self._spu_wanted = spu
+
+        def pick(n):
+            if self._spu_wanted != spu:
+                return   # the person chose something else meanwhile
+            if self._mp.video_get_spu() != spu:
+                self._mp.video_set_spu(spu)
+            settled = self._state in ("playing", "paused") and bool(self._sub_tracks)
+            if self._mp.video_get_spu() == spu and settled:
+                self._spu_wanted = None
+                self.tracksChanged.emit()
+            elif n > 0:
+                QTimer.singleShot(400, lambda: pick(n - 1))
+            else:
+                self._spu_wanted = None
+                self.tracksChanged.emit()
+        QTimer.singleShot(300, lambda: pick(tries))
 
     def _to_software(self, spu=None) -> bool:
         """Subtitles are drawn by libVLC on the decoded picture, which it cannot do for GPU-decoded
@@ -1964,18 +1990,7 @@ class Engine(QObject):
         if st == "paused":
             self._pause_when_playing = True
         if spu is not None:
-            self._spu_wanted = spu
-
-            def pick(tries=6):
-                if self._spu_wanted != spu:
-                    return   # the user chose something else meanwhile
-                if self._mp.video_get_spu() != spu:
-                    self._mp.video_set_spu(spu)
-                if self._mp.video_get_spu() == spu:
-                    self.tracksChanged.emit()
-                elif tries > 0:
-                    QTimer.singleShot(400, lambda: pick(tries - 1))
-            QTimer.singleShot(600, pick)
+            self._hold_spu(spu)
         return True
 
     @Slot(str)

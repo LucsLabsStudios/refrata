@@ -1603,6 +1603,28 @@ def feature_review_wheel_over_queue():
 
 
 @scenario(timeout=60)
+def feature_subtitle_on_then_off_quickly():
+    """Adding a subtitle reopens a GPU-decoded video in software, and the reopened item turns that
+    subtitle on by itself; switching it off while the reopen was still opening came back on."""
+    e = eng()
+    win().setProperty("playerOpen", True)
+    for key, delay in (("video", 0.0), ("video2", 0.3)):   # each video goes to software once
+        e.openFiles([str(H.fx[key])])
+        playing_media(video=True)
+        e.addSubtitle(Path(H.fx["srt"]).as_uri())
+        pump(delay)
+        e.setSubtitleTrack(-1)
+        playing_media(video=True)
+        pump(3.0)
+        check(e.subtitleTrack in (-1, 0), f"{key}: subtitles stay off (off {delay:.1f}s after adding)", str(e.subtitleTrack))
+        subs = [t["id"] for t in e.subtitleTracks if t["id"] != -1]
+        check(subs, f"{key}: the added subtitle is still listed", str(e.subtitleTracks))
+        e.setSubtitleTrack(subs[-1])
+        pump(2.0)
+        check(e.subtitleTrack == subs[-1], f"{key}: chosen again, it stays on", str(e.subtitleTrack))
+
+
+@scenario(timeout=60)
 def feature_live_scrubbing():
     """Dragging the seek bar moves the picture while the button is still down (playing and paused),
     not only on release; the drop point is where it ends up."""

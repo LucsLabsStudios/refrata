@@ -807,13 +807,14 @@ def t26_player_view_panels_and_controls():
     for name in ["tracks", "speed", "eq", "adjust", "sleep"]:
         call(pv, "togglePanel", name)
         pop = C.parts.find("popover")
-        wait(lambda: pop.property("opacity") > 0.95, 2, f"{name} panel visible")
+        # fade animations advance with frames: under Xvfb's CPU rendering on a busy machine those come slowly
+        wait(lambda: pop.property("opacity") > 0.95, 5, f"{name} panel visible")
         pump(0.25)
         img = C.parts.win.grabWindow()
         img.save(str(TMP / f"panel_{name}.png"))
         check(not img.isNull(), f"{name} panel renders")
         call(pv, "togglePanel", name)
-        wait(lambda: pop.property("opacity") < 0.05, 2, f"{name} panel hides")
+        wait(lambda: pop.property("opacity") < 0.05, 5, f"{name} panel hides")
     pv.setProperty("queueOpen", True)
     qp = C.parts.find("queuePanel")
     wait(lambda: qp.property("visible") is True, 3, "up-next panel slides in")
