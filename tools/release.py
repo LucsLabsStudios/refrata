@@ -235,7 +235,9 @@ def main():
     if changed or args.bump:
         msg = f"{v}: " + ", ".join(f"{n} {new}" for n, _old, new in changed) if changed else f"{v}"
         run("git", "add", vlc_engine.PIN_FILE, REQS, INIT)
-        run("git", "commit", "-q", "-m", msg + (" (componentes atualizados)" if changed else ""))
+        # nothing staged when HEAD already carries this version (a release retried after a failure)
+        if subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=str(ROOT)).returncode:
+            run("git", "commit", "-q", "-m", msg + (" (componentes atualizados)" if changed else ""))
     run("git", "push", "origin", "HEAD")
     tag = f"v{v}"
     run("git", "tag", "-a", tag, "-m", f"Refrata {v}")
