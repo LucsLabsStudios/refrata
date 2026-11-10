@@ -845,6 +845,10 @@ def feature_normalizer_and_hwdec_live():
 @scenario(timeout=60)
 def feature_audio_output_devices():
     e = eng()
+    t0 = time.time()
+    e.audioDevices                       # the first read never waits for the system...
+    check(time.time() - t0 < 0.1, "reading the outputs list does not block the UI", f"{time.time() - t0:.2f}s")
+    wait(lambda: not getattr(e, "_devices_busy", False), 15, "the outputs list arrives")   # ...it arrives after
     devs = e.audioDevices
     check(devs and devs[0]["id"] == "", "the list starts with the Windows default", str(devs[:1]))
     H.notes.append(f"{len(devs) - 1} audio output(s) found")

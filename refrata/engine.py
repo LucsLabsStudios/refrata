@@ -559,6 +559,8 @@ class Engine(QObject):
         # Ajustes › Decodificação por hardware applies right away (a fresh libVLC instance)
         settings.changed.connect(lambda k: k == "hwdec" and self._instance_args() != self._vlc_args and self._rebuild())
         self._consecutive_errors = 0
+        # the outputs list, ready before anyone opens Tracks or Ajustes > Som (looked up off the UI thread)
+        QTimer.singleShot(2500, self._enum_devices_async)
 
         self._qmodel = QueueModel(self)
         self._qrev = 0
@@ -772,7 +774,34 @@ class Engine(QObject):
 
     @Slot()
     def refreshAudioDevices(self):
-        self._devices = self._enum_devices()
+        self._enum_devices_async()
+
+    _devicesFound = Signal(object)
+
+    def _enum_devices_async(self):
+        """Ask the system for its outputs off the UI thread. Windows answers in milliseconds, until
+        its audio service is busy or a Bluetooth headset is slow to report: then seconds, and the
+        window froze while opening the Tracks panel or Ajustes > Som (6 s seen in tests)."""
+        if getattr(self, "_devices_busy", False):
+            return
+        self._devices_busy = True
+        if not getattr(self, "_devices_wired", False):
+            self._devicesFound.connect(self._on_devices_found, Qt.ConnectionType.QueuedConnection)
+            self._devices_wired = True
+
+        def work():
+            try:
+                found = self._enum_devices()
+            except Exception as exc:   # never let a device driver take the app down
+                print("audio devices:", exc)
+                found = []
+            self._devicesFound.emit(found)
+        threading.Thread(target=work, daemon=True, name="audio-devices").start()
+
+    def _on_devices_found(self, found):
+        self._devices_busy = False
+        if found:
+            self._devices = found
         self.devicesChanged.emit()
 
     def _enum_devices(self) -> list[dict]:
@@ -800,7 +829,9 @@ class Engine(QObject):
     @Property(list, notify=devicesChanged)
     def audioDevices(self):
         if not self._devices:
-            self._devices = self._enum_devices()   # first read: fill in quietly (no signal in a getter)
+            # not known yet: the system default for now, the rest arrives with devicesChanged
+            self._enum_devices_async()
+            return [{"id": "", "name": tr("Padrão do Windows") if sys.platform == "win32" else tr("Padrão do sistema")}]
         return self._devices
 
     @Property(str, notify=devicesChanged)

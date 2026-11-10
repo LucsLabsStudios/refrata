@@ -254,8 +254,9 @@ done
 # what any desktop has and a container does not: a sound server (a silent one) and a UTF-8 locale
 apt-get install -y -qq xvfb xauth dbus pulseaudio >/tmp/tools.log 2>&1 || { tail -8 /tmp/tools.log; echo "CLEAN: could not install the test tools (xvfb, pulseaudio)"; exit 1; }
 useradd -m tester
-su tester -c 'cd ~ && export LANG=C.UTF-8 && pulseaudio -D --exit-idle-time=-1 && pactl load-module module-null-sink >/dev/null && QT_QPA_PLATFORM=xcb timeout 2400 dbus-run-session -- xvfb-run -a -s "-screen 0 1920x1080x24" refrata --selftest --log /tmp/st.log >/dev/null 2>&1'; code=$?
-grep -E "FAIL|tests passed" /tmp/st.log | tail -12
+code=0
+su tester -c 'cd ~ && export LANG=C.UTF-8 && pulseaudio -D --exit-idle-time=-1 && pactl load-module module-null-sink >/dev/null && QT_QPA_PLATFORM=xcb timeout 2400 dbus-run-session -- xvfb-run -a -s "-screen 0 1920x1080x24" refrata --selftest --log /tmp/st.log >/dev/null 2>&1' || code=$?   # set -e must not end the script before the report
+grep -E -A2 "FAIL|tests passed" /tmp/st.log | tail -24 || echo "CLEAN: the battery left no report (crashed at start?)"
 exit $code
 """
 
