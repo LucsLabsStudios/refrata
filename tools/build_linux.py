@@ -274,7 +274,8 @@ def test_clean(pkg: Path, image: str) -> bool:
                        capture_output=True, text=True, timeout=3600)
     shutil.rmtree(d, ignore_errors=True)
     lines = [ln for ln in (r.stdout + r.stderr).splitlines() if ln.strip()]
-    print(f"[clean {image}]\n  " + "\n  ".join(lines[-14:]), flush=True)
+    why = {137: " (killed: out of memory?)", 124: " (timed out)"}.get(r.returncode, "")
+    print(f"[clean {image}] exit {r.returncode}{why}\n  " + "\n  ".join(lines[-14:]), flush=True)
     return r.returncode == 0
 
 
@@ -286,15 +287,20 @@ def main():
     archive = targz(app)
     if "--test" not in sys.argv:
         return
-    # the .tar.gz battery and one clean install per distribution, all at once
+    # the .tar.gz battery alongside the clean installs, those one after the other: three whole apps
+    # at once (plus the Windows battery the release runs meanwhile) ran WSL out of memory, and the
+    # kernel killed a container without a word
     from concurrent.futures import ThreadPoolExecutor
-    with ThreadPoolExecutor(3) as pool:
-        jobs = {"tar.gz": pool.submit(test, archive)}
+    with ThreadPoolExecutor(2) as pool:
+        tar = pool.submit(test, archive)
+        clean = {}
         if docker_ok():
-            jobs.update({img: pool.submit(test_clean, pkg, img) for img in CLEAN_IMAGES})
+            for img in CLEAN_IMAGES:
+                clean[img] = test_clean(pkg, img)
         else:
             log("docker not available: skipping the clean-install tests")
-        failed = [k for k, f in jobs.items() if not f.result()]
+        results = {"tar.gz": tar.result(), **clean}
+        failed = [k for k, ok in results.items() if not ok]
     if failed:
         raise SystemExit(f"[build-linux] the Linux package failed: {', '.join(failed)}")
 
