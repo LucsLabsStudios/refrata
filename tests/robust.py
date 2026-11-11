@@ -479,7 +479,7 @@ def stress_next_prev_storm():
         pump(0.003 if i % 10 else 0.05)
     e.playAt(1)     # a good video
     playing_media(video=True, timeout=10)
-    check(e.currentIndex == 1, "ends on the requested item")
+    check(e.currentIndex == 1, "ends on the requested item", f"on item {e.currentIndex} ({Path(e.currentPath).name}), {e.state}")
 
 
 @scenario(timeout=120)
@@ -1288,7 +1288,7 @@ def feature_show_in_folder_by_mouse():
             return getattr(subprocess_real, name)
 
         def Popen(self, cmd, *a, **k):
-            asked.append([str(c) for c in cmd])
+            asked.append(cmd if isinstance(cmd, str) else [str(c) for c in cmd])
     import subprocess as subprocess_real
     A.subprocess = Sub()
     A._show_item_dbus = lambda path: asked.append(["dbus", path]) or True
@@ -1310,7 +1310,7 @@ def feature_show_in_folder_by_mouse():
     _click_on(btn, "show in folder")
     wait(lambda: asked, 2, "the click asks the file manager")
     if sys.platform == "win32":
-        check(asked == [["explorer", "/select,", os.path.normpath(video)]], "Explorer is asked to select that file, as one argument",
+        check(asked == [f'explorer /select,"{os.path.normpath(video)}"'], "Explorer is asked to select that file, its path in quotes",
               str(asked))
     elif sys.platform == "darwin":
         check(asked == [["open", "-R", video]], "Finder is asked to show that file", str(asked))
@@ -1321,7 +1321,19 @@ def feature_show_in_folder_by_mouse():
     del asked[:]
     from PySide6.QtCore import QUrl
     H.parts.ctl.reveal(QUrl.fromLocalFile(video).toString())
-    check(len(asked) == 1 and os.path.normpath(asked[0][-1]) == os.path.normpath(video), "a file:// address is understood", str(asked))
+    check(len(asked) == 1 and (os.path.normpath(video) in asked[0] if isinstance(asked[0], str)
+                               else os.path.normpath(asked[0][-1]) == os.path.normpath(video)),
+          "a file:// address is understood", str(asked))
+    # a comma and no space: unquoted, Explorer read it as two arguments and opened the Desktop instead
+    del asked[:]
+    odd = Path(video).with_name("um,dois.mkv")
+    shutil.copyfile(video, odd)
+    H.parts.ctl.reveal(str(odd))
+    if sys.platform == "win32":
+        check(asked == [f'explorer /select,"{os.path.normpath(str(odd))}"'], "a name with a comma goes in quotes too", str(asked))
+    else:
+        check(len(asked) == 1 and str(odd) in asked[0], "a name with a comma is asked for whole", str(asked))
+    odd.unlink()
     del asked[:]
     H.parts.ctl.reveal(video + ".gone")
     check(asked == [], "a file that is gone asks for nothing", str(asked))
@@ -2110,6 +2122,145 @@ def feature_quick_preview_to_player_from_every_window_state():
     H.parts.tray.background = False
 
 
+def _foreground_now() -> str:
+    """The window the system has in front right now, for a failure's report."""
+    if sys.platform != "win32":
+        return "?"
+    import ctypes.wintypes as wt
+    u = ctypes.windll.user32
+    u.GetForegroundWindow.restype = wt.HWND
+    h = u.GetForegroundWindow()
+    if not h:
+        return "no window at all"
+    pid, cls, title = wt.DWORD(0), ctypes.create_unicode_buffer(120), ctypes.create_unicode_buffer(120)
+    u.GetWindowThreadProcessId(wt.HWND(h), ctypes.byref(pid))
+    u.GetClassNameW(wt.HWND(h), cls, 120)
+    u.GetWindowTextW(wt.HWND(h), title, 120)
+    mine = "this app's" if pid.value == os.getpid() else f"pid {pid.value}'s"
+    return f"{mine} window [{cls.value}] “{title.value[:60]}”"
+
+
+@scenario(timeout=120, solo=True)
+def feature_open_from_the_tray_is_quick():
+    """Refrata in the tray, another file opened from Explorer, right after closing the window or a
+    moment later: the window is up at once, the interface keeps answering and the new file's first
+    picture follows shortly. (libVLC lets go of an item only a full second after it was paused:
+    a file opened right after closing the window froze the interface for that second, with the
+    window still hidden.)"""
+    from PySide6.QtGui import QGuiApplication
+    app = QGuiApplication.instance()
+    e, w = eng(), win()
+    H.parts.tray.background = True
+    a, b = str(H.fx["video"]), str(H.fx["video2"])
+    e.openFiles([a])
+    w.setProperty("playerOpen", True)
+    playing_media(video=True)
+    gaps = (0.02, 0.15, 0.3, 0.5, 0.8, 1.5)   # how long after the pause the next file arrives
+    for i in range(len(gaps) * 2):
+        w.close()                       # background mode: to the tray, paused
+        wait(lambda: not w.isVisible(), 3, "closing the window hides it in the tray")
+        gap = gaps[i % len(gaps)]
+        pump(gap)
+        nxt = b if i % 2 == 0 else a
+        gen = e._media_gen
+        t0 = time.perf_counter()
+        H.parts.ctl.handOver([nxt])     # what a second Refrata.exe hands over
+        taken = time.perf_counter() - t0
+        check(w.isVisible(), f"{gap} s after closing: the window is back as soon as the file arrives")
+        longest = 0.0                   # the longest single turn of the event loop meanwhile
+        while not (e._media_gen != gen and Path(e.currentPath).name == Path(nxt).name and e._frames_seen > 0):
+            t1 = time.perf_counter()
+            app.processEvents()
+            longest = max(longest, time.perf_counter() - t1)
+            check(time.perf_counter() - t0 < 10, f"{gap} s after closing: the new file shows its first picture")
+            time.sleep(0.004)
+        picture = time.perf_counter() - t0
+        try:
+            wait(lambda: QGuiApplication.focusWindow() is w, 4, "in front, with the keyboard")
+        except Fail:
+            raise Fail(f"{gap} s after closing: the window did not come to the front; in front instead: {_foreground_now()}")
+        H.notes.append(f"{gap} s after closing: file taken in {taken * 1000:.0f} ms, first picture after {picture * 1000:.0f} ms, "
+                       f"longest stop of the interface {longest * 1000:.0f} ms")
+        check(taken < 0.3 and longest < 0.4, f"{gap} s after closing: the interface never stops for the change of item",
+              f"taking the file {taken * 1000:.0f} ms, one turn of the event loop {longest * 1000:.0f} ms")
+        check(picture < 0.8, f"{gap} s after closing: the first picture comes within 0.8 s", f"{picture * 1000:.0f} ms")
+        playing_media(video=True)
+    H.parts.tray.background = False
+
+
+@scenario(timeout=120)
+def feature_queue_edits_never_change_what_is_playing():
+    """Removing and moving items around the one playing changes its number in the queue, never the
+    song; removing the one playing goes to its neighbour; an emptied queue is a stopped player."""
+    e = eng()
+    a, b, c, v = (str(H.fx[k]) for k in ("tone_a", "tone_b", "tone_c", "video"))
+    paths = lambda: [q["path"] for q in e.queue]
+    model = e.queueModel
+
+    def same_song(what, index, order):
+        check(paths() == order, f"{what}: the queue's order", str([Path(p).name for p in paths()]))
+        check(e.currentIndex == index and e.currentPath == c, f"{what}: the same song, now number {index + 1}",
+              f"{e.currentIndex} {Path(e.currentPath).name}")
+        check(model.rowCount() == len(order) and [model.items[i]["path"] for i in range(len(order))] == order,
+              f"{what}: the list on screen has the same rows")
+
+    e.openFiles([a, b, c, v], 2)
+    playing_media()
+    wait(lambda: e.time > 600, 10, "the third item playing for a moment")
+    gen, t0 = e._media_gen, e.time
+    e.removeAt(0)
+    same_song("an earlier item removed", 1, [b, c, v])
+    e.removeAt(2)
+    same_song("a later item removed", 1, [b, c])
+    e.moveItem(1, 0)
+    same_song("the playing item moved up", 0, [c, b])
+    e.moveItem(1, 0)
+    same_song("another item moved above it", 1, [b, c])
+    e.moveItem(0, 1)
+    same_song("that item moved back below it", 0, [c, b])
+    e.enqueue([a])
+    same_song("an item added at the end", 0, [c, b, a])
+    e.playNext(v)
+    same_song("an item set to play next", 0, [c, v, b, a])
+    for what, do in (("removing a row that does not exist", lambda: (e.removeAt(99), e.removeAt(-1))),
+                     ("moving to or from a row that does not exist", lambda: (e.moveItem(0, 99), e.moveItem(-1, 0), e.moveItem(2, 2))),
+                     ("playing a row that does not exist", lambda: (e.playAt(99), e.playAt(-1))),
+                     ("adding a file that is gone, a folder, nothing", lambda: (e.enqueue([str(Path(a).with_name("gone.mp3")), str(Path(a).parent), ""]),
+                                                                              e.playNext(str(Path(a).with_name("gone.mp3")))))):
+        do()
+        same_song(what, 0, [c, v, b, a])
+    pump(0.6)
+    check(e._media_gen == gen and e.state == "playing" and e.time >= t0, "and through all of it the song never restarted",
+          f"gen {gen}->{e._media_gen} state={e.state} time {t0}->{e.time}")
+
+    # removing the item that is playing
+    e.removeAt(0)
+    wait(lambda: e.currentPath == v and e.state == "playing", 10, "the next item takes over when the playing one is removed")
+    check(e.currentIndex == 0 and paths() == [v, b, a], "it is now the first", f"{e.currentIndex} {paths()}")
+    e.playAt(2)
+    wait(lambda: e.currentPath == a and e.state == "playing", 10, "the last item playing")
+    e.removeAt(2)
+    wait(lambda: e.currentPath == b and e.state == "playing", 10, "the last item removed while playing: the one before it plays")
+    check(e.currentIndex == 1 and paths() == [v, b], "queue and number agree", f"{e.currentIndex} {paths()}")
+    e.removeAt(0)
+    check(e.currentIndex == 0 and e.currentPath == b and paths() == [b], "one item left, still the one playing")
+    e.removeAt(0)
+    pump(0.4)
+    check(not e.hasMedia and e.currentIndex == -1 and e.currentPath == "" and paths() == [] and model.rowCount() == 0,
+          "the last item removed: nothing is loaded", f"{e.currentIndex} {e.currentPath!r} {paths()}")
+    check(e.state not in ("playing", "loading", "paused"), "and nothing plays", e.state)
+
+    # an empty queue starts with whatever arrives
+    e.enqueue([a])
+    wait(lambda: e.currentPath == a and e.state == "playing", 10, "adding to an empty queue starts playing")
+    e.clearQueue()
+    pump(0.3)
+    check(not e.hasMedia and paths() == [], "cleared")
+    e.playNext(b)
+    wait(lambda: e.currentPath == b and e.state == "playing", 10, "'play next' on an empty queue starts playing")
+    check(e.currentIndex == 0 and paths() == [b], "as its only item")
+
+
 @scenario(timeout=60, solo=True)
 def feature_second_launch_and_tray_bring_the_window_back_as_it_was():
     """A file opened from Explorer while Refrata sits minimised (maximised before), and the tray's
@@ -2128,7 +2279,6 @@ def feature_second_launch_and_tray_bring_the_window_back_as_it_was():
     pump(0.6)
     # what a second Refrata.exe hands over (refrata/single.py → main.build)
     H.parts.ctl.handOver([b])
-    H.parts.instance.activateRequested.emit() if H.parts.instance is not None else H.parts.tray.showRequested.emit()
     wait(lambda: Path(e.currentPath).name == Path(b).name, 4, "the file handed over plays")
     wait(lambda: w.visibility() == QWindow.Visibility.Maximized, 4, "the window comes back maximised", )
     wait(lambda: QGuiApplication.focusWindow() is w, 4, "in front, with the keyboard")
@@ -2662,10 +2812,12 @@ def feature_quick_player_title_and_pin():
     wait(lambda: title.property("value"), 3, "the preview shows a title")
     check("Filme" in title.property("value"), "the file's own title", title.property("value"))
     keys = _find_in(q, "quickKeys")
+    # (this scenario runs beside others: its window may not be the active one, and then no item in
+    # it is; the keyboard scenarios, which run alone, send it real keys)
     held = q.activeFocusItem()
-    check(held is not None and held.objectName() == "quickKeys" and keys.property("focus"),
+    check(keys.property("focus") and (held is None or held.objectName() == "quickKeys"),
           "the preview's key handler is what holds the keyboard in its window",
-          held.objectName() if held is not None else "nothing")
+          held.objectName() if held is not None else "focus not on the key handler")
     check(not _find_in(q, "quickPin").isVisible(), "a preview has no pin (it is always on top)")
     check(bool(q.flags() & Qt.WindowType.WindowStaysOnTopHint), "and stays on top")
     from PySide6.QtCore import QMetaObject

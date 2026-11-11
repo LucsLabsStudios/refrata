@@ -40,6 +40,8 @@ def send_to_running(args: list[str], name: str | None = None, timeout_ms: int = 
     sock.connectToServer(name or server_name())
     if not sock.waitForConnected(timeout_ms):
         return False
+    from .fastlaunch import grant_foreground
+    grant_foreground()   # the running one may bring its window to the front for this
     sock.write(json.dumps({"open": args, "id": msg_id or uuid.uuid4().hex}).encode("utf8") + b"\n")
     sock.flush()
     # on Unix sockets flush() usually writes everything at once, and waitForBytesWritten() then

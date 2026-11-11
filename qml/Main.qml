@@ -116,7 +116,12 @@ Window {
         function onOpenRequested(paths) {
             if (!paths.length) return
             if (paths.length === 1 && appctl.isSubtitle(paths[0]) && player.hasMedia) player.addSubtitle(paths[0])
-            else if (!win.openFromExplorer(paths)) { win.playPaths(paths, 0); win.showMain() }
+            else if (!win.openFromExplorer(paths)) {
+                // Restore and focus before libVLC tears down the previous video. That operation
+                // can wait for its decoder; it must not leave the window hidden or minimised.
+                win.showMain()
+                Qt.callLater(function () { win.playPaths(paths, 0) })
+            }
         }
     }
 

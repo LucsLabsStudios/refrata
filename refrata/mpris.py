@@ -208,9 +208,11 @@ class Mpris(QObject):
         if not bus.registerObject(PATH, self):
             print("mpris: object not registered")
             return
+        self.service = SERVICE
         if not bus.registerService(SERVICE):
             # a second copy (or a stale name): keep ours unique per process
-            if not bus.registerService(f"{SERVICE}.instance{os.getpid()}"):
+            self.service = f"{SERVICE}.instance{os.getpid()}"
+            if not bus.registerService(self.service):
                 print("mpris: service name not registered")
                 return
         self._bus = bus
@@ -275,7 +277,7 @@ class Mpris(QObject):
     def shutdown(self):
         if self.available:
             self._bus.unregisterObject(PATH)
-            self._bus.unregisterService(SERVICE)
+            self._bus.unregisterService(self.service)
             self.available = False
 
 

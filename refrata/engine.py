@@ -508,7 +508,7 @@ class Engine(QObject):
     message = Signal(str)
     _frameReady = Signal(object, int)
     _endReached = Signal(int)   # the media generation that ended
-    _errorReached = Signal()
+    _errorReached = Signal(int)   # the media generation that failed
 
     @property
     def _queue(self) -> list[dict]:
@@ -537,8 +537,12 @@ class Engine(QObject):
         self._rendererEvent.connect(self._on_renderer, Qt.ConnectionType.QueuedConnection)
         self._resolve_token = None
         self._resolving = False
-        self._switching = 0                  # cast switches running on a worker thread
-        self._switch_lock = threading.Lock()
+        self._switching = 0                  # an item switch is running on its worker thread
+        self._switch_lock = threading.Lock()  # guards the three fields below
+        self._switch_next = None             # (media, generation, stop first) waiting for the worker
+        self._switch_busy = False            # the worker thread is alive
+        self._switch_abort = False           # the UI is about to stop the player itself (see _settle_switch)
+        self._player_gen = 0                 # the generation (_media_gen) of the item libVLC has loaded
         self._switchDone.connect(self._on_switch_done, Qt.ConnectionType.QueuedConnection)
         self._resolved.connect(self._on_resolved, Qt.ConnectionType.QueuedConnection)
         self._deinterlace = "auto"
@@ -661,8 +665,8 @@ class Engine(QObject):
         em = self._mp.event_manager()
         # stamped with the item it belongs to: an end that lands just as the next item starts (a
         # video finishing as the person presses Next) must not end the new one too
-        em.event_attach(vlc.EventType.MediaPlayerEndReached, lambda e: self._endReached.emit(self._media_gen))
-        em.event_attach(vlc.EventType.MediaPlayerEncounteredError, lambda e: self._errorReached.emit())
+        em.event_attach(vlc.EventType.MediaPlayerEndReached, lambda e: self._endReached.emit(self._player_gen))
+        em.event_attach(vlc.EventType.MediaPlayerEncounteredError, lambda e: self._errorReached.emit(self._player_gen))
         dev = self._settings.value("audioDevice", "")
         if dev:
             self._mp.audio_output_device_set(None, dev)
@@ -681,8 +685,9 @@ class Engine(QObject):
         except OSError:
             spu = -1
         self._poll.stop()
+        self._settle_switch()
         try:
-            self._mp.stop()
+            self._halt()
             self._mp.release()
         except OSError as exc:
             print("libVLC stop on rebuild:", exc)
@@ -996,6 +1001,7 @@ class Engine(QObject):
         if ptr == self._cast_ptr:
             return
         self._cast_ptr = ptr
+        self._settle_switch()
         self._mp.set_renderer(target["r"] if target else None)
         if target:
             self.message.emit(tr("Transmitindo para %1").replace("%1", target["name"]))
@@ -1040,7 +1046,9 @@ class Engine(QObject):
                 self._dropped += 1
                 return
             self._pending_busy = True
-        self._frameReady.emit(frame, self._media_gen)
+        # stamped with the item libVLC is playing, which lags the one asked for while a switch is
+        # under way (_switch_on_worker): the old item's last pictures must not pass for the new one's
+        self._frameReady.emit(frame, self._player_gen)
 
     def _deliver_frame(self, frame: QVideoFrame, gen: int):
         try:
@@ -1326,7 +1334,8 @@ class Engine(QObject):
         token = object()
         self._resolve_token = token
         self._resolving = True
-        self._mp.stop()                           # the previous item must not keep playing
+        self._settle_switch()
+        self._halt()                              # the previous item must not keep playing
         self._open_deadline = time.time() + 40   # the watchdog waits for the lookup too
         # forget the previous item now, or the player keeps showing it (a song's time with no
         # frames even made the link look like audio) until the stream is found
@@ -1453,14 +1462,6 @@ class Engine(QObject):
         if self._settings.value("hwdec", True) and not casting and e["path"] not in self._sw_paths:
             media.add_option(":avcodec-hw=any")
             self._hw_item = e["path"]
-        if not casting:
-            if was_hw:
-                # libVLC keeps the video output for the next item; after GPU decoding, the copy into
-                # our frames stayed tied to the old decoder and every picture came out empty (a green
-                # screen with the sound playing). stop() lets that output go; set_media alone does not
-                self._mp.stop()
-            self._mp.set_media(media)
-            media.release()   # the player holds its own reference
         self._meta = {"title": e["title"], "artist": "", "album": "", "artwork": ""}
         self._audio_tracks, self._sub_tracks, self._tracks_polled = [], [], 0
         if self._chapters or self._chapter != -1:
@@ -1484,12 +1485,26 @@ class Engine(QObject):
         if self._state != "loading":
             self._state = "loading"   # the old track's "playing" must not linger on the new one
             self.stateChanged.emit()
-        if casting:
-            # with a Chromecast, libVLC only lets go of the previous file once the TV answers:
-            # switch off the UI thread so the app never freezes waiting for it
-            self._switch_on_worker(media)
-        else:
+        # libVLC keeps the video output for the next item; after GPU decoding, the copy into our
+        # frames stayed tied to the old decoder and every picture came out empty (a green screen with
+        # the sound playing). stop() lets that output go; set_media alone does not
+        stop_first = was_hw and not casting
+        if self._held:
+            # the file given at launch, opened while the window is built: loaded on this thread, so
+            # releaseStart() finds it there
+            self._settle_switch()
+            if stop_first:
+                self._halt()
+            self._player_gen = self._media_gen
+            self._mp.set_media(media)
+            media.release()   # the player holds its own reference
             self._start_playback()
+        else:
+            # Letting go of the previous item blocks: ~0.1 s as a rule, a whole second when it was
+            # paused a moment ago (closing the window to the tray pauses; the next file opened right
+            # after froze the interface that long), and with a Chromecast until the TV answers. It
+            # happens on a worker thread; the interface shows "loading" meanwhile.
+            self._switch_on_worker(media, self._media_gen, stop_first)
         self._settings.add_history(e["path"], e["title"])
         self.mediaChanged.emit()
         self.currentIndexChanged.emit()
@@ -1497,8 +1512,10 @@ class Engine(QObject):
         self.timeChanged.emit()
         self.videoSizeChanged.emit()
 
-    def _on_error(self):
+    def _on_error(self, gen=None):
         """Unplayable item: tell the user and move on (unless everything failed)."""
+        if gen is not None and gen != self._media_gen:
+            return   # an earlier item's failure, delivered after the switch to another one
         # libVLC can report one broken file twice (EncounteredError, then EndReached): one error
         # per attempt, or a short queue would count as all-broken and stop
         if self._error_handled:
@@ -1517,6 +1534,10 @@ class Engine(QObject):
 
     def _start_playback(self):
         self._wake()
+        self._start_player()
+
+    def _start_player(self):
+        """libVLC calls only: also runs on the switch worker thread."""
         self._mp.play()
         self._audio_dirty = True   # applied by _tick once the audio output is up
         self._mp.set_rate(self._rate)
@@ -1524,30 +1545,95 @@ class Engine(QObject):
             self._mp.set_equalizer(self._eq)
         self._apply_adjust()
 
-    def _switch_on_worker(self, media):
+    def _switch_on_worker(self, media, gen, stop_first=False):
+        """Load `media` (the item of generation `gen`) and play it, off the UI thread. One worker
+        at a time; a switch asked for while one is running replaces the one still waiting, so a
+        burst of them (Next held down, a hundred files opened one after the other) ends on the
+        last without loading each one."""
         self._wake()
-        self._switching += 1
+        with self._switch_lock:
+            skipped = self._switch_next
+            # the player still holds the output a skipped GPU item would have had stopped
+            self._switch_next = (media, gen, stop_first or bool(skipped and skipped[2]))
+            start = not self._switch_busy
+            if start:
+                self._switch_busy = True
+        if skipped:
+            skipped[0].release()
+        if start:
+            self._switching += 1
+            threading.Thread(target=self._switch_work, daemon=True, name="media-switch").start()
 
-        def work():
-            with self._switch_lock:   # one switch at a time, in order
-                try:
-                    self._mp.set_media(media)
+    def _switch_work(self):
+        while True:
+            with self._switch_lock:
+                job, self._switch_next = self._switch_next, None
+                if job is None:
+                    self._switch_busy = False
+                    break
+            media, gen, stop_first = job
+            mp = self._mp
+            try:
+                if stop_first:
+                    self._halt(mp)
+                with self._switch_lock:
+                    dropped = self._switch_abort or self._switch_next is not None
+                    if dropped and self._switch_next is not None and stop_first:
+                        m, g, _s = self._switch_next
+                        self._switch_next = (m, g, False)   # the stop it wanted has just been done
+                if dropped:
                     media.release()
-                    self._start_playback()
-                except Exception as exc:
-                    print("cast switch:", exc)
-                finally:
-                    self._switchDone.emit()
-        threading.Thread(target=work, daemon=True, name="cast-switch").start()
+                    continue
+                self._player_gen = gen
+                mp.set_media(media)
+                media.release()   # the player holds its own reference
+                self._start_player()
+            except Exception as exc:   # never let a libVLC fault end the thread with switches waiting
+                print("media switch:", exc)
+        self._switchDone.emit()
 
     def _on_switch_done(self):
         self._switching = max(0, self._switching - 1)
 
+    def _halt(self, mp=None):
+        """stop(). libVLC lets go of an item paused less than a second ago only once that second is
+        over (measured: stop() returned 1.02 s after the pause, whenever it was called), and of one
+        that is playing at once: a paused item is set going again, silently, and then stopped.
+        Runs on the UI thread and on the switch worker."""
+        mp = mp or self._mp
+        if mp.get_state() == vlc.State.Paused:
+            mp.audio_set_volume(0)
+            self._audio_dirty = True   # the volume comes back with the next item (_tick)
+            mp.set_pause(0)
+            # the resume is asynchronous: a stop() that overtakes it still waits out the second
+            t_end = time.time() + 0.1
+            while mp.get_state() == vlc.State.Paused and time.time() < t_end:
+                time.sleep(0.002)
+        mp.stop()
+
+    def _settle_switch(self):
+        """Before the UI thread stops, releases or loads the player itself: forget a switch still
+        waiting and let the one running finish (at most its stop(), about a second at worst)."""
+        with self._switch_lock:
+            job, self._switch_next = self._switch_next, None
+            self._switch_abort = True
+        if job:
+            job[0].release()
+        while True:
+            with self._switch_lock:
+                if not self._switch_busy:
+                    self._switch_abort = False
+                    return
+            time.sleep(0.003)
+
     def _play_soon(self, index):
         """Next item after the event loop turns; skipped if the queue changed meanwhile (the person
         opened other files or cleared it in between)."""
-        rev = self._qrev
-        QTimer.singleShot(0, lambda: rev == self._qrev and 0 <= index < len(self._queue) and self._play_index(index))
+        # ...or picked another item: the automatic step after an item that ended or failed went
+        # ahead a moment later and replaced the one the person had just chosen
+        rev, gen = self._qrev, self._media_gen
+        QTimer.singleShot(0, lambda: rev == self._qrev and gen == self._media_gen and 0 <= index < len(self._queue)
+                          and self._play_index(index))
 
     def _on_end(self, gen=None):
         if gen is not None and gen != self._media_gen:
@@ -1561,6 +1647,7 @@ class Engine(QObject):
             self._settings.set_resume(self._queue[self._index]["path"], 0, 0)
         nxt = self._next_index(auto=True)
         if nxt is None:
+            self._settle_switch()
             self._mp.stop()
             self._state = "ended"
             self.stateChanged.emit()
@@ -1628,7 +1715,8 @@ class Engine(QObject):
     def stop(self):
         self._save_resume()
         self._resolving, self._resolve_token, self._open_deadline = False, None, 0   # also cancels a link lookup
-        self._mp.stop()
+        self._settle_switch()   # a switch under way must not start its item after this stop
+        self._halt()
         self._state = "stopped"
         self.stateChanged.emit()
 
@@ -2279,6 +2367,7 @@ class Engine(QObject):
     def shutdown(self):
         self._poll.stop()
         self._sinks.clear()
+        self._settle_switch()
         try:
             self._stop_cast_discovery()
         except Exception as exc:
@@ -2292,7 +2381,7 @@ class Engine(QObject):
             self._mp.set_pause(1)
             return
         try:
-            self._mp.stop()
+            self._halt()
             self._mp.release()
         except OSError as exc:
             print("libVLC shutdown:", exc)

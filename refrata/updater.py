@@ -199,8 +199,12 @@ class Updater(QObject):
             return
         try:
             data = json.loads(bytes(reply.readAll()).decode("utf8"))
+            if not isinstance(data, dict):
+                raise ValueError("not a release")
             self.apply_release(data)
-        except (ValueError, KeyError, TypeError) as exc:
+        # AttributeError: JSON of another shape (a list where an asset should be an object…). Left
+        # uncaught, the state stayed "checking" and no later check ever ran
+        except (ValueError, KeyError, TypeError, AttributeError) as exc:
             self._set("error" if self._last_manual else "idle", tr("Resposta inválida do servidor (%1)").replace("%1", str(exc)))
 
     def apply_release(self, data: dict):

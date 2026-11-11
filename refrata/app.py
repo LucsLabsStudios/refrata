@@ -35,6 +35,12 @@ def force_foreground(hwnd: int):
     """SetForegroundWindow from a background app: Windows only honours it for the thread that owns
     the current foreground input, so attach to that thread's input queue for the call."""
     u, k = ctypes.windll.user32, ctypes.windll.kernel32
+    from ctypes import wintypes as wt
+    u.GetForegroundWindow.restype = wt.HWND
+    u.GetWindowThreadProcessId.argtypes = [wt.HWND, ctypes.POINTER(wt.DWORD)]
+    u.GetWindowThreadProcessId.restype = wt.DWORD
+    u.BringWindowToTop.argtypes = [wt.HWND]
+    u.SetForegroundWindow.argtypes = [wt.HWND]
     fg = u.GetForegroundWindow()
     fg_tid = u.GetWindowThreadProcessId(fg, None) if fg else 0
     me = k.GetCurrentThreadId()
@@ -140,7 +146,9 @@ class AppController(QObject):
         if not os.path.exists(path):
             return
         if PLATFORM == "windows":
-            subprocess.Popen(["explorer", "/select,", os.path.normpath(path)])
+            # one string, the path always in quotes: as a list, Python quotes the path only when it
+            # has a space, and Explorer took "um,dois.mp4" for two arguments and opened the Desktop
+            subprocess.Popen(f'explorer /select,"{os.path.normpath(path)}"')
         elif PLATFORM == "mac":
             subprocess.Popen(["open", "-R", path])
         elif not _show_item_dbus(path):

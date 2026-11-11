@@ -26,13 +26,39 @@ def server_name(tag: str = "") -> str:
     return "Refrata-" + hashlib.sha1(who.encode("utf8")).hexdigest()[:16]
 
 
+# main.py's options that take a value: the value is not a file to open
+VALUE_FLAGS = ("--page", "--panel", "--delay", "--size", "--theme", "-k", "--report", "--log")
+
+
 def _files(argv) -> list[str]:
     out = []
+    skip = False
     for a in argv[1:]:
+        if skip:
+            skip = False
+            continue
         if a.startswith("-"):
+            skip = a in VALUE_FLAGS
             continue
         out.append(os.path.abspath(a) if os.path.exists(a) else a)
     return out
+
+
+def grant_foreground():
+    """Let the running Refrata bring its window to the front for this request.
+
+    Windows lets only the process the person just started (this one, from Explorer) set the
+    foreground window; the Refrata already running, sitting in the tray, is a background process and
+    its window opened behind the others with the taskbar button flashing, whenever its own
+    workaround could not attach to the window in front. This passes the right on, which is what
+    Windows provides AllowSetForegroundWindow for. ASFW_ANY: the pid of the other one is not known."""
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+        ctypes.windll.user32.AllowSetForegroundWindow(ctypes.c_uint32(0xFFFFFFFF))
+    except Exception:
+        pass
 
 
 def _roundtrip(payload: bytes, timeout: float) -> bytes:
@@ -72,6 +98,7 @@ def try_hand_over(argv=None, timeout: float = 1.5) -> str:
         return ""
     msg_id = uuid.uuid4().hex
     payload = json.dumps({"open": _files(argv), "id": msg_id}).encode("utf8") + b"\n"
+    grant_foreground()
     if _roundtrip(payload, timeout).startswith(b"ok"):
         os._exit(0)
     return msg_id

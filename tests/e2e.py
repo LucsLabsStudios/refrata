@@ -2171,6 +2171,152 @@ def t50_language_switch_live_and_complete():
 
 
 @test
+def t51_linux_media_keys_over_dbus():
+    """Linux: the desktop's media keys, media widget and lock screen talk to players through MPRIS
+    (refrata/mpris.py). Asked here from outside, over the session bus, the way the desktop asks."""
+    if not sys.platform.startswith("linux"):
+        return
+    import re
+    import shutil
+    import subprocess
+    import threading
+    from PySide6.QtCore import QUrl
+    from refrata import mpris as M
+    if not (M.AVAILABLE and os.environ.get("DBUS_SESSION_BUS_ADDRESS") and shutil.which("dbus-send")):
+        print("        (no session bus or no dbus-send here: MPRIS not exercised)")
+        return
+    e = eng()
+    saved = os.environ.pop("REFRATA_NO_MEDIAKEYS", None)   # the battery runs without it; this test brings one up
+    try:
+        m = M.Mpris(e, C.parts.library, C.parts.app)
+    finally:
+        if saved is not None:
+            os.environ["REFRATA_NO_MEDIAKEYS"] = saved
+    check(m.available, "with a session bus, the MPRIS service comes up")
+    opened, volume = [], e.volume
+    m.openRequested.connect(lambda uris: opened.append(list(uris)))
+
+    def bus(*args, dest=None):
+        """dbus-send, while the app keeps answering."""
+        box = {}
+
+        def work():
+            r = subprocess.run(["dbus-send", "--session", "--print-reply", f"--dest={dest or m.service}", M.PATH, *args],
+                               capture_output=True, text=True, timeout=15)
+            box["out"], box["ok"] = r.stdout + r.stderr, r.returncode == 0
+        t = threading.Thread(target=work, daemon=True)
+        t.start()
+        while t.is_alive():
+            pump(0.01)
+        return box
+
+    def props(iface):
+        got = bus("org.freedesktop.DBus.Properties.GetAll", f"string:{iface}")
+        check(got["ok"], f"{iface}: its properties can be read", got["out"][-300:])
+        return " ".join(got["out"].split())
+
+    def value(text, name):
+        mt = re.search(rf'string "{re.escape(name)}" variant (?:string |boolean |double |int32 |int64 |uint32 |uint64 |object path )("[^"]*"|\S+)', text)
+        return mt.group(1).strip('"') if mt else None
+
+    def player(method, *args):
+        got = bus(f"{M.PLAYER_IFACE}.{method}", *args)
+        check(got["ok"], f"{method} is accepted", got["out"][-300:])
+        pump(0.15)
+
+    try:
+        names = bus("org.freedesktop.DBus.ListNames", dest="org.freedesktop.DBus")["out"]
+        check(m.service in names, "the player is on the bus under an MPRIS name", m.service)
+        root = props(M.ROOT_IFACE)
+        check(value(root, "Identity") == "Refrata" and value(root, "DesktopEntry") == "refrata", "it says who it is", root[:300])
+        check('"video/mp4"' in root and '"audio/mpeg"' in root and '"file"' in root, "and what it opens")
+
+        # nothing loaded
+        stop_playback()
+        idle = props(M.PLAYER_IFACE)
+        check(value(idle, "PlaybackStatus") == "Stopped" and value(idle, "CanPlay") == "false" and "TrackList/NoTrack" in idle,
+              "nothing loaded: stopped, nothing to play, no track", idle[:400])
+
+        # a queue of two; what the desktop shows about the first
+        mon = None
+        if shutil.which("dbus-monitor"):
+            mon = subprocess.Popen(["dbus-monitor", "--session", f"type='signal',path='{M.PATH}'"],
+                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            pump(0.6)
+        a, b = str(C.fx["tone_long"]), str(C.fx["video"])
+        e.openFiles([a, b])
+        wait(lambda: e.state == "playing" and e.length > 0 and e.time > 200, 15, "a song playing")
+        pump(0.3)
+        now = props(M.PLAYER_IFACE)
+        check(value(now, "PlaybackStatus") == "Playing" and value(now, "CanPause") == "true" and value(now, "CanSeek") == "true"
+              and value(now, "CanGoNext") == "true", "playing: says so, and what can be done", now[:500])
+        check(value(now, "xesam:title") == e.title, "the title on screen is the title sent", f"{value(now, 'xesam:title')!r} vs {e.title!r}")
+        check(value(now, "mpris:length") == str(int(e.length) * 1000), "the length, in microseconds",
+              f"{value(now, 'mpris:length')} vs {int(e.length) * 1000}")
+        check(value(now, "xesam:url") == QUrl.fromLocalFile(a).toString(), "the file as a URL", str(value(now, "xesam:url")))
+        track = value(now, "mpris:trackid")
+        check(track and track.startswith("/org/mpris/MediaPlayer2/Track/"), "a track id", str(track))
+        pos = int(value(now, "Position") or -1)
+        check(0 <= pos <= int(e.time) * 1000 + 2_000_000 and "int64" in now.split('"Position"')[1][:30],
+              "the position, 64-bit microseconds", f"{pos} vs {e.time} ms")
+
+        # the media keys
+        player("Pause")
+        wait(lambda: e.state == "paused", 5, "the Pause key pauses")
+        check(value(props(M.PLAYER_IFACE), "PlaybackStatus") == "Paused", "and the desktop is told")
+        player("Play")
+        wait(lambda: e.state == "playing", 5, "the Play key plays")
+        player("PlayPause")
+        wait(lambda: e.state == "paused", 5, "Play/Pause toggles")
+        player("PlayPause")
+        wait(lambda: e.state == "playing", 5, "and toggles back")
+        player("Stop")
+        wait(lambda: e.state == "paused", 5, "Stop holds the item where it is")
+        player("Play")
+        wait(lambda: e.state == "playing", 5, "playing again")
+        t0 = e.time
+        player("Seek", "int64:4000000")
+        wait(lambda: e.time >= t0 + 3000, 6, "Seek moves forward by the microseconds given")
+        player("SetPosition", f"objpath:{track}", "int64:1500000")
+        wait(lambda: 1000 <= e.time <= t0 + 2500, 6, "SetPosition goes to that point")
+        t1 = e.time
+        player("SetPosition", "objpath:/org/mpris/MediaPlayer2/Track/99999", "int64:9000000")
+        pump(0.5)
+        check(e.time < 8000 and e.time >= t1 - 300, "a position for a track that is not this one is ignored", f"{t1} -> {e.time}")
+        got = bus("org.freedesktop.DBus.Properties.Set", f"string:{M.PLAYER_IFACE}", "string:Volume", "variant:double:0.35")
+        check(got["ok"], "the volume can be set", got["out"][-200:])
+        wait(lambda: e.volume == 35, 3, "the desktop's volume slider sets the app's volume")
+        check(value(props(M.PLAYER_IFACE), "Volume") == "0.35", "and reads it back")
+        player("Next")
+        wait(lambda: e.currentIndex == 1 and e.state == "playing", 10, "the Next key goes to the next item")
+        after = props(M.PLAYER_IFACE)
+        check(value(after, "mpris:trackid") != track and value(after, "xesam:title") == e.title, "a new track id and title for it",
+              f"{value(after, 'mpris:trackid')} {value(after, 'xesam:title')!r}")
+        player("Previous")
+        wait(lambda: e.currentIndex == 0 and e.state == "playing", 10, "the Previous key goes back")
+        player("OpenUri", "string:" + QUrl.fromLocalFile(b).toString())
+        pump(0.3)
+        check(opened == [[QUrl.fromLocalFile(b).toString()]], "OpenUri hands the address to the app", str(opened))
+        if mon is not None:
+            pump(0.5)
+            mon.terminate()
+            try:
+                seen = " ".join(mon.communicate(timeout=5)[0].split())
+            except Exception as exc:
+                seen = f"(monitor: {exc})"
+            check("PropertiesChanged" in seen and '"PlaybackStatus" variant string "Paused"' in seen
+                  and '"PlaybackStatus" variant string "Playing"' in seen, "every change of state is announced (the widget follows)", seen[-600:])
+            check('"xesam:title"' in seen and "member=Seeked" in seen, "so are the track's details and the jumps")
+    finally:
+        m.shutdown()
+        e.volume = volume
+        stop_playback()
+    pump(0.3)
+    gone = bus("org.freedesktop.DBus.Properties.GetAll", f"string:{M.PLAYER_IFACE}")
+    check(not gone["ok"], "leaving, the app takes its name off the bus")
+
+
+@test
 def t99_shutdown_persists_state():
     e, s = eng(), C.parts.settings
     p = str(C.fx["tone_long"])
