@@ -40,6 +40,7 @@ class MediaKeys(QObject):
         self._token = None
         self._shown = ("", "", "")
         self._art = ""
+        self._art_ref = None
         self.available = False
         if not AVAILABLE or os.environ.get("REFRATA_NO_MEDIAKEYS") == "1":
             return
@@ -108,6 +109,7 @@ class MediaKeys(QObject):
             return
         e = self._engine
         title, artist, album = e.title or "", e.artist or "", e.album or ""
+        art = e.artwork or (self._library.thumbFor(e.currentPath) if self._library else "")
         if (title, artist, album) != self._shown:
             self._shown = (title, artist, album)
             u = s.display_updater
@@ -120,10 +122,13 @@ class MediaKeys(QObject):
             else:
                 u.type = MediaPlaybackType.VIDEO
                 u.video_properties.title = title
+            # clear_all took the cover too: the next song of an album has the same one, put it back
+            if art and art == self._art and self._art_ref is not None:
+                u.thumbnail = self._art_ref
             u.update()
-        art = e.artwork or (self._library.thumbFor(e.currentPath) if self._library else "")
         if art != self._art:
             self._art = art
+            self._art_ref = None
             self._load_thumb(art)
         self._sync_state()
 
@@ -149,6 +154,7 @@ class MediaKeys(QObject):
     def _set_thumb(self, ref, url):
         if self._smtc is None or url != self._art:
             return   # a newer track already
+        self._art_ref = ref
         u = self._smtc.display_updater
         u.thumbnail = ref
         u.update()
@@ -177,7 +183,7 @@ class MediaKeys(QObject):
         u = s.display_updater
         title = u.music_properties.title if u.type == MediaPlaybackType.MUSIC else u.video_properties.title
         return {"enabled": s.is_enabled, "status": int(s.playback_status), "title": title,
-                "type": "music" if u.type == MediaPlaybackType.MUSIC else "video"}
+                "type": "music" if u.type == MediaPlaybackType.MUSIC else "video", "cover": u.thumbnail is not None}
 
     def shutdown(self):
         if self._smtc is None:

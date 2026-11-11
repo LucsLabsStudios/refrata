@@ -1110,6 +1110,235 @@ def feature_mediakeys_overlay():
     wait(lambda: not mk.snapshot().get("enabled"), 3, "session hidden when nothing plays")
 
 
+def _overlay_cover_bytes(mk) -> int:
+    """How many bytes Windows gets when it reads the cover the media overlay was given."""
+    import asyncio
+    ref = mk._smtc.display_updater.thumbnail
+    if ref is None:
+        return 0
+    out = []
+
+    async def read():
+        return (await ref.open_read_async()).size
+
+    def work():
+        try:
+            out.append(asyncio.run(read()))
+        except Exception as exc:
+            out.append(f"unreadable: {exc}")
+    t = threading.Thread(target=work, daemon=True)
+    t.start()
+    t.join(10)
+    return out[0] if out else 0
+
+
+@scenario(timeout=90)
+def feature_mediakeys_cover():
+    """The media overlay shows the cover of what plays: the library's thumbnail for a video, kept
+    when the next item has the same cover (two songs of one album), dropped when it has none."""
+    mk = H.parts.mediakeys
+    if mk is None or not mk.available:
+        H.notes.append("Windows media controls not available on this machine")
+        return
+    e, lib = eng(), H.parts.library
+    video, video2, tone = str(H.fx["video"]), str(H.fx["video2"]), str(H.fx["tone_long"])
+    wait(lambda: lib.thumbFor(video) and lib.thumbFor(video2), 40, "the library made the videos' thumbnails")
+    e.openFiles([video, video2, tone])
+    playing_media(video=True)
+    wait(lambda: mk.snapshot().get("cover"), 6, "the overlay gets a cover for the video")
+    size = _overlay_cover_bytes(mk)
+    check(isinstance(size, int) and size > 500, "and it is a readable picture", str(size))
+    check(mk._art == lib.thumbFor(video), "the video's own thumbnail", mk._art)
+    # same cover on the next item (an album): it must not vanish with the title change
+    one = lib.thumbFor(video)
+
+    class OneCover:
+        def thumbFor(self, path):
+            return one
+    mk._library = OneCover()
+    e.next()
+    playing_media(video=True)
+    wait(lambda: "Segundo" in (mk.snapshot().get("title") or ""), 4, "the overlay names the next item")
+    pump(0.6)
+    check(mk.snapshot().get("cover"), "the cover stays when the next item shares it")
+    size = _overlay_cover_bytes(mk)
+    check(isinstance(size, int) and size > 500, "still a readable picture", str(size))
+    # an item without any cover: the old one must not linger
+    mk._library = lib
+    e.next()
+    playing_media(video=False)
+    wait(lambda: mk.snapshot().get("type") == "music", 4, "music session")
+    pump(0.6)
+    check(not lib.thumbFor(tone) and not e.artwork, "the tone has no cover of its own")
+    check(not mk.snapshot().get("cover"), "no cover shown for an item without one")
+
+
+class _FakeTV:
+    """Stands in for a Chromecast found on the network. Handed to libVLC it means "no renderer",
+    so the picture stays on this PC while the app takes every casting path."""
+    _as_parameter_ = None
+
+    def __init__(self, name):
+        self._name, self.released = name, 0
+
+    def name(self):
+        return self._name.encode("utf8")
+
+    def type(self):
+        return b"chromecast"
+
+    def release(self):
+        self.released += 1
+
+
+@scenario(timeout=120)
+def feature_cast_to_a_tv_and_back_by_mouse():
+    """Transmitir, by mouse: a TV that answers the search is listed; clicking it casts from the
+    same point, says so on screen and locks PiP; "Este computador" brings it back; a TV that
+    leaves the network hands playback back by itself."""
+    from PySide6.QtCore import QPoint
+    from PySide6.QtTest import QTest
+    e, w = eng(), win()
+    pv = H.parts.find("playerView")
+    msgs = []
+    e.message.connect(msgs.append)
+
+    def controls(panel=None):
+        if panel is not None:
+            pv.setProperty("panel", panel)
+        QTest.mouseMove(w, QPoint(w.width() // 2, w.height() // 3))
+        pump(0.1)
+        pv.setProperty("controlsVisible", True)
+        pump(0.35)
+
+    def settled():
+        wait(lambda: e._switching == 0 and e.state == "playing", 10, "playback settles on the new output")
+    e.openFiles([str(H.fx["video"])])
+    w.setProperty("playerOpen", True)
+    playing_media(video=True)
+    controls()
+    _click_on(H.parts.find("pvCast"), "cast")
+    check(pv.property("panel") == "cast" and e.discovering, "the cast button opens its panel and starts looking")
+    check(_visible_item("cast_0") is None, "no TV listed before one answers")
+    tv, ptr = _FakeTV("TV da Sala"), 0x7E57
+    e._on_renderer((tv, ptr), True)
+    pump(0.4)
+    check(e.renderers == [{"name": "TV da Sala", "type": "chromecast"}], "the TV that answered is listed", str(e.renderers))
+    row = H.parts.find("cast_0")
+    check(row.property("text") == "TV da Sala" and not row.property("selected"), "by its name, not yet chosen", row.property("text"))
+    check(H.parts.find("castLocal").property("selected"), "this computer is the one marked")
+    wait(lambda: e.time > 2500, 8, "a few seconds in")
+    at = e.time
+    controls("cast")
+    _click_on(row, "the TV")
+    check(e.castingTo == "TV da Sala", "clicking the TV casts to it", e.castingTo)
+    check(any("TV da Sala" in m for m in msgs), "and says so", str(msgs))
+    settled()
+    check(e.time >= at - 1500, "the video goes on from where it was, not from the start", f"{at} -> {e.time}")
+    pump(0.4)
+    banner = H.parts.find("castingBanner")
+    check(banner.isVisible(), "the player shows it is casting")
+    controls("cast")
+    check(H.parts.find("cast_0").property("selected") and not H.parts.find("castLocal").property("selected"),
+          "the TV is the one marked in the list")
+    check(H.parts.find("pvCast").property("checked"), "the cast button stays lit")
+    check(not H.parts.find("pvPip").property("enabled"), "picture-in-picture is off while casting")
+    e.pause()
+    wait(lambda: e.state == "paused", 4, "pause works while casting")
+    e.play()
+    wait(lambda: e.state == "playing", 4, "and play")
+    # back to this computer, by mouse
+    at = e.time
+    controls("cast")
+    _click_on(H.parts.find("castLocal"), "this computer")
+    check(e.castingTo == "", "Este computador stops casting", e.castingTo)
+    settled()
+    playing_media(video=True)
+    check(e.time >= at - 1500, "again from the same point", f"{at} -> {e.time}")
+    pump(0.3)
+    check(not banner.isVisible() and H.parts.find("pvPip").property("enabled"), "the banner goes and PiP is back")
+    # cast again; the TV leaves the network
+    controls("cast")
+    _click_on(H.parts.find("cast_0"), "the TV again")
+    check(e.castingTo == "TV da Sala", "casting again")
+    settled()
+    e._on_renderer((tv, ptr), False)
+    pump(0.4)
+    check(e.castingTo == "" and e.renderers == [], "a TV that leaves the network is dropped and casting ends",
+          f"{e.castingTo!r} {e.renderers}")
+    check(tv.released == 1, "its handle is given back once", str(tv.released))
+    check(_visible_item("cast_0") is None, "it leaves the list")
+    settled()
+    playing_media(video=True)
+    check(not banner.isVisible(), "the picture is back on this computer")
+
+
+@scenario(timeout=90)
+def feature_show_in_folder_by_mouse():
+    """"Mostrar na pasta": the button asks the system's file manager to select the playing file
+    (the request is captured, no Explorer window opens); off for links; a file that is gone asks
+    for nothing."""
+    from PySide6.QtCore import QPoint
+    from PySide6.QtTest import QTest
+    from refrata import app as A
+    asked = []
+
+    class Sub:                                   # only this module's Popen is replaced
+        def __getattr__(self, name):
+            return getattr(subprocess_real, name)
+
+        def Popen(self, cmd, *a, **k):
+            asked.append([str(c) for c in cmd])
+    import subprocess as subprocess_real
+    A.subprocess = Sub()
+    A._show_item_dbus = lambda path: asked.append(["dbus", path]) or True
+    e, w = eng(), win()
+    pv = H.parts.find("playerView")
+
+    def controls():
+        QTest.mouseMove(w, QPoint(w.width() // 2, w.height() // 3))
+        pump(0.1)
+        pv.setProperty("controlsVisible", True)
+        pump(0.35)
+    video = str(H.fx["video2"])                  # "Segundo Video.mkv": a name with a space
+    e.openFiles([video])
+    w.setProperty("playerOpen", True)
+    playing_media(video=True)
+    controls()
+    btn = H.parts.find("pvReveal")
+    check(btn.property("enabled"), "the button is on for a file on disk")
+    _click_on(btn, "show in folder")
+    wait(lambda: asked, 2, "the click asks the file manager")
+    if sys.platform == "win32":
+        check(asked == [["explorer", "/select,", os.path.normpath(video)]], "Explorer is asked to select that file, as one argument",
+              str(asked))
+    elif sys.platform == "darwin":
+        check(asked == [["open", "-R", video]], "Finder is asked to show that file", str(asked))
+    else:
+        check(asked == [["dbus", video]], "the file manager is asked to show that file", str(asked))
+    check(e.state == "playing", "and the video keeps playing")
+    # the same by a file:// address, and a file that is no longer there
+    del asked[:]
+    from PySide6.QtCore import QUrl
+    H.parts.ctl.reveal(QUrl.fromLocalFile(video).toString())
+    check(len(asked) == 1 and os.path.normpath(asked[0][-1]) == os.path.normpath(video), "a file:// address is understood", str(asked))
+    del asked[:]
+    H.parts.ctl.reveal(video + ".gone")
+    check(asked == [], "a file that is gone asks for nothing", str(asked))
+    # a link has no folder
+    base = _local_http()
+    e.openFiles([f"{base}/media/Filmes/Segundo%20Video.mkv"])
+    playing_media(video=True)
+    controls()
+    btn = H.parts.find("pvReveal")
+    check(not btn.property("enabled"), "the button is off for a link")
+    from PySide6.QtCore import Qt
+    check(btn.isVisible(), "it stays in the bar, dimmed")
+    QTest.mouseClick(w, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, _item_center(btn))
+    pump(0.3)
+    check(asked == [], "and clicking it asks for nothing", str(asked))
+
+
 def _local_http():
     import functools, http.server, socketserver
     root = H.fx["media_root"].parent
@@ -1492,9 +1721,16 @@ def feature_online_subtitles():
     check(any("moviehash=" in q for q in seen["queries"]), "searched by the file's hash", str(seen["queries"]))
     pv.setProperty("panel", "subs")
     pump(0.4)
-    H.parts.find("subResult_0")
+    lst = H.parts.find("subResults")
+    check(lst.isVisible() and lst.property("count") == len(res), "the panel lists every result found",
+          f"{lst.property('count')} vs {len(res)}")
+    first = H.parts.find("subResult_0")
+    check("✓" in first.property("text") and res[0]["name"] in first.property("text"),
+          "the exact match is marked and named", first.property("text"))
     before = len(e.subtitleTracks)
-    ss.fetch(0)
+    pv.setProperty("controlsVisible", True)
+    pump(0.3)
+    _click_on(first, "the first subtitle found")
     wait(lambda: not ss.property("busy"), 10, "download finishes")
     check(seen.get("download") == {"file_id": 7}, "downloads the chosen file", str(seen.get("download")))
     wait(lambda: len(e.subtitleTracks) > before, 6, "downloaded subtitle loaded")
@@ -2189,6 +2425,310 @@ def feature_space_preview_from_a_real_explorer_window():
         u.PostMessageW(wintypes.HWND(hwnd), 0x0010, 0, 0)   # WM_CLOSE: only the window this test opened
     pump(0.8)
     wait(lambda: ql._hook is None or u.GetForegroundWindow() != hwnd, 4)
+
+
+def _visible_item(name):
+    try:
+        it = H.parts.find(name)
+    except LookupError:
+        return None
+    return it if it.isVisible() and it.opacity() > 0.5 else None
+
+
+def _show_setting(name):
+    """Open the settings tab holding the control and bring it into view."""
+    page = H.parts.find("settingsPage")
+    it = H.parts.find(name)
+    _scroll_to(page, it)
+    pump(0.3)
+    return it
+
+
+@scenario(timeout=120)
+def feature_settings_tabs_and_sound_controls_by_mouse():
+    """Ajustes by mouse: the gear in the sidebar, every tab, the normaliser switch, the audio
+    output picker and the subtitle look."""
+    e, w = eng(), win()
+    w.setProperty("page", 0)
+    pump(0.4)
+    _click_on(H.parts.find("nav5"), "the gear in the sidebar")
+    wait(lambda: w.property("page") == 5, 2, "the gear opens Ajustes")
+    pump(0.5)
+    page = H.parts.find("settingsPage")
+    check(H.parts.find("settingsTabs").isVisible(), "the tab bar shows")
+    tabs = page.property("tabs")
+    tabs = tabs.toVariant() if hasattr(tabs, "toVariant") else tabs
+    for key in [t["key"] for t in tabs][::-1]:
+        page.setProperty("contentY", 0)
+        pump(0.15)
+        _click_on(H.parts.find("settingsTab_" + key), f"tab {key}")
+        check(page.property("tab") == key, f"the {key} tab opens", page.property("tab"))
+    check(H.parts.find("languageCard").isVisible(), "Geral shows the language card")
+    check(not H.parts.find("soundSubsCard").isVisible(), "and not the sound card (one tab at a time)")
+    # sound: normaliser, output device
+    before = e.normalize
+    _click_on(_show_setting("settingsNormalize"), "normalise switch")
+    wait(lambda: e.normalize != before, 3, "the switch turns the volume normaliser on")
+    check(H.parts.find("soundSubsCard").isVisible(), "the sound card is the one showing")
+    _click_on(_show_setting("settingsNormalize"), "normalise switch")
+    wait(lambda: e.normalize == before, 3, "and off again")
+    wait(lambda: len(e.audioDevices) > 1 or not getattr(e, "_devices_busy", False), 10)
+    devs = e.audioDevices
+    drop = _show_setting("settingsDevices")
+    _click_on(drop, "audio output picker")
+    wait(lambda: drop.property("opened"), 2, "the picker opens its list")
+    check(_visible_item("settingsDev_0") is not None, "the list starts with the system default")
+    if len(devs) > 1:
+        _click_on(H.parts.find("settingsDev_1"), "second output")
+        wait(lambda: e.audioDevice == devs[1]["id"], 2, "picking an output selects it")
+        check(not drop.property("opened"), "and closes the list")
+        e.setAudioDevice("")
+    else:
+        _click_on(H.parts.find("settingsDev_0"), "default output")
+    H.notes.append(f"{len(devs) - 1} audio output(s) in the picker")
+    # subtitles: size by mouse
+    _click_on(_show_setting("settings_subSize_large"), "large subtitles")
+    wait(lambda: e.subtitleStyle["subSize"] == "large", 2, "Grande sets large subtitles")
+    _click_on(_show_setting("settings_subColor_yellow"), "yellow subtitles")
+    wait(lambda: e.subtitleStyle["subColor"] == "yellow", 2, "Amarela sets yellow subtitles")
+    _click_on(_show_setting("settings_subSize_normal"), "normal size")
+    _click_on(_show_setting("settings_subColor_white"), "white")
+    wait(lambda: e.subtitleStyle["subSize"] == "normal" and e.subtitleStyle["subColor"] == "white", 2, "and back")
+    # no update on offer: no button to press
+    page.setProperty("tab", "system")
+    pump(0.3)
+    check(not H.parts.find("updateNow").isVisible(), "with nothing to update, no update button shows")
+
+
+@scenario(timeout=120)
+def feature_player_side_controls_by_mouse():
+    """In the player: the picture box, chapters (button, marks on the bar), the tracks panel's
+    output list and subtitle size, the normaliser in its panel, and the cast button."""
+    from PySide6.QtCore import QPoint
+    from PySide6.QtTest import QTest
+    e, w = eng(), win()
+    pv = H.parts.find("playerView")
+
+    def controls():
+        QTest.mouseMove(w, QPoint(w.width() // 2, w.height() // 3))
+        pump(0.1)
+        pv.setProperty("controlsVisible", True)
+        pump(0.35)
+    e.openFiles([str(H.fx["video"])])
+    w.setProperty("playerOpen", True)
+    playing_media(video=True)
+    box = H.parts.find("videoBox")
+    check(box.isVisible() and box.width() > 300 and box.height() > 150, "the picture box fills the player", f"{box.width()}x{box.height()}")
+    check(not H.parts.find("castingBanner").isVisible(), "no casting banner while playing here")
+    controls()
+    check(_visible_item("pvChapters") is None, "no chapters button for a file without chapters")
+    # tracks panel: output list, subtitle size
+    controls()
+    _click_on(H.parts.find("pvTracks"), "Faixas")
+    check(pv.property("panel") == "tracks", "Faixas opens the tracks panel")
+    wait(lambda: len(e.audioDevices) > 1 or not getattr(e, "_devices_busy", False), 10)
+    pump(0.4)
+    lst = H.parts.find("audioDevices")
+    check(lst.isVisible() and lst.property("count") == len(e.audioDevices), "the panel lists the audio outputs",
+          f"{lst.property('count')} vs {len(e.audioDevices)}")
+    if len(e.audioDevices) > 1:
+        controls()
+        _click_on(H.parts.find("adev_1"), "second output")
+        wait(lambda: e.audioDevice == e.audioDevices[1]["id"], 2, "clicking an output selects it")
+        e.setAudioDevice("")
+    controls()
+    _click_on(H.parts.find("subSize_large"), "large subtitles")
+    wait(lambda: e.subtitleStyle["subSize"] == "large", 2, "the panel's Grande sets large subtitles")
+    playing_media(video=True)                     # the player was rebuilt for it: the picture is back
+    e.setSubtitleStyle("subSize", "normal")
+    playing_media(video=True)
+    # the normaliser lives in one of the panels
+    found = None
+    for panel in ("eq", "speed", "tracks", "adjust"):
+        pv.setProperty("panel", panel)
+        controls()
+        if _visible_item("normalizeToggle") is not None:
+            found = panel
+            break
+    check(found is not None, "the volume normaliser switch is in a player panel")
+    before = e.normalize
+    _click_on(H.parts.find("normalizeToggle"), "normaliser")
+    wait(lambda: e.normalize != before, 3, "the switch toggles the normaliser")
+    playing_media(video=True)
+    pv.setProperty("panel", found); controls()
+    _click_on(H.parts.find("normalizeToggle"), "normaliser")
+    wait(lambda: e.normalize == before, 3, "and back")
+    playing_media(video=True)
+    pv.setProperty("panel", "")
+    # cast: the button starts looking and opens its panel
+    controls()
+    _click_on(H.parts.find("pvCast"), "cast")
+    check(pv.property("panel") == "cast" and e.discovering, "the cast button opens its panel and starts looking")
+    check(_visible_item("castLocal") is not None, "with this computer listed")
+    pv.setProperty("panel", "")
+    e.stopCastDiscovery() if hasattr(e, "stopCastDiscovery") else None
+    # chapters: button, panel, marks on the seek bar (a video with chapters, made here with ffmpeg)
+    import shutil
+    import subprocess
+    chaptered = Path(os.environ["REFRATA_DATA"]) / "com capitulos.mkv"
+    if shutil.which("ffmpeg"):
+        meta = chaptered.with_suffix(".txt")
+        meta.write_text(";FFMETADATA1\n" + "".join(
+            f"[CHAPTER]\nTIMEBASE=1/1000\nSTART={a}\nEND={b}\ntitle={t}\n"
+            for a, b, t in ((0, 8000, "Abertura"), (8000, 18000, "Meio"), (18000, 30000, "Final"))), encoding="utf8")
+        subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", str(H.fx["video"]), "-i", str(meta), "-map_metadata", "1",
+                        "-map_chapters", "1", "-codec", "copy", str(chaptered)], check=True)
+        e.openFiles([str(chaptered)])
+    else:
+        H.notes.append("no ffmpeg here: the chapter button and marks were not exercised")
+        e.openFiles([H.fmt["chapters"]])
+    wait(lambda: len(e.chapters) == 3, 8, "the chaptered file lists its chapters")
+    w.setProperty("playerOpen", True)
+    pump(0.8)
+    if not e.isAudio:
+        playing_media(video=True)
+        controls()
+        _click_on(H.parts.find("pvChapters"), "Capítulos")
+        check(pv.property("panel") == "chapters", "Capítulos opens the chapters panel")
+        controls()
+        _click_on(H.parts.find("chapter_1"), "second chapter")
+        wait(lambda: e.chapter == 1, 3, "clicking a chapter jumps to it")
+        marks = [m for m in (_visible_item(f"chapterMark_{i}") for i in range(3)) if m is not None]
+        check(len(marks) == 2, "the seek bar marks where each later chapter starts", str(len(marks)))
+    else:
+        H.notes.append("chapter fixture is audio: chapter button and marks belong to the video bar")
+
+
+@scenario(timeout=90)
+def feature_music_page_and_stage_by_mouse():
+    """Music: the play button on a row starts that song; the stage shows what plays (title, artist,
+    clock, progress ring) and the carousel of the queue."""
+    e, w = eng(), win()
+    lib = H.parts.library
+    wait(lambda: not lib._scanning, 30, "library scanned")
+    w.setProperty("playerOpen", False)
+    w.setProperty("page", 2)
+    pump(1.0)
+    from PySide6.QtTest import QTest
+    row = H.parts.find("music_0")
+    check(row.isVisible(), "the music page lists the songs")
+
+    def play_button():
+        stack = [row]
+        while stack:
+            it = stack.pop()
+            for c in it.childItems():
+                if c.objectName() == "rowPlay":
+                    return c
+                stack.append(c)
+    btn = play_button()
+    check(btn is not None and not btn.isVisible(), "a row's play button stays out of the way until the mouse is over the row")
+    QTest.mouseMove(w, _item_center(row))
+    wait(lambda: btn.isVisible() and btn.opacity() > 0.9, 2, "hovering a row shows its play button")
+    _click_on(btn, "the first song's play button")
+    playing_media(video=False)
+    check(e.isAudio, "a song plays", e.currentPath)
+    first = e.currentPath
+    w.setProperty("playerOpen", True)
+    pump(1.2)
+    now = H.parts.find("mpNow")
+    check(now.isVisible(), "the stage shows the now-playing block")
+    artist = H.parts.find("mpArtist").property("value")
+    check(isinstance(artist, str) and artist, "with an artist line (or 'unknown artist')", repr(artist))
+    clock = H.parts.find("mpTime")
+    check("/" in clock.property("text"), "the clock shows position / length", clock.property("text"))
+    ring = H.parts.find("mpRing")
+    v0 = ring.property("value")
+    pump(1.2)
+    check(0 <= v0 < ring.property("value") <= 1, "the progress ring advances with the song", f"{v0} -> {ring.property('value')}")
+    car = H.parts.find("musicCarousel")
+    check(car.isVisible() and car.width() > 200, "the carousel of the queue shows")
+    if len(e.queue) > 1:
+        e.next()
+        wait(lambda: e.currentPath != first and e.state == "playing", 5, "next song")
+        pump(0.6)
+        check(H.parts.find("mpTime").property("text").startswith("0:0"), "the clock restarts with the new song",
+              H.parts.find("mpTime").property("text"))
+
+
+@scenario(timeout=60)
+def feature_quick_player_title_and_pin():
+    """The quick player names what it plays; in compact mode its pin keeps it above other windows."""
+    from PySide6.QtCore import Qt
+    q = quick_window()
+    open_quick(H.fx["video"], "preview")
+    wait(lambda: q.isVisible(), 3)
+    title = _find_in(q, "quickTitle")
+    wait(lambda: title.property("value"), 3, "the preview shows a title")
+    check("Filme" in title.property("value"), "the file's own title", title.property("value"))
+    keys = _find_in(q, "quickKeys")
+    held = q.activeFocusItem()
+    check(held is not None and held.objectName() == "quickKeys" and keys.property("focus"),
+          "the preview's key handler is what holds the keyboard in its window",
+          held.objectName() if held is not None else "nothing")
+    check(not _find_in(q, "quickPin").isVisible(), "a preview has no pin (it is always on top)")
+    check(bool(q.flags() & Qt.WindowType.WindowStaysOnTopHint), "and stays on top")
+    from PySide6.QtCore import QMetaObject
+    QMetaObject.invokeMethod(q, "close")
+    wait(lambda: not q.isVisible(), 3)
+    open_quick(H.fx["video2"], "compact")
+    wait(lambda: q.isVisible(), 3)
+    pump(0.6)
+    pin = _find_in(q, "quickPin")
+    check(pin.isVisible(), "the compact player has a pin")
+    on = bool(q.property("pinned"))
+    from PySide6.QtCore import QPoint
+    from PySide6.QtTest import QTest
+    QTest.mouseMove(q, QPoint(q.width() // 2, q.height() // 2)); pump(0.3)
+    _click_on(pin, "pin", q)
+    wait(lambda: bool(q.property("pinned")) != on, 2, "the pin toggles")
+    pump(0.3)
+    check(bool(q.flags() & Qt.WindowType.WindowStaysOnTopHint) == (not on), "and the window follows it",
+          f"pinned={q.property('pinned')}")
+    check(q.isVisible(), "the window is still there after the change")
+    QMetaObject.invokeMethod(q, "close")
+    wait(lambda: not q.isVisible(), 3)
+
+
+def _setup_empty_library(data: Path):
+    return {"folders": []}
+
+
+@scenario(timeout=60, setup=_setup_empty_library)
+def feature_first_run_empty_home_offers_what_to_do():
+    """With nothing in the library, Home offers the two ways in: open files, add a folder. Each
+    asks the app for exactly that."""
+    w = win()
+    lib = H.parts.library
+    wait(lambda: not lib._scanning, 15)
+    w.setProperty("page", 0)
+    pump(0.8)
+    home = H.parts.find("homePage")
+    asked = []
+    home.openFiles.connect(lambda: asked.append("files"))
+    home.openFolder.connect(lambda: asked.append("folder"))
+    for name, what in (("emptyOpenFiles", "files"), ("emptyAddFolder", "folder")):
+        b = _visible_item(name)
+        check(b is not None, f"the empty Home shows '{name}'")
+        _click_on(b, name)
+        pump(0.6)
+        check(asked and asked[-1] == what, f"{name} asks to open {what}", str(asked))
+        _close_native_dialogs()
+    check(asked == ["files", "folder"], "each button asked once", str(asked))
+
+
+def _close_native_dialogs():
+    """Close any file / folder dialog the app opened (they belong to this process only)."""
+    from PySide6.QtCore import QMetaObject, QObject
+    for o in H.parts.qml.rootObjects()[0].findChildren(QObject):
+        name = o.metaObject().className()
+        if "FileDialog" in name or "FolderDialog" in name:
+            try:
+                if o.property("visible"):
+                    QMetaObject.invokeMethod(o, "close")
+            except RuntimeError:
+                pass
+    pump(0.5)
 
 
 @scenario(timeout=60, solo=True)

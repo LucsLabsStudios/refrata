@@ -1803,9 +1803,14 @@ def t47_in_app_update_check_download_verify_install():
         check(up.latest == "9.9.9" and up.canSelfUpdate, "latest version parsed", up.latest)
         banner = C.parts.find("updateBanner")
         wait(lambda: banner.property("opacity") > 0.95, 5, "update banner slides in")
+        title = C.parts.find("updateTitle")
+        offered = title.property("text")
+        check("9.9.9" in offered, "the banner names the version on offer", offered)
         ui_click("updateAction")
         wait(lambda: up.state in ("ready", "error"), 10, "download finished")
         check(up.state == "ready", "installer downloaded and verified", up.error)
+        check("9.9.9" in title.property("text") and title.property("text") != offered,
+              "the banner's title follows the download to 'ready'", title.property("text"))
         target = Path(up.downloadedPath)
         check(target.exists() and hashlib.sha256(target.read_bytes()).hexdigest() == sha,
               "downloaded file matches the published SHA-256")
