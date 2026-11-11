@@ -16,7 +16,15 @@ RUN_NAME = "Refrata"
 
 
 def _exe() -> str | None:
-    return sys.executable if getattr(sys, "frozen", False) else None
+    # (the tests exercise the same code from the source tree, on their own registry key)
+    return sys.executable if getattr(sys, "frozen", False) or _testing() else None
+
+
+def _run_key() -> str:
+    """Where "start with Windows" is written. The test batteries get a throwaway key of their own
+    (per process: they run side by side), never the user's real Run entry."""
+    import os
+    return rf"Software\RefrataTest\Run-{os.getpid()}" if _testing() else RUN_KEY
 
 
 def _autostart_file() -> Path:
@@ -124,11 +132,11 @@ class Tray(QObject):
         if sys.platform == "linux":
             f = _autostart_file()
             return str(f) if f.exists() else None
-        if sys.platform != "win32" or _testing():
+        if sys.platform != "win32":
             return None
         import winreg
         try:
-            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY) as k:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, _run_key()) as k:
                 return winreg.QueryValueEx(k, RUN_NAME)[0]
         except OSError:
             return None
@@ -144,9 +152,9 @@ class Tray(QObject):
                 f.unlink(missing_ok=True)
             if on and not self.background:
                 self._settings.setValue("background", True)
-        elif sys.platform == "win32" and exe and not _testing():
+        elif sys.platform == "win32" and exe:
             import winreg
-            with winreg.CreateKey(winreg.HKEY_CURRENT_USER, RUN_KEY) as k:
+            with winreg.CreateKey(winreg.HKEY_CURRENT_USER, _run_key()) as k:
                 if on:
                     winreg.SetValueEx(k, RUN_NAME, 0, winreg.REG_SZ, f'"{exe}" --background')
                 else:

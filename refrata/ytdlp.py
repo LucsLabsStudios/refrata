@@ -134,7 +134,15 @@ def available() -> bool:
     return bool(_installed()) or "yt_dlp" in sys.modules or importlib.util.find_spec("yt_dlp") is not None
 
 
+PYPI_HOSTS = ("pypi.org", "files.pythonhosted.org")
+
+
 def _get(url: str, limit: int, timeout=30) -> bytes:
+    # the wheel's address comes from PyPI's answer: only HTTPS, only PyPI's own hosts (the tests
+    # point REFRATA_PYPI_URL at a local stand-in)
+    parts = urllib.parse.urlsplit(url)
+    if not os.environ.get("REFRATA_PYPI_URL") and (parts.scheme != "https" or parts.hostname not in PYPI_HOSTS):
+        raise RuntimeError("refused: not an HTTPS address at PyPI")
     req = urllib.request.Request(url, headers={"User-Agent": UA})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         data = r.read(limit + 1)

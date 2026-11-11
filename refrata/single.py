@@ -14,7 +14,6 @@ claim_or_hand_over() decides which one a launch is, before anything heavy loads:
 from __future__ import annotations
 
 import json
-import os
 import time
 import uuid
 
@@ -135,7 +134,7 @@ class InstanceServer(QObject):
             msg = json.loads(line.decode("utf8"))
             files = [str(x) for x in msg.get("open", [])]
             mid = str(msg.get("id", ""))
-        except (ValueError, AttributeError):
+        except (ValueError, AttributeError, TypeError):
             s.write(b"bad\n")
             return
         s.write(b"ok\n")

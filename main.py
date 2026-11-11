@@ -65,7 +65,7 @@ from refrata.engine import Engine  # noqa: E402
 from refrata.library import Library  # noqa: E402
 from refrata.nativelog import redirect_native_stderr  # noqa: E402
 from refrata.settings import DATA_DIR, Settings  # noqa: E402
-from refrata.single import InstanceServer, send_to_running, server_name  # noqa: E402
+from refrata.single import InstanceServer  # noqa: E402
 from refrata.theme import Theme  # noqa: E402
 from refrata.updater import Updater  # noqa: E402
 from refrata.quicklook import QuickLook  # noqa: E402
@@ -223,6 +223,7 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
     if preopen:
         # libVLC opens the file on its own threads while the interface below is built (~2 s): the
         # first picture is ready when the window is, instead of a second or so after it
+        engine.holdStart()               # ...and waits there until the window is on screen
         engine.openFiles(preopen, 0)
         trace.mark("build: file handed to libVLC")
     library = Library(settings)
@@ -311,6 +312,15 @@ def hard_exit(code: int = 0):
     for s in (sys.stdout, sys.stderr):
         try:
             s.flush()
+        except Exception:
+            pass
+    cov = sys.modules.get("coverage")   # a measured test run (tools/coverage_run.py): keep its data
+    if cov is not None:
+        try:
+            current = cov.Coverage.current()
+            if current is not None:
+                current.stop()
+                current.save()
         except Exception:
             pass
     if sys.platform == "win32":
@@ -445,6 +455,20 @@ def main():
         # already opening (build): only show it the way the app does for files it is handed
         if not engine.isAudio and not is_audio_path(preopen[0]):
             parts.win.setProperty("playerOpen", True)
+        # held on its first picture since build(): it starts with the window's first frame on screen
+        # (or after a moment, should that frame never be reported)
+        once = {"done": False}
+
+        def start_playing():
+            if not once["done"]:
+                once["done"] = True
+                engine.releaseStart()
+                try:
+                    parts.win.frameSwapped.disconnect(start_playing)
+                except (RuntimeError, TypeError):
+                    pass
+        parts.win.frameSwapped.connect(start_playing)
+        QTimer.singleShot(4000, start_playing)
     elif files:
         parts.ctl.handOver(files)
 
@@ -458,6 +482,9 @@ def main():
             finally:
                 app.quit()
 
+        # the same counters once playback has settled: the difference to the end is playback alone
+        QTimer.singleShot(min(3500, args.delay // 2), lambda: print(
+            f"[warm] frames={engine._frames_seen} dropped={engine._dropped}", flush=True))
         QTimer.singleShot(args.delay, shot)
 
     app.aboutToQuit.connect(parts.cleanup)

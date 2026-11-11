@@ -1,0 +1,11 @@
+# coverage of the app's Python while the test batteries run (tools/coverage_run.py)
+[run]
+source = refrata
+    main
+parallel = True
+concurrency = thread
+data_file = build/cov/.coverage
+omit = refrata/_keys.py
+
+[report]
+skip_empty = True

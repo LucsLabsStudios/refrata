@@ -42,8 +42,14 @@ def _unc_host(path: str) -> str:
     return ""
 
 
+MAX_PLAYLIST = 16 * 1024 * 1024   # a list of paths is kilobytes; a video renamed .m3u is not read whole
+
+
 def _read_text(path):
-    raw = open(path, "rb").read()
+    with open(path, "rb") as f:
+        raw = f.read(MAX_PLAYLIST + 1)
+    if len(raw) > MAX_PLAYLIST:
+        raise OSError("playlist too large")
     for enc in ("utf-8-sig", "cp1252", "latin-1"):
         try:
             return raw.decode(enc)
@@ -76,6 +82,10 @@ def read_playlist(path: str) -> list[str]:
                 found.append((int(m.group(1)), m.group(2)))
         items = [_resolve(v, base) for _, v in sorted(found)]
     elif ext == ".xspf":
+        # a playlist needs no DTD: one that declares entities is the "billion laughs" trick (a few
+        # lines that expand into gigabytes while being parsed)
+        if "<!DOCTYPE" in text or "<!ENTITY" in text:
+            return []
         try:
             root = ET.fromstring(text)
         except ET.ParseError:

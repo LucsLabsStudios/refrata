@@ -2052,6 +2052,145 @@ def Qt_arg_bool(v):
     return Q_ARG("QVariant", v)
 
 
+@scenario(timeout=60)
+def feature_start_with_the_system_entry():
+    """"Iniciar com o Windows" writes the entry that starts Refrata in the tray, and removes it again.
+    In its own throwaway registry key: the person's real Run entry is read before and after and
+    must not change."""
+    if sys.platform != "win32":
+        return
+    import winreg
+    from refrata import tray as T
+
+    def real():
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, T.RUN_KEY) as k:
+                return winreg.QueryValueEx(k, T.RUN_NAME)[0]
+        except OSError:
+            return None
+
+    def mine():
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, T._run_key()) as k:
+                return winreg.QueryValueEx(k, T.RUN_NAME)[0]
+        except OSError:
+            return None
+    before = real()
+    check(T._run_key() != T.RUN_KEY and "RefrataTest" in T._run_key(), "the tests write to their own key", T._run_key())
+    tray = H.parts.tray
+    check(tray.canAutostart and tray.autostart is False, "off to begin with")
+    tray.autostart = True
+    value = mine()
+    check(value is not None and value.endswith(" --background") and value.startswith('"'),
+          "on: the entry starts this Refrata in the tray", str(value))
+    check(os.path.isfile(value.split('"')[1]), "and points at a program that exists", str(value))
+    check(tray.autostart is True and tray.background is True, "the switch shows on, and staying in the tray comes with it")
+    tray.background = False                     # leaving the tray takes the entry away too
+    check(mine() is None and tray.autostart is False, "staying in the tray off removes the entry")
+    tray.autostart = True
+    tray.autostart = False
+    check(mine() is None, "off: the entry is gone")
+    try:
+        winreg.DeleteKey(winreg.HKEY_CURRENT_USER, T._run_key())
+    except OSError:
+        pass
+    check(real() == before, "the person's real start-with-Windows entry was never touched", f"{before!r} -> {real()!r}")
+
+
+@scenario(timeout=90, solo=True, env={"REFRATA_NO_HOOK": ""})
+def feature_space_preview_from_a_real_explorer_window():
+    """The Space preview end to end, short of pressing a real key: a real Explorer window on a folder
+    of the test media, a file selected in it, Explorer in front. The foreground watcher installs the
+    keyboard hook, the hook's own handler (given a Space) reads the selection through Explorer's
+    automation and the preview opens on that file, with the folder's other media to browse."""
+    if sys.platform != "win32":
+        return
+    import ctypes
+    import subprocess
+    from ctypes import wintypes
+    from PySide6.QtAxContainer import QAxObject
+    from refrata import quicklook as Q
+    ql, q, e = H.parts.quicklook, quick_window(), eng()
+    u = ctypes.windll.user32
+    folder = Path(H.fx["media_root"]) / "Filmes"
+    target = Path(H.fx["video2"])
+    check(target.parent == folder, "the test video lives in the folder opened", str(target))
+    if not ql.active:
+        ql.start()
+    check(ql.active, "the preview is watching for Explorer")
+
+    before = set()
+    shell = QAxObject("Shell.Application")
+    wins = shell.querySubObject("Windows()")
+    for i in range(int(wins.property("Count") or 0)):
+        w_ = wins.querySubObject("Item(QVariant)", i)
+        if w_ is not None and not w_.isNull():
+            before.add(int(w_.property("HWND") or 0))
+    subprocess.Popen(f'explorer.exe /select,"{target}"')   # the folder, with the file selected
+    mine = [None]
+
+    def opened():
+        ws = shell.querySubObject("Windows()")
+        for i in range(int(ws.property("Count") or 0)):
+            w_ = ws.querySubObject("Item(QVariant)", i)
+            if w_ is None or w_.isNull():
+                continue
+            try:
+                same = os.path.normcase(str(w_.querySubObject("Document").querySubObject("Folder").querySubObject("Self").property("Path"))) == os.path.normcase(str(folder))
+            except Exception:
+                same = False
+            if same and int(w_.property("HWND") or 0) not in before:
+                mine[0] = w_
+                return True
+        return False
+    wait(opened, 15, "an Explorer window opens on the test folder")
+    hwnd = int(mine[0].property("HWND"))
+    mine[0] = wins = shell = None               # no automation object of ours outlives the window
+    try:
+        pump(1.0)
+        from refrata.app import force_foreground
+        end = time.time() + 6
+        while time.time() < end and u.GetForegroundWindow() != hwnd:
+            force_foreground(hwnd)
+            pump(0.3)
+        check(u.GetForegroundWindow() == hwnd, "the Explorer window is in front")
+        wait(lambda: ql._hook is not None, 8, "with Explorer in front, the keyboard hook is on")
+        kind, top, focus = Q.foreground_context()
+        H.notes.append(f"foreground: {kind}, focus class {focus}")
+        check(kind == "explorer" and top == hwnd, "the foreground is recognised as an Explorer folder", f"{kind} {top} vs {hwnd}")
+        sel = Q.selected_items(hwnd, "explorer", Q.active_tab_title(getattr(Q.foreground_context, "focus_hwnd", 0)))
+        check([os.path.normcase(p) for p in sel] == [os.path.normcase(str(target))], "the selection read from Explorer is the file",
+              str(sel))
+        check(Q.should_preview(kind, focus, 5), "with the file list focused, Space means preview", focus)
+        # the hook's handler, given a Space key-down as Windows would hand it
+        k = Q.KBDLLHOOKSTRUCT(vkCode=Q.VK_SPACE)
+        t0 = time.perf_counter()
+        ql._on_key(0, Q.WM_KEYDOWN, ctypes.addressof(k))
+        wait(lambda: q.isVisible(), 4, "Space on the selected file opens the preview")
+        H.notes.append(f"Space → preview window: {(time.perf_counter() - t0) * 1000:.0f} ms")
+        check(os.path.normcase(q.property("path")) == os.path.normcase(str(target)), "previewing the selected file", q.property("path"))
+        files = q.property("files")
+        files = files.toVariant() if hasattr(files, "toVariant") else files
+        check(len(files) >= 2, "with the folder's other media to browse", str(len(files)))
+        seek = q.findChild(__import__("PySide6.QtCore", fromlist=["QObject"]).QObject, "quickSeek")
+        wait(lambda: seek.property("value") > 300, 6, "the preview plays")
+        check(time.perf_counter() - t0 < 4, "from Space to a playing preview in a few seconds")
+        # typing a name in Explorer is not a preview: a Space right after letters does nothing
+        from PySide6.QtCore import QMetaObject
+        QMetaObject.invokeMethod(q, "close")
+        wait(lambda: not q.isVisible(), 3)
+        wait(lambda: u.GetForegroundWindow() == hwnd, 4, "closing the preview gives Explorer the focus back")
+        letter = Q.KBDLLHOOKSTRUCT(vkCode=0x41)
+        ql._on_key(0, Q.WM_KEYDOWN, ctypes.addressof(letter))
+        ql._on_key(0, Q.WM_KEYDOWN, ctypes.addressof(k))
+        pump(1.0)
+        check(not q.isVisible(), "a Space right after a letter (typing a file name) opens nothing")
+    finally:
+        u.PostMessageW(wintypes.HWND(hwnd), 0x0010, 0, 0)   # WM_CLOSE: only the window this test opened
+    pump(0.8)
+    wait(lambda: ql._hook is None or u.GetForegroundWindow() != hwnd, 4)
+
+
 @scenario(timeout=60, solo=True)
 def feature_pip_keys_drive_the_video_once():
     """With the PiP window in front, its keys (Space, → ←) act on the video exactly once: the
@@ -2587,7 +2726,8 @@ def run_one(sc: Scenario, fixtures: dict, exe: str | None, work: Path, extra_env
     if not (data / "settings.json").exists():
         settings.update(extra or {})
         (data / "settings.json").write_text(json.dumps({"settings": settings, "history": []}), encoding="utf8")
-    cmd = [exe] if exe else [sys.executable, str(ROOT / "main.py")]
+    cmd = [exe] if exe else ([sys.executable, "-m", "coverage", "run", "--rcfile", str(ROOT / "tools" / "coveragerc"), str(ROOT / "main.py")]
+                              if os.environ.get("REFRATA_COVERAGE") else [sys.executable, str(ROOT / "main.py")])
     cmd += ["--scenario", sc.name, "--log", str(base / "app.log")]
     t0 = time.time()
     try:

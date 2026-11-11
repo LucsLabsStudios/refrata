@@ -111,7 +111,8 @@ def main():
     rest = [n for n in names if n not in every]
     batch = [n for n in rest if n not in keys]
     alone = [n for n in rest if n in keys]
-    cmd = [a.exe] if a.exe else [sys.executable, str(ROOT / "main.py")]
+    cmd = [a.exe] if a.exe else ([sys.executable, "-m", "coverage", "run", "--rcfile", str(ROOT / "tools" / "coveragerc"), str(ROOT / "main.py")]
+                              if os.environ.get("REFRATA_COVERAGE") else [sys.executable, str(ROOT / "main.py")])
     logdir = Path(tempfile.mkdtemp(prefix="refrata_e2e_par_"))
     groups = shares(batch, a.jobs, last_times()) if a.jobs > 1 else ([batch] if batch else [])
     t_all = time.time()

@@ -585,6 +585,8 @@ class Engine(QObject):
         self._expected, self._expected_until = None, 0.0
         self._start_at = 0
         self._item_start = 0
+        self._hold_start = False             # the next item waits on its first picture (holdStart)
+        self._held = False
         self._pause_when_playing = False   # a rebuild while paused resumes paused
         self._error_handled = False
         self._loop_a, self._loop_b = -1, -1   # A-B repeat (ms), -1 = unset
@@ -696,15 +698,17 @@ class Engine(QObject):
             if spu not in (-1, 0):
                 QTimer.singleShot(1200, self._restore_subtitle)
 
-    def _restore_subtitle(self):
+    def _restore_subtitle(self, tries=12):
         """After a rebuild: subtitles were on, so turn them on again (the hand-added file comes
         back as the last subtitle track)."""
         if self._mp.video_get_spu() in (-1, 0):
             self._refresh_tracks()
             tracks = [t["id"] for t in self._sub_tracks if t["id"] != -1]
             if tracks:
-                self._mp.video_set_spu(tracks[-1])
-                self.tracksChanged.emit()
+                self._hold_spu(tracks[-1])        # applied until it holds
+            elif tries > 0:
+                # a slow machine has not listed the tracks yet: one try 1.2 s in lost the subtitle
+                QTimer.singleShot(500, lambda: self._restore_subtitle(tries - 1))
 
     # ------------------------------------------------------------ chapters
     chaptersChanged = Signal()
@@ -1167,6 +1171,19 @@ class Engine(QObject):
     def loopB(self):
         return self._loop_b
 
+    def holdStart(self):
+        """The next item opens paused on its first picture, until releaseStart(). For a file given
+        on the command line: libVLC opens it while the window is still being built, and without
+        this the first second played (with sound) before there was a window to see it in."""
+        self._hold_start = True
+
+    def releaseStart(self):
+        self._hold_start = False
+        if self._held:
+            self._held = False
+            self._mp.set_pause(0)
+            self._expect("playing")
+
     @Slot(list, int, int)
     def openFilesAt(self, items, start, ms):
         """openFiles, starting the first track at `ms` (hand-off from the quick player)."""
@@ -1426,6 +1443,11 @@ class Engine(QObject):
         # over it. The GPU then decodes and libVLC copies the picture back: ~70% less CPU at 4K60.
         # It cannot draw subtitles on those pictures, though: an item showing subtitles decodes in
         # software (see _to_software).
+        self._held = False
+        if self._hold_start and not casting and not e["audio"]:
+            self._hold_start = False
+            self._held = True
+            media.add_option(":start-paused")
         was_hw = bool(self._hw_item)
         self._hw_item = ""
         if self._settings.value("hwdec", True) and not casting and e["path"] not in self._sw_paths:

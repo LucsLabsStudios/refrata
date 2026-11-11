@@ -125,13 +125,22 @@ def run_tests() -> bool:
     """Both suites against the built app, as a user would get it."""
     exe = DIST / "Refrata" / "Refrata.exe"
     env = dict(os.environ, REFRATA_NO_MEDIAKEYS="1")
+    print("\n== testes de unidade e cobertura dos controles da interface", flush=True)
+    unit = subprocess.run([sys.executable, "tests/unit.py"], cwd=str(ROOT)).returncode
+    ui = subprocess.run([sys.executable, "tools/ui_coverage.py"], cwd=str(ROOT)).returncode
+    if unit or ui:
+        return False
     print("\n== testes e2e (app empacotado; vários processos ao mesmo tempo, os de teclado no fim)", flush=True)
     e2e = subprocess.run([sys.executable, "tests/e2e_parallel.py", "--exe", str(exe),
                           "--report", str(ROOT / "build" / "e2e-release.json")], cwd=str(ROOT), env=env).returncode
     print("\n== testes de robustez (app empacotado)", flush=True)
     robust = subprocess.run([sys.executable, "tests/robust.py", "--exe", str(exe),
                              "--report", str(ROOT / "build" / "robust-release.json")], cwd=str(ROOT), env=env).returncode
-    return e2e == 0 and robust == 0
+    # last, alone (it measures): the app started the way a person starts it, with time and CPU budgets
+    print("\n== abertura real e desempenho (app empacotado)", flush=True)
+    launch = subprocess.run([sys.executable, "tests/launch.py", "--exe", str(exe),
+                             "--report", str(ROOT / "build" / "launch-release.json")], cwd=str(ROOT)).returncode
+    return e2e == 0 and robust == 0 and launch == 0
 
 
 WSL_DISTRO = os.environ.get("REFRATA_WSL", "Ubuntu-24.04")
