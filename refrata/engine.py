@@ -1823,11 +1823,16 @@ class Engine(QObject):
         if self._want_pause_at:
             # libVLC drops or delays a pause that lands while it is busy (a seek being decoded):
             # the person asked for it, so it is asked again until it holds
-            if st == vlc.State.Paused or st not in (vlc.State.Playing, vlc.State.Buffering):
+            if st == vlc.State.Paused:
                 self._want_pause_at = 0.0
-            elif time.time() - self._want_pause_at > 0.4:
-                self._mp.set_pause(1)
-                self._want_pause_at = time.time()
+            elif st in (vlc.State.Playing, vlc.State.Buffering):
+                if time.time() - self._want_pause_at > 0.4:
+                    self._mp.set_pause(1)
+                    self._want_pause_at = time.time()
+            elif not (self._open_deadline or self._state == "loading"):
+                self._want_pause_at = 0.0   # stopped, ended, failed: nothing left to pause
+            # else the item is still loading (libVLC has nothing to pause yet): the request waits
+            # for it. It used to be dropped here, and the item then played on.
         if self._resolving:
             # yt-dlp is still looking up a web page's stream
             if time.time() > self._open_deadline:

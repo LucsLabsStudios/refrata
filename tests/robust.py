@@ -1199,6 +1199,10 @@ def feature_cast_to_a_tv_and_back_by_mouse():
     from PySide6.QtCore import QPoint
     from PySide6.QtTest import QTest
     e, w = eng(), win()
+    # only the fake TV below may answer: a real Chromecast on the test machine's network used to
+    # join the list mid-scenario (cast_0 / the renderer list then were not what the steps expected)
+    e._stop_cast_discovery()
+    e._discoverer_cb = lambda event: None
     pv = H.parts.find("playerView")
     msgs = []
     e.message.connect(msgs.append)
@@ -2186,6 +2190,57 @@ def feature_open_from_the_tray_is_quick():
         check(picture < 0.8, f"{gap} s after closing: the first picture comes within 0.8 s", f"{picture * 1000:.0f} ms")
         playing_media(video=True)
     H.parts.tray.background = False
+
+
+@scenario(timeout=120)
+def feature_pause_asked_while_an_item_loads_holds():
+    """Pause pressed while the next item is still loading (libVLC has nothing to pause yet) is kept
+    and applied as soon as the item plays; it used to be dropped and the item played on."""
+    import vlc
+    e, w = eng(), win()
+    a, b = str(H.fx["video"]), str(H.fx["video2"])
+    w.setProperty("playerOpen", True)
+    e.openFiles([a])
+    playing_media(video=True)
+    for i, gap in enumerate((0.0, 0.01, 0.03, 0.06, 0.12, 0.25, 0.5)):
+        nxt = b if i % 2 == 0 else a
+        e.openFiles([nxt])
+        pump(gap)
+        was = e.state
+        e.pause()
+        wait(lambda: e._mp.get_state() == vlc.State.Paused and e.state == "paused", 6,
+             f"a pause asked {gap} s after opening (state then: {was}) holds once the item is up")
+        check(Path(e.currentPath).name == Path(nxt).name, "on the item that was opened")
+        t = e.time
+        pump(0.7)
+        check(e.state == "paused" and e.time - t < 120, f"{gap} s: and it stays paused", f"{e.state}, {t} -> {e.time} ms")
+        e.play()
+        wait(lambda: e.state == "playing" and e.time > t + 150, 6, f"{gap} s: Play goes on from there")
+    # the very moment it was lost: the request made, and libVLC still opening the item at the next
+    # poll (how soon it reports "playing" varies; here the poll is shown "opening" once)
+    e.openFiles([a])
+    wait(lambda: e._switching == 0, 5, "the item handed to libVLC")
+    e.pause()
+    real = e._mp.get_state
+    e._mp.get_state = lambda: vlc.State.Opening
+    e._state, e._open_deadline = "loading", time.time() + 8
+    try:
+        e._tick()
+    finally:
+        e._mp.get_state = real
+    check(e._want_pause_at > 0, "a poll that finds the item still opening keeps the pause that was asked for")
+    wait(lambda: e._mp.get_state() == vlc.State.Paused and e.state == "paused", 6, "and it is applied when the item is up")
+    # asked for, then another item chosen: the pause belonged to the one left behind
+    e.openFiles([a])
+    e.pause()
+    e.openFiles([b])
+    playing_media(video=True)
+    wait(lambda: e.state == "playing" and e.time > 400, 6, "a newer item plays: the pause was for the earlier one")
+    # nothing loading and nothing playing: a pause has nothing to wait for
+    e.stop()
+    e.pause()
+    pump(0.5)
+    check(e._want_pause_at == 0 and e.state == "stopped", "stopped: the request is not kept for later", f"{e.state} {e._want_pause_at}")
 
 
 @scenario(timeout=120)
