@@ -676,7 +676,8 @@ def t18_resume_playback_and_history():
     e.audio_resume_min = 20 * 60_000
     e.seek(39000)
     wait(lambda: e.state in ("ended", "stopped"), 10, "finish long tone")
-    check(s.resume_position(p) == 0, "finished media resets resume point")
+    # (the state can read "ended" from a poll a moment before the end event itself is handled)
+    wait(lambda: s.resume_position(p) == 0, 3, "finished media resets resume point")
     hist = [h["path"] for h in s.history]
     check(p in hist and hist[0] == p, "history ordered newest first")
     s.removeHistory(p)
@@ -2292,8 +2293,16 @@ def t51_linux_media_keys_over_dbus():
         after = props(M.PLAYER_IFACE)
         check(value(after, "mpris:trackid") != track and value(after, "xesam:title") == e.title, "a new track id and title for it",
               f"{value(after, 'mpris:trackid')} {value(after, 'xesam:title')!r}")
+        # (Previous goes back an item only in an item's first seconds; later it restarts the item,
+        # and on a slow machine the checks above take that long)
+        e.seek(0)
+        wait(lambda: e.time < 2500, 5, "back at the start of the second item")
         player("Previous")
         wait(lambda: e.currentIndex == 0 and e.state == "playing", 10, "the Previous key goes back")
+        e.seek(6000)
+        wait(lambda: e.time >= 5500, 6, "well into the first item")
+        player("Previous")
+        wait(lambda: e.time < 4000 and e.currentIndex == 0, 6, "later in an item, Previous restarts it")
         player("OpenUri", "string:" + QUrl.fromLocalFile(b).toString())
         pump(0.3)
         check(opened == [[QUrl.fromLocalFile(b).toString()]], "OpenUri hands the address to the app", str(opened))
