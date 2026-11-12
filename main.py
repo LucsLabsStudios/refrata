@@ -298,8 +298,9 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
     app.focusWindowChanged.connect(lambda w: w is not None and shiboken6.getCppPointer(w)[0] == main_ptr
                                    and opening.mark("window in front"))
     if sys.platform.startswith("linux"):
-        from refrata.mpris import Mpris   # the Linux media keys / media widget (MPRIS2 over D-Bus)
-        mediakeys = Mpris(engine, library, app)
+        # the Linux media keys / media widget (MPRIS2 over D-Bus): typed through jeepney when bundled
+        from refrata.mpris_wire import make as make_mpris
+        mediakeys = make_mpris(engine, library, app)
         mediakeys.raiseRequested.connect(lambda: QTimer.singleShot(0, lambda: root.showMain()))
         mediakeys.openRequested.connect(ctl.handOver)
     else:

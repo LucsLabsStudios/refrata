@@ -121,8 +121,32 @@ def roll_back(changed):
 
 
 # ------------------------------------------------------------------ tests
-def run_tests() -> bool:
-    """Both suites against the built app, as a user would get it."""
+def notify(title: str, text: str):
+    """A Windows notification (bottom right; it takes no focus, unlike a message box, which would
+    have sat in front of the focus tests it announces)."""
+    if sys.platform != "win32":
+        return
+    q = lambda s: s.replace("'", "''").replace("<", "").replace(">", "").replace("&", "e")   # noqa: E731
+    script = ("[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null;"
+              "$x = New-Object Windows.Data.Xml.Dom.XmlDocument;"
+              f"$x.LoadXml('<toast><visual><binding template=\"ToastGeneric\"><text>{q(title)}</text><text>{q(text)}</text></binding></visual></toast>');"
+              "$app = '{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\\WindowsPowerShell\\v1.0\\powershell.exe';"
+              "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($app).Show("
+              "[Windows.UI.Notifications.ToastNotification]::new($x))")
+    subprocess.run(["powershell", "-NoProfile", "-Command", script], capture_output=True)
+
+
+def sandbox_available() -> bool:
+    return (Path(os.environ.get("WINDIR", r"C:\Windows")) / "System32" / "WindowsSandbox.exe").exists()
+
+
+def run_tests(sandbox: bool = False) -> bool:
+    """Both suites against the built app, as a user would get it.
+
+    sandbox: what needs the keyboard focus (the whole e2e battery, the robustness scenarios that run
+    alone) goes to Windows Sandbox (tools/sandbox.py), which has a screen and a focus of its own;
+    the rest runs here meanwhile. The PC stays usable while the gate runs, but for the last minute
+    or so (the one scenario that drives this PC's own Explorer, and the launch timings)."""
     exe = DIST / "Refrata" / "Refrata.exe"
     env = dict(os.environ, REFRATA_NO_MEDIAKEYS="1")
     print("\n== testes de unidade e cobertura dos controles da interface", flush=True)
@@ -130,6 +154,29 @@ def run_tests() -> bool:
     ui = subprocess.run([sys.executable, "tools/ui_coverage.py"], cwd=str(ROOT)).returncode
     if unit or ui:
         return False
+    if sandbox:
+        print("\n== no Windows Sandbox: testes e2e e os cenários de robustez que precisam do foco "
+              "(o PC fica livre); aqui fora, ao mesmo tempo, os demais cenários", flush=True)
+        box = subprocess.Popen([sys.executable, "tools/sandbox.py", "--only", "e2e,robust-focus", "--timeout", "3000"],
+                               cwd=str(ROOT))
+        robust = subprocess.run([sys.executable, "tests/robust.py", "--exe", str(exe), "--part", "rest",
+                                 "--report", str(ROOT / "build" / "robust-release.json")], cwd=str(ROOT), env=env).returncode
+        inside = box.wait()
+        print(f"\n== Windows Sandbox: {'ok' if inside == 0 else 'FALHOU (veja build/sandbox/)'}", flush=True)
+        # the last part drives this PC's own Explorer and measures timings: the sandbox's machine has
+        # to be gone first (a cold start read 6.3 s while it shut down), and the PC left alone
+        print("\n== AGORA DEIXE O PC PARADO (~2 minutos): o Explorer deste PC e a abertura real, medida",
+              flush=True)
+        notify("Refrata: deixe o PC parado por ~2 minutos",
+               "Os últimos testes do lançamento usam o Explorer e medem a abertura. Outra notificação avisa quando terminar.")
+        time.sleep(20)
+        host = subprocess.run([sys.executable, "tests/robust.py", "--exe", str(exe), "--part", "host",
+                               "--report", str(ROOT / "build" / "robust-host-release.json")], cwd=str(ROOT), env=env).returncode
+        launch = subprocess.run([sys.executable, "tests/launch.py", "--exe", str(exe),
+                                 "--report", str(ROOT / "build" / "launch-release.json")], cwd=str(ROOT)).returncode
+        print("\n== pronto: o PC está livre de novo", flush=True)
+        notify("Refrata: PC livre de novo", "Os testes que precisavam do PC parado terminaram.")
+        return inside == 0 and robust == 0 and host == 0 and launch == 0
     print("\n== testes e2e (app empacotado; vários processos ao mesmo tempo, os de teclado no fim)", flush=True)
     e2e = subprocess.run([sys.executable, "tests/e2e_parallel.py", "--exe", str(exe),
                           "--report", str(ROOT / "build" / "e2e-release.json")], cwd=str(ROOT), env=env).returncode
@@ -186,6 +233,8 @@ def main():
     ap.add_argument("--skip-tests", action="store_true")
     ap.add_argument("--draft", action="store_true")
     ap.add_argument("--no-linux", action="store_true", help="Windows only (skip the WSL Linux package)")
+    ap.add_argument("--no-sandbox", action="store_true",
+                    help="run every Windows battery on this PC (needs it idle); default: Windows Sandbox when present")
     args = ap.parse_args()
 
     sys.path.insert(0, str(ROOT / "tools"))
@@ -220,7 +269,7 @@ def main():
     if not args.skip_build or changed:
         run(sys.executable, "tools/build.py", "--no-msix")
     if not args.skip_tests or changed:
-        if not run_tests():
+        if not run_tests(sandbox=not args.no_sandbox and sandbox_available()):
             if changed:
                 roll_back(changed)
             if args.bump:

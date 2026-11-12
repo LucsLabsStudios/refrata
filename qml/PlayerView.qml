@@ -223,11 +223,27 @@ Item {
             if (pv.panel !== "") { pv.panel = ""; return }
             // music mode: the cards and the dock are the controls; a stray click on the
             // backdrop must not pause the song
-            if (!player.isAudio) clickTimer.restart()
+            if (!player.isAudio) {
+                // what the click means is decided now, from what is on screen: applied 230 ms later
+                // (a double click is full screen), a plain toggle went over whatever happened in
+                // between (the Space preview pausing the player: the click then set it playing)
+                clickTimer.wantPlay = !(player.state === "playing" || player.state === "loading")
+                clickTimer.restart()
+            }
         }
         onDoubleClicked: { clickTimer.stop(); pv.toggleFullscreen() }
         onWheel: (w) => { player.volume = player.volume + (w.angleDelta.y > 0 ? 5 : -5); pv.poke() }
-        Timer { id: clickTimer; interval: 230; onTriggered: { player.togglePlay(); pv.poke() } }
+        Timer {
+            id: clickTimer
+            property bool wantPlay: false
+            interval: 230
+            onTriggered: {
+                var on = player.state === "playing" || player.state === "loading"
+                if (wantPlay && !on) player.play()
+                else if (!wantPlay && on) player.pause()
+                pv.poke()
+            }
+        }
     }
 
     // ------------------------------------------------------- music mode stage

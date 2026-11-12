@@ -1691,6 +1691,7 @@ class Engine(QObject):
 
     @Slot()
     def togglePlay(self):
+        self._note("togglePlay")
         self._wake()
         if self._state in ("idle", "ended", "stopped", "error") and self._queue:
             self._play_index(max(0, self._index))
@@ -1711,6 +1712,7 @@ class Engine(QObject):
 
     @Slot()
     def play(self):
+        self._note("play")
         self._wake()
         if self._state in ("idle", "ended", "stopped", "error") and self._queue:
             self._play_index(max(0, self._index))
@@ -1723,6 +1725,7 @@ class Engine(QObject):
 
     @Slot()
     def pause(self):
+        self._note("pause")
         self._wake()
         # asked before the item plays (still opening, or its switch still running): libVLC drops a
         # pause while it opens, and the item played until the retry 0.4 s later. _tick pauses it
@@ -1804,6 +1807,13 @@ class Engine(QObject):
     def frameStep(self):
         self._mp.next_frame()
 
+    def _note(self, what: str):
+        """The last steps of play/pause and of the state, with who asked (a test that fails says why)."""
+        import collections
+        log = self.__dict__.setdefault("_steps", collections.deque(maxlen=40))
+        caller = sys._getframe(2)
+        log.append(f"{time.monotonic():.3f} {what} [{caller.f_code.co_name}:{caller.f_lineno}] state={self._state}")
+
     def _save_resume(self):
         # the item that is playing, not "the queue's item at this index": openFiles replaces the
         # queue before the next item starts, and the position and length of the video left behind
@@ -1850,15 +1860,19 @@ class Engine(QObject):
             # the person asked for it, so it is asked again until it holds
             if st == vlc.State.Paused:
                 self._want_pause_at = 0.0
-            elif st in (vlc.State.Playing, vlc.State.Buffering):
-                early = getattr(self, "_pause_early", False) and st == vlc.State.Playing
-                if early or time.time() - self._want_pause_at > 0.4:
+                self._pause_early = False
+            elif st in (vlc.State.Playing, vlc.State.Buffering, vlc.State.Opening):
+                # asked again as soon as libVLC plays: at once when the pause came before it played,
+                # else every 0.15 s (a pause landing while it buffers is dropped as well)
+                early = getattr(self, "_pause_early", False)
+                if st == vlc.State.Playing and (early or time.time() - self._want_pause_at > 0.15):
                     self._mp.set_pause(1)
                     self._want_pause_at = time.time()
                     self._pause_early = False
-                if early:
-                    new_state = "paused"   # it was never meant to play: no "playing" on screen meanwhile
-                    self._expect("paused")
+                # what the person asked for, while libVLC gets there: a buffering moment right after
+                # the click cleared the shown "paused", and "playing" came back on screen until the
+                # next try (and the picture moved meanwhile)
+                new_state = "paused"
             elif not (self._open_deadline or self._state == "loading"):
                 self._want_pause_at = 0.0   # stopped, ended, failed: nothing left to pause
             # else the item is still loading (libVLC has nothing to pause yet): the request waits
@@ -1897,6 +1911,7 @@ class Engine(QObject):
         if new_state == "playing":
             opening.mark("libVLC playing")
         if new_state != self._state:
+            self._note(f"state {self._state} -> {new_state} (libVLC {getattr(st, 'name', st)})")
             if new_state == "playing":
                 self._audio_dirty = True   # a new track may bring a new audio output
             self._state = new_state

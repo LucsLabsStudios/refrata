@@ -2,6 +2,8 @@ PySide6==6.8.1
 python-vlc==3.0.21203
 # links from YouTube, Vimeo… (Streams page); keep it current: sites change often
 yt-dlp==2026.10.26
+# Linux media keys (MPRIS) with the D-Bus types the spec asks for (refrata/mpris_wire.py); pure Python
+jeepney==0.9.0; sys_platform == "linux"
 # Windows media overlay + keyboard media keys (SystemMediaTransportControls); Windows only
 winrt-runtime==4.1.0; sys_platform == "win32"
 winrt-Windows.Foundation==4!10.0.28000.2957; sys_platform == "win32"

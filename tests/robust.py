@@ -3490,7 +3490,8 @@ def monkey_random_use():
                 moved = e.currentPath != path or (state == "paused" and (e.state != "paused" or abs(e.time - at) > 1500))
                 if moved:
                     raise Fail(f"a key in the preview drove the player behind it: {Path(path).name} {state} {at} -> "
-                               f"{Path(e.currentPath).name} {e.state} {e.time}; steps: " + " | ".join(log[-8:]))
+                               f"{Path(e.currentPath).name} {e.state} {e.time}; steps: " + " | ".join(log[-8:])
+                               + "\n   engine, last steps:\n      " + "\n      ".join(list(getattr(e, "_steps", []))[-14:]))
             elif not still:
                 behind = None
 
@@ -3628,6 +3629,11 @@ def _last_durations(report: str) -> dict:
     return {}
 
 
+# Scenarios that need the keyboard focus but cannot run in Windows Sandbox: the sandbox's Explorer
+# does not report its selection to the Space preview's reader
+HOST_ONLY = {"feature_space_preview_from_a_real_explorer_window"}
+
+
 def main_cli():
     ap = argparse.ArgumentParser()
     ap.add_argument("-k", default="")
@@ -3638,12 +3644,19 @@ def main_cli():
     ap.add_argument("--report", default="")
     ap.add_argument("--jobs", type=int, default=min(8, max(1, (os.cpu_count() or 2) // 3)),
                     help="scenarios at once (each is its own app process); 1 = one by one")
+    ap.add_argument("--part", choices=("all", "focus", "rest", "host"), default="all",
+                    help="focus: the scenarios that need the keyboard focus and can run in Windows Sandbox "
+                         "(tools/sandbox.py); host: those that need the focus but only run on this PC (HOST_ONLY); "
+                         "rest: all the others, which leave the PC usable meanwhile")
     a = ap.parse_args()
     t = time.time()
     fixtures = _fixtures(Path(a.cache))
     print(f"fixtures ready ({time.time() - t:.0f}s); skipped formats: {fixtures['fmt'].get('skipped')}", flush=True)
     keys = [k for k in a.k.split(",") if k] or [""]
     chosen = [s for n, s in SCENARIOS.items() if any(k in n for k in keys)]
+    if a.part != "all":
+        part = lambda s: "host" if s.name in HOST_ONLY else "focus" if s.solo else "rest"   # noqa: E731
+        chosen = [s for s in chosen if part(s) == a.part]
     if "monkey" in a.k or not a.k:
         for s in chosen:
             if s.name.startswith("monkey"):

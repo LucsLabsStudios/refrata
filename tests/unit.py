@@ -836,8 +836,8 @@ def default_app_is_asked_of_windows_itself():
     from refrata import assoc as A
     saved = os.environ.pop("REFRATA_E2E_TMP", None)   # the real query, not the battery's sandbox
     try:
-        txt = A._effective_progid(".txt")
-        check(txt and txt.lower() != "unknown", "every Windows opens .txt with something", repr(txt))
+        exe = A._effective_progid(".exe")   # (.txt opens with nothing in a bare Windows Sandbox)
+        check(exe.lower() == "exefile", "Windows answers what opens a type (.exe: exefile)", repr(exe))
         none = A._effective_progid(".refrata-no-such-type")
         check(not A._is_ours(none), "a type nobody registered is not ours", repr(none))
     finally:
@@ -901,6 +901,38 @@ def linux_default_app_counts_each_type_off_the_ui_thread():
         check(not a._linux_busy and a.registered, "a broken xdg-mime does not leave the check hanging")
     finally:
         A._linux_apps_dir, A._xdg_default = real_dir, real_q
+
+
+@test
+def mpris_values_carry_the_types_the_spec_asks_for():
+    """refrata/mpris_wire.py: every MPRIS value goes out with its D-Bus signature. Through QtDBus the
+    length went as int32 and playerctl's duration() refused it ("can only be called on track
+    position values"); checked on a session bus by tests/e2e.py t51."""
+    _qt()
+    from types import SimpleNamespace as NS
+    from refrata import mpris_wire as W
+    e = NS(state="playing", hasMedia=True, title="Canção", artist="Artista", album="Álbum", artwork="", currentPath=str(TMP / "a é.mp3"),
+           length=180000, time=12345, volume=80, muted=False, rate=1.0, shuffle=False, repeat=0)
+    m = W.WireMpris.__new__(W.WireMpris)          # the values only: no bus here
+    m.engine, m._library, m._track = e, None, 3
+    md = m.metadata()
+    check(md["mpris:length"] == ("x", 180_000_000), "the length: int64 microseconds", str(md.get("mpris:length")))
+    check(md["mpris:trackid"] == ("o", "/org/mpris/MediaPlayer2/Track/3") and md["xesam:artist"] == ("as", ["Artista"])
+          and md["xesam:title"] == ("s", "Canção") and md["xesam:url"][0] == "s" and md["xesam:url"][1].startswith("file:///"),
+          "track id an object path, artist a list, url a file URL", str(md))
+    p = W.WireMpris._props(m, W.PLAYER_IFACE)
+    check(p["Position"] == ("x", 12_345_000) and p["Volume"] == ("d", 0.8) and p["PlaybackStatus"] == ("s", "Playing")
+          and p["CanSeek"] == ("b", True) and p["Rate"][0] == "d", "the player's properties typed", str(p)[:300])
+    check({k for k in p} >= {"PlaybackStatus", "LoopStatus", "Rate", "Shuffle", "Metadata", "Volume", "Position", "MinimumRate",
+                             "MaximumRate", "CanGoNext", "CanGoPrevious", "CanPlay", "CanPause", "CanSeek", "CanControl"},
+          "every property the spec lists")
+    for name in p:
+        check(f'name="{name}"' in W._INTROSPECT, f"{name} is in the introspection data")
+    e.hasMedia, e.state = False, "idle"
+    check(m.metadata() == {"mpris:trackid": ("o", W.NO_TRACK)} and W.WireMpris._props(m, W.PLAYER_IFACE)["PlaybackStatus"] == ("s", "Stopped"),
+          "nothing loaded: no track, stopped")
+    if not sys.platform.startswith("linux"):
+        check(not W.available(), "only on Linux")
 
 
 @test

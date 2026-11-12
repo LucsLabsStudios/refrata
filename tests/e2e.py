@@ -2204,7 +2204,11 @@ def t51_linux_media_keys_over_dbus():
     e = eng()
     saved = os.environ.pop("REFRATA_NO_MEDIAKEYS", None)   # the battery runs without it; this test brings one up
     try:
-        m = M.Mpris(e, C.parts.library, C.parts.app)
+        from refrata import mpris_wire as W
+        m = W.make(e, C.parts.library, C.parts.app)   # what the app runs: typed (jeepney) when bundled
+        typed = isinstance(m, W.WireMpris)
+        if FROZEN:
+            check(typed, "the package carries jeepney: the typed MPRIS service runs", type(m).__name__)
     finally:
         if saved is not None:
             os.environ["REFRATA_NO_MEDIAKEYS"] = saved
@@ -2269,6 +2273,24 @@ def t51_linux_media_keys_over_dbus():
         check(value(now, "xesam:title") == e.title, "the title on screen is the title sent", f"{value(now, 'xesam:title')!r} vs {e.title!r}")
         check(value(now, "mpris:length") == str(int(e.length) * 1000), "the length, in microseconds",
               f"{value(now, 'mpris:length')} vs {int(e.length) * 1000}")
+        if typed:
+            check('"mpris:length" variant int64' in now, "the length is an int64, as MPRIS says",
+                  now.split('"mpris:length"')[1][:40])
+            if shutil.which("playerctl"):
+                box = {}
+
+                def ask():   # while the app keeps answering (its replies come from this thread)
+                    box["r"] = subprocess.run(["playerctl", "-p", m.service.removeprefix("org.mpris.MediaPlayer2."),
+                                               "metadata", "--format", "{{duration(mpris:length)}}"],
+                                              capture_output=True, text=True, timeout=15)
+                t = threading.Thread(target=ask, daemon=True)
+                t.start()
+                while t.is_alive():
+                    pump(0.01)
+                pc = box["r"]
+                want = "%d:%02d" % divmod(int(e.length) // 1000, 60)
+                check(pc.returncode == 0 and pc.stdout.strip() == want, "playerctl reads it as a duration",
+                      f"{pc.stdout.strip()!r} {pc.stderr.strip()[:120]!r} (want {want})")
         check(value(now, "xesam:url") == QUrl.fromLocalFile(a).toString(), "the file as a URL", str(value(now, "xesam:url")))
         track = value(now, "mpris:trackid")
         check(track and track.startswith("/org/mpris/MediaPlayer2/Track/"), "a track id", str(track))

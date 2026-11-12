@@ -71,7 +71,7 @@ a = Analysis(
     datas=[({r(ROOT / 'qml')}, 'qml'), ({r(ROOT / 'assets')}, 'assets'), ({r(ROOT / 'i18n')}, 'i18n')]
           + copy_metadata('yt-dlp'),
     hiddenimports=['tests', 'tests.e2e', 'tests.fixtures', 'tests.robust', 'tests.formats', 'refrata._keys',
-                   'refrata.mpris', 'PySide6.QtTest', 'PySide6.QtNetwork', 'PySide6.QtMultimedia',
+                   'refrata.mpris', 'refrata.mpris_wire', 'jeepney', 'jeepney.io.threading', 'PySide6.QtTest', 'PySide6.QtNetwork', 'PySide6.QtMultimedia',
                    'PySide6.QtQuickControls2', 'PySide6.QtWidgets', 'PySide6.QtDBus', 'yt_dlp'],
     excludes={EXCLUDES!r},
     noarchive=False,
