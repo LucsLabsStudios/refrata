@@ -139,6 +139,12 @@ class InstanceServer(QObject):
         except (ValueError, AttributeError, TypeError):
             s.write(b"bad\n")
             return
+        if files:
+            # when the launcher (Explorer's double-click) started: opening.log counts from there
+            from . import opening
+            created = opening.process_created(opening.pipe_client_pid(s))
+            if created:
+                opening.launcher_started(created)
         s.write(b"ok\n")
         s.flush()
         if mid:

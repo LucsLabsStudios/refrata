@@ -827,6 +827,176 @@ def update_refuses_what_it_cannot_verify():
             os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
 
 
+@test
+def default_app_is_asked_of_windows_itself():
+    """Which app a double-click opens is asked of Windows (AssocQueryString), not read from the
+    registry: Windows 11 26H2 moved the choice to UserChoiceLatest and left UserChoice behind."""
+    if sys.platform != "win32":
+        return
+    from refrata import assoc as A
+    saved = os.environ.pop("REFRATA_E2E_TMP", None)   # the real query, not the battery's sandbox
+    try:
+        txt = A._effective_progid(".txt")
+        check(txt and txt.lower() != "unknown", "every Windows opens .txt with something", repr(txt))
+        none = A._effective_progid(".refrata-no-such-type")
+        check(not A._is_ours(none), "a type nobody registered is not ours", repr(none))
+    finally:
+        if saved is not None:
+            os.environ["REFRATA_E2E_TMP"] = saved
+    check(A._is_ours(A.PROGID) and A._is_ours("Applications\\refrata.exe") and not A._is_ours("txtfile") and not A._is_ours(""),
+          "Refrata's own ProgIds, in any case")
+    check(set(A.MAIN_EXTS) <= set(A.exts()), "the common types are among the ones offered")
+
+
+@test
+def linux_default_app_counts_each_type_off_the_ui_thread():
+    """Linux: which types open in Refrata is asked of xdg-mime, one call per MIME type on a worker
+    thread; the answer arrives by signal. Here xdg-mime is a stand-in and the apps folder a temp one."""
+    app = _qt()
+    from refrata import assoc as A
+    apps = TMP / "xdg" / "applications"
+    apps.mkdir(parents=True, exist_ok=True)
+    (apps / A.DESKTOP_ID).unlink(missing_ok=True)
+    picked, threads = set(), []
+    real_dir, real_q = A._linux_apps_dir, A._xdg_default
+
+    def fake_query(mime):
+        threads.append(threading.current_thread().name)
+        time.sleep(0.002)
+        return A.DESKTOP_ID if mime in picked else "other-player.desktop"
+    A._linux_apps_dir, A._xdg_default = (lambda: apps), fake_query
+    try:
+        a = A.Associations()
+        a._platform = "linux"
+
+        def settle():
+            a.refresh()
+            end = time.time() + 10
+            while a._linux_busy and time.time() < end:
+                app.processEvents()
+                time.sleep(0.005)
+            app.processEvents()
+        settle()
+        check(not a.registered and a.defaultCount == 0 and not a.isDefault, "not registered: nothing counts", f"{a.defaultCount}/{a.typeCount}")
+        check(not threads, "and xdg-mime is not even asked")
+        (apps / A.DESKTOP_ID).write_text("[Desktop Entry]\n", "utf8")
+        t0 = time.perf_counter()
+        a.refresh()
+        check(time.perf_counter() - t0 < 0.05, "refresh returns at once (the questions go to a thread)")
+        settle()
+        check(a.registered and a.typeCount >= 30 and a.defaultCount == 0 and list(a.missingMain) == list(A.MAIN_EXTS),
+              "registered, nothing picked: every common type listed", f"{a.defaultCount}/{a.typeCount} {list(a.missingMain)}")
+        check(threads and all(n == "default-apps" for n in threads), "every query ran on the worker thread", str(set(threads)))
+        from PySide6.QtCore import QMimeDatabase
+        db = QMimeDatabase()
+        mime = lambda e: db.mimeTypeForFile("x" + e, QMimeDatabase.MatchMode.MatchExtension).name()   # noqa: E731
+        picked.add(mime(".mp4"))
+        settle()
+        check(".mp4" not in a.missingMain and a.defaultCount >= 1 and not a.isDefault, "one type picked: counted", f"{a.defaultCount} {list(a.missingMain)}")
+        picked.update(mime(e) for e in A.MAIN_EXTS)
+        settle()
+        check(a.isDefault and not a.missingMain, "every common type picked: the default player", f"{list(a.missingMain)}")
+        A._xdg_default = lambda m: (_ for _ in ()).throw(OSError("xdg-utils broken"))
+        settle()
+        check(not a._linux_busy and a.registered, "a broken xdg-mime does not leave the check hanging")
+    finally:
+        A._linux_apps_dir, A._xdg_default = real_dir, real_q
+
+
+@test
+def reading_the_history_does_not_ask_the_disk_each_time():
+    """The pages read settings.history hundreds of times per opened file. Each read checked all 300
+    entries against the disk: 22,781 checks, 4.1 s of frozen interface per double-click with a
+    history on Google Drive. Now: one pass per change, stopping at the 40 shown, answers reused."""
+    _qt()
+    from refrata import settings as St
+    s = St.Settings()
+    real = St.os.path.exists
+    calls = []
+    St.os.path.exists = lambda p: calls.append(p) or (p.endswith("ok.mp4"))
+    try:
+        s._history = [{"path": f"G:\\drive\\{i}-{'ok' if i % 3 == 0 else 'gone'}.mp4", "title": "", "pos": 0, "len": 0, "time": 0}
+                      for i in range(300)]
+        getattr(s, "_history_changed", s.historyChanged.emit)()
+        first = s.history
+        check(len(first) == St.Settings.VISIBLE and all(h["path"].endswith("ok.mp4") for h in first),
+              "the 40 newest entries still there", str(len(first)))
+        n = len(calls)
+        check(n <= 3 * St.Settings.VISIBLE + 3, "the pass stops once 40 are found", str(n))
+        for _ in range(300):
+            s.history
+        check(len(calls) == n, "reading it again asks the disk nothing", f"{len(calls) - n} more checks")
+        first[0]["title"] = "changed by the caller"
+        check(s.history[0]["title"] == "", "callers get copies, the cache stays as it was")
+        s.add_history("C:\\new-ok.mp4", "Novo")
+        check(s.history[0]["path"] == "C:\\new-ok.mp4" and len(calls) <= n + 2, "a change: the new entry shows, old answers reused",
+              f"{len(calls) - n} checks")
+        s.removeHistory("C:\\new-ok.mp4")
+        check(s.history[0]["path"] != "C:\\new-ok.mp4", "and a removal shows at once")
+    finally:
+        St.os.path.exists = real
+
+
+@test
+def opening_log_says_where_the_time_went():
+    """refrata/opening.py: one line per opened file, its steps counted from the launcher's start when
+    Explorer handed it over, from the process's start on a cold start, else from the request."""
+    import importlib
+    from refrata import opening as O
+    importlib.reload(O)
+    log = Path(os.environ["REFRATA_DATA"]) / "opening.log"
+    log.unlink(missing_ok=True)
+    # a cold start: the first file of the process
+    O.begin("primeiro.mp4", "app")
+    O.mark("window in front")
+    O.mark("libVLC playing")
+    O.mark("first picture")
+    check(not log.exists(), "nothing written while the file is still opening")
+    O.mark("sound")
+    first = log.read_text("utf8").splitlines()
+    check(len(first) == 1 and "primeiro.mp4  [cold start]" in first[0] and "process started 0" in first[0]
+          and all(s in first[0] for s in ("window in front", "libVLC playing", "first picture", "sound")),
+          "a cold start counts from the process's start, every step named", str(first))
+    # a hand-over: the window comes up before the item begins, and is kept for it
+    created = time.time() - 0.4
+    O.launcher_started(created)
+    O.mark("window in front")
+    time.sleep(0.02)
+    O.begin("segundo.mp4", "app")
+    O.mark("sound")
+    O.mark("sound")          # once per file
+    O.mark("first picture")
+    line = log.read_text("utf8").splitlines()[-1]
+    check("segundo.mp4  [hand-over]" in line and line.count("sound") == 1, "a hand-over is named as such, each step once", line)
+    import re
+    steps = {k.strip(): int(v) for k, v in re.findall(r"([a-zA-Z ]+?) (\d+)(?: \||  ms| ms)", line.split("]  ", 1)[1])}
+    check(steps["launcher started"] == 0 and 350 <= steps["file received"] <= 1500 and steps["window in front"] >= steps["file received"],
+          "counted from the launcher's start: the file arrived 0.4 s after it", str(steps))
+    # music: the sound is the end of it
+    O.begin("musica.mp3", "app")
+    O.audio_only()
+    O.mark("libVLC playing")
+    O.mark("sound")
+    check("musica.mp3  [app]" in log.read_text("utf8").splitlines()[-1], "a song is complete with its sound")
+    # another file before this one was complete: said so
+    O.begin("lento.mkv", "app")
+    O.mark("libVLC playing")
+    O.begin("outro.mkv", "app")
+    lines = log.read_text("utf8").splitlines()
+    check("lento.mkv" in lines[-1] and "stopped before it was complete" in lines[-1], "an open cut short is marked as such", lines[-1])
+    # only the last ones are kept
+    for i in range(O.KEEP + 20):
+        O.begin(f"f{i}.mp3", "app")
+        O.audio_only()
+        O.mark("sound")
+    lines = log.read_text("utf8").splitlines()
+    check(len(lines) == O.KEEP and lines[-1].split("  ")[1] == f"f{O.KEEP + 19}.mp3", "the log keeps the last opens", str(len(lines)))
+    if sys.platform == "win32":
+        me = O.process_created(os.getpid())
+        check(me and 0 < time.time() - me < 3600, "this process's creation time is read", str(me))
+        check(O.process_created(0) is None and O.process_created(4 * 10 ** 9) is None, "an unknown process gives nothing")
+
+
 def main():
     only = sys.argv[sys.argv.index("-k") + 1] if "-k" in sys.argv else ""
     t0 = time.time()

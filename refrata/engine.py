@@ -20,7 +20,7 @@ from PySide6.QtCore import (Property, QAbstractListModel, QModelIndex, QObject, 
 from PySide6.QtGui import QImage
 from PySide6.QtMultimedia import QVideoFrame, QVideoFrameFormat, QVideoSink
 
-from . import websites
+from . import opening, websites
 from .media import is_audio_path, nice_title
 from .playlists import is_playlist, read_playlist
 from .i18n import N_, tr
@@ -1070,6 +1070,8 @@ class Engine(QObject):
                 return   # decoded before the visible size was known: would show the padding rows
         first = self._frames_seen == 0
         self._frames_seen += 1
+        if first:
+            opening.mark("first picture")
         if first and self._first_video_frame:
             self._first_video_frame = False
             from . import trace
@@ -1278,7 +1280,8 @@ class Engine(QObject):
 
     @Slot()
     def clearQueue(self):
-        self.stop()
+        self.stop()                   # saves where the item playing was
+        self._playing_entry = None
         self._qmodel.reset([])
         self._index = -1
         self.currentIndexChanged.emit()
@@ -1404,15 +1407,20 @@ class Engine(QObject):
     def _play_index(self, index):
         self._end_scrub()
         self._want_pause_at = 0.0
+        self._pause_early = False
         self._item_start = 0             # where this item was asked to start (see _tick)
         self._wake()
         self._audio_off = False   # "Desativado" was for the previous item
         self._save_resume()
         self._index = index
+        self._playing_entry = self._queue[index]
         self._error_handled = False
         self._resolving = False
         self._resolve_token = None
         e = self._queue[index]
+        opening.begin(e["title"] if e["isUrl"] else os.path.basename(e["path"]), "app")
+        if e["audio"]:
+            opening.audio_only()
         if e.get("page"):
             info = e.get("resolved")
             if not info or time.time() - info["at"] > websites.FRESH_SECONDS:
@@ -1588,6 +1596,10 @@ class Engine(QObject):
                 mp.set_media(media)
                 media.release()   # the player holds its own reference
                 self._start_player()
+                if self._want_pause_at:
+                    # Pause was pressed while this switch ran: the play() just above went over it,
+                    # and the item played (a click on the picture right after opening a file)
+                    mp.set_pause(1)
             except Exception as exc:   # never let a libVLC fault end the thread with switches waiting
                 print("media switch:", exc)
         self._switchDone.emit()
@@ -1689,6 +1701,11 @@ class Engine(QObject):
             self.pause()
         elif self._state == "paused":
             self.play()
+        elif self._state == "loading":
+            # still opening: libVLC ignores a pause then, and a click on the picture in the item's
+            # first moments did nothing at all (27 of 27 tries). The wish is kept and applied as it
+            # starts (pause); a second click takes it back.
+            self.play() if self._want_pause_at else self.pause()
         else:
             self._mp.pause() if self._mp.is_playing() else self._mp.play()
 
@@ -1699,6 +1716,7 @@ class Engine(QObject):
             self._play_index(max(0, self._index))
             return
         self._want_pause_at = 0.0
+        self._pause_early = False
         self._mp.set_pause(0) if self._state == "paused" else self._mp.play()
         if self._state == "paused":
             self._expect("playing")
@@ -1706,6 +1724,10 @@ class Engine(QObject):
     @Slot()
     def pause(self):
         self._wake()
+        # asked before the item plays (still opening, or its switch still running): libVLC drops a
+        # pause while it opens, and the item played until the retry 0.4 s later. _tick pauses it
+        # the moment it starts instead.
+        self._pause_early = self._switching > 0 or self._state != "playing"
         self._mp.set_pause(1)
         self._want_pause_at = time.time()
         if self._state == "playing":
@@ -1783,10 +1805,13 @@ class Engine(QObject):
         self._mp.next_frame()
 
     def _save_resume(self):
-        if 0 <= self._index < len(self._queue):
-            e = self._queue[self._index]
-            if not e["isUrl"] and self._length > 0:
-                self._settings.set_resume(e["path"], self._time, self._length)
+        # the item that is playing, not "the queue's item at this index": openFiles replaces the
+        # queue before the next item starts, and the position and length of the video left behind
+        # were written under the new file's name (it then opened "where you left off" in the
+        # middle, and the one left behind lost its place)
+        e = getattr(self, "_playing_entry", None)
+        if e is not None and not e["isUrl"] and self._length > 0:
+            self._settings.set_resume(e["path"], self._time, self._length)
 
     # ---------------------------------------------------------------- polling
     def _wake(self):
@@ -1826,9 +1851,14 @@ class Engine(QObject):
             if st == vlc.State.Paused:
                 self._want_pause_at = 0.0
             elif st in (vlc.State.Playing, vlc.State.Buffering):
-                if time.time() - self._want_pause_at > 0.4:
+                early = getattr(self, "_pause_early", False) and st == vlc.State.Playing
+                if early or time.time() - self._want_pause_at > 0.4:
                     self._mp.set_pause(1)
                     self._want_pause_at = time.time()
+                    self._pause_early = False
+                if early:
+                    new_state = "paused"   # it was never meant to play: no "playing" on screen meanwhile
+                    self._expect("paused")
             elif not (self._open_deadline or self._state == "loading"):
                 self._want_pause_at = 0.0   # stopped, ended, failed: nothing left to pause
             # else the item is still loading (libVLC has nothing to pause yet): the request waits
@@ -1864,6 +1894,8 @@ class Engine(QObject):
                 new_state = self._expected   # hold the optimistic state, no flicker back
         if new_state == "playing":
             self._consecutive_errors = 0
+        if new_state == "playing":
+            opening.mark("libVLC playing")
         if new_state != self._state:
             if new_state == "playing":
                 self._audio_dirty = True   # a new track may bring a new audio output
@@ -1879,6 +1911,8 @@ class Engine(QObject):
                 t = self._item_start
             elif t > 0:
                 self._item_start = 0
+            if new_state == "playing" and self._mp.get_time() > 0:
+                opening.mark("sound")   # libVLC's clock runs once its audio output plays
             if t != self._time or ln != self._length:
                 self._time, self._length = t, ln
                 self.timeChanged.emit()
@@ -2370,6 +2404,11 @@ class Engine(QObject):
         self._save_resume()
 
     def shutdown(self):
+        # once: a second call released the released player (the test battery's last test shut the
+        # engine down, then the app's cleanup did it again: an access violation in libVLC every run)
+        if getattr(self, "_shut", False):
+            return
+        self._shut = True
         self._poll.stop()
         self._sinks.clear()
         self._settle_switch()

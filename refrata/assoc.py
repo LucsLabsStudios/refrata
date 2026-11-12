@@ -39,6 +39,38 @@ def exts() -> list[str]:
     return sorted(set(VIDEO_EXT) | set(AUDIO_EXT) | set(PLAYLIST_EXT))
 
 
+# The types nearly every video and music file is. "Player padrão" counts as done when Windows opens
+# all of these with Refrata; the rest are counted and shown, but do not hold the switch back.
+MAIN_EXTS = (".mp4", ".mkv", ".avi", ".mov", ".webm", ".mp3", ".flac", ".m4a", ".wav")
+
+
+def _effective_progid(ext: str) -> str:
+    """The ProgId Windows opens `ext` with now, as Explorer resolves it.
+
+    Not the registry's UserChoice: Windows 11 26H2 keeps the person's choice under UserChoiceLatest
+    and left the old key behind (here .mkv read "Reprodutor Multimídia" there while it opened in
+    Refrata). AssocQueryString answers with what a double-click really does."""
+    if _testing():   # the battery's sandbox: what a choice in Settings would leave there
+        base = _key(_FILEEXTS + "\\" + ext)
+        import winreg
+        return (_read(winreg.HKEY_CURRENT_USER, base + r"\UserChoiceLatest\ProgId", "ProgId")
+                or _read(winreg.HKEY_CURRENT_USER, base + r"\UserChoice", "ProgId") or "")
+    import ctypes
+    from ctypes import wintypes as wt
+    n = wt.DWORD(512)
+    buf = ctypes.create_unicode_buffer(512)
+    ASSOCSTR_PROGID = 20
+    try:
+        hr = ctypes.windll.shlwapi.AssocQueryStringW(0, ASSOCSTR_PROGID, ext, None, buf, ctypes.byref(n))
+    except (AttributeError, OSError):
+        return ""
+    return buf.value if hr == 0 else ""
+
+
+def _is_ours(progid: str) -> bool:
+    return progid == PROGID or progid.lower() == ("applications\\" + APP_EXE).lower()
+
+
 def mime_types() -> list[str]:
     """Linux: the MIME types for those extensions (from the shared MIME database Qt reads)."""
     from PySide6.QtCore import QMimeDatabase
@@ -86,29 +118,33 @@ def _command_exe(cmd) -> str:
 
 class Associations(QObject):
     changed = Signal()
+    _linuxRead = Signal(object)   # (registered, {ext: ours}) from the worker thread
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._registered = False
-        self._default = False
+        self._ours: dict[str, bool] = {}   # each file type: does a double-click open Refrata?
+        self._linux_busy = False
+        self._platform = sys.platform   # (an attribute: the Linux path is tested on any system)
+        self._linuxRead.connect(self._apply_linux)
         self.refresh()
 
     # ------------------------------------------------------------------ state
     @Slot()
     def refresh(self):
-        reg, dflt = self._registered, self._default
-        self._registered, self._default = self._read_state()
-        if (reg, dflt) != (self._registered, self._default):
+        if self._platform == "linux":
+            self._refresh_linux()
+            return
+        self._apply(*self._read_state())
+
+    def _apply(self, registered: bool, ours: dict):
+        if (registered, ours) != (self._registered, self._ours):
+            self._registered, self._ours = registered, ours
             self.changed.emit()
 
-    def _read_state(self) -> tuple[bool, bool]:
-        if sys.platform == "linux":
-            entry = _linux_apps_dir() / DESKTOP_ID
-            registered = entry.exists()
-            default = registered and _xdg_default("video/mp4") == DESKTOP_ID
-            return registered, default
+    def _read_state(self) -> tuple[bool, dict]:
         if sys.platform != "win32":
-            return False, False
+            return False, {}
         import winreg
         hives = [winreg.HKEY_CURRENT_USER] if _testing() else [winreg.HKEY_CURRENT_USER, winreg.HKEY_LOCAL_MACHINE]
         registered = False
@@ -118,10 +154,56 @@ class Associations(QObject):
             if cap and Path(_command_exe(cmd)).is_file():
                 registered = True
                 break
-        # the user's pick for .mp4 in Explorer (Apps padrão writes UserChoice)
-        choice = _read(winreg.HKEY_CURRENT_USER, _key(_FILEEXTS + r"\.mp4\UserChoice"), "ProgId") or ""
-        default = registered and (choice == PROGID or choice.lower() == ("applications\\" + APP_EXE).lower())
-        return registered, default
+        ours = {e: registered and _is_ours(_effective_progid(e)) for e in exts()}
+        return registered, ours
+
+    def _refresh_linux(self):
+        """xdg-mime answers one type per call (a shell script, tens of milliseconds each): the
+        types are asked on a worker thread, and the answer arrives by signal."""
+        if self._linux_busy:
+            return
+        self._linux_busy = True
+        from PySide6.QtCore import QMimeDatabase
+        db = QMimeDatabase()
+        by_ext = {}
+        for e in exts():
+            m = db.mimeTypeForFile("x" + e, QMimeDatabase.MatchMode.MatchExtension)
+            if m.isValid() and m.name() not in ("application/octet-stream", "text/plain"):
+                by_ext[e] = m.name()
+        entry = _linux_apps_dir() / DESKTOP_ID
+
+        def work():
+            try:
+                registered = entry.exists()
+                answers = {}
+                if registered:
+                    for mime in set(by_ext.values()):
+                        answers[mime] = _xdg_default(mime) == DESKTOP_ID
+                self._linuxRead.emit((registered, {e: answers.get(m, False) for e, m in by_ext.items()}))
+            except Exception as exc:   # a broken xdg-utils must not end the thread silently
+                print("default apps:", exc)
+                self._linuxRead.emit((entry.exists(), {}))
+        import threading
+        threading.Thread(target=work, daemon=True, name="default-apps").start()
+
+    def _apply_linux(self, result):
+        self._linux_busy = False
+        self._apply(*result)
+
+    @Property(int, notify=changed)
+    def typeCount(self):
+        """File types Refrata offers to open."""
+        return len(self._ours)
+
+    @Property(int, notify=changed)
+    def defaultCount(self):
+        """Of those, the ones a double-click opens in Refrata now."""
+        return sum(1 for v in self._ours.values() if v)
+
+    @Property("QStringList", notify=changed)
+    def missingMain(self):
+        """The common types (MAIN_EXTS) that still open in another app, for the person to pick."""
+        return [e for e in MAIN_EXTS if e in self._ours and not self._ours[e]]
 
     @Property(bool, notify=changed)
     def available(self):
@@ -134,7 +216,9 @@ class Associations(QObject):
 
     @Property(bool, notify=changed)
     def isDefault(self):
-        return self._default
+        """Every common type opens in Refrata (one .mp4 was the whole test before)."""
+        main = [e for e in MAIN_EXTS if e in self._ours]
+        return self._registered and bool(main) and all(self._ours[e] for e in main)
 
     # ---------------------------------------------------------------- actions
     @Slot(result=bool)

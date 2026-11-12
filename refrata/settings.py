@@ -241,8 +241,7 @@ class Settings(QObject):
         h["time"] = time.time()
         h["title"] = title
         self._history.insert(0, h)
-        self._dirty()
-        self.historyChanged.emit()
+        self._history_changed()
 
     def set_resume(self, path, pos, length):
         h = self._find(path)
@@ -252,8 +251,7 @@ class Settings(QObject):
         if pos < 10_000 or (length and pos > length - 15_000):
             pos = 0
         h["pos"], h["len"] = int(pos), int(length)
-        self._dirty()
-        self.historyChanged.emit()
+        self._history_changed()
 
     def resume_position(self, path) -> int:
         h = self._find(path)
@@ -263,8 +261,43 @@ class Settings(QObject):
         h = self._find(path)
         return int(h.get("len", 0)) if h else 0
 
+    VISIBLE = 40          # entries the home page and the network page show
+    EXISTS_TTL = 120.0    # seconds a "the file is there" answer is reused
+
+    def _exists(self, path: str) -> bool:
+        """os.path.exists, remembered for EXISTS_TTL: a history on a cloud or network drive (Google
+        Drive's G:) answers slowly, and was asked again for every entry each time it was read."""
+        cache = self.__dict__.setdefault("_exists_cache", {})
+        now = time.monotonic()
+        hit = cache.get(path)
+        if hit is None or now - hit[1] > self.EXISTS_TTL:
+            hit = (os.path.exists(path), now)
+            cache[path] = hit
+        return hit[0]
+
     def _visible_history(self) -> list[dict]:
-        return [dict(h) for h in self._history if "://" in h["path"] or os.path.exists(h["path"])][:40]
+        """The entries still worth showing (links, and files that are still there), newest first.
+
+        Computed once per change of the history. The pages read `history` hundreds of times per opened
+        file (every binding on it, on every change notice): each read filtered all 300 entries against
+        the disk, 22,781 checks and 4.1 s of a frozen interface for one double-click in Explorer."""
+        rev = (len(self._history), id(self._history), self.__dict__.get("_hrev", 0))
+        cached = self.__dict__.get("_visible")
+        if cached is None or cached[0] != rev:
+            out = []
+            for h in self._history:
+                if "://" in h["path"] or self._exists(h["path"]):
+                    out.append(dict(h))
+                    if len(out) >= self.VISIBLE:
+                        break
+            cached = (rev, out)
+            self._visible = cached
+        return [dict(h) for h in cached[1]]
+
+    def _history_changed(self):
+        self._hrev = self.__dict__.get("_hrev", 0) + 1
+        self._dirty()
+        self.historyChanged.emit()
 
     @Property(list, notify=historyChanged)
     def history(self):
@@ -277,11 +310,9 @@ class Settings(QObject):
     @Slot(str)
     def removeHistory(self, path):
         self._history = [h for h in self._history if h["path"] != path]
-        self._dirty()
-        self.historyChanged.emit()
+        self._history_changed()
 
     @Slot()
     def clearHistory(self):
         self._history = []
-        self._dirty()
-        self.historyChanged.emit()
+        self._history_changed()

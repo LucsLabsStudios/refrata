@@ -292,6 +292,11 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
         instance.activateRequested.connect(lambda: QTimer.singleShot(0, lambda: root.showMain()))
         instance.release()   # requests that came in while the window was being built
     tray.showRequested.connect(lambda: QTimer.singleShot(0, lambda: root.showMain()))
+    # opening.log: when the main window took the keyboard, for the file being opened
+    from refrata import opening
+    main_ptr = shiboken6.getCppPointer(root)[0]
+    app.focusWindowChanged.connect(lambda w: w is not None and shiboken6.getCppPointer(w)[0] == main_ptr
+                                   and opening.mark("window in front"))
     if sys.platform.startswith("linux"):
         from refrata.mpris import Mpris   # the Linux media keys / media widget (MPRIS2 over D-Bus)
         mediakeys = Mpris(engine, library, app)

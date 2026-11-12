@@ -524,6 +524,7 @@ def t12_equalizer():
 @test
 def t13_video_adjustments():
     e = eng()
+    video_playing_well_before_its_end()
     e.setAdjust("brightness", 1.4)
     e.setAdjust("hue", 90)
     check(abs(e.adjust["brightness"] - 1.4) < 1e-6 and e.adjust["hue"] == 90, "adjust values stored")
@@ -533,6 +534,22 @@ def t13_video_adjustments():
     wait(lambda: e._frames_seen > f0 + 3, 5, "video keeps rendering with adjust filter")
     e.resetAdjust()
     check(e.adjust["brightness"] == 1.0 and e.adjust["hue"] == 0.0, "reset")
+
+
+def video_playing_well_before_its_end():
+    """The tests of one process share a 30 s video: by the time a later one runs it can be a second
+    from its end, or over, and a test waiting for new pictures (or a pause) then waited on nothing."""
+    e = eng()
+    if not e.hasMedia or e.isAudio:
+        e.openFiles([str(C.fx["video"])])
+    if e.state not in ("playing", "paused") or e.length - e.time < 12000:
+        e.playAt(max(0, e.currentIndex))
+        wait(lambda: e.state == "playing" and e._frames_seen > 0, 8, "the video playing again")
+        e.seek(5000)
+        wait(lambda: 4000 < e.time < 20000, 5, "back near the start")
+    if e.state != "playing":
+        e.play()
+        wait(lambda: e.state == "playing", 5, "the video playing")
 
 
 @test
@@ -552,9 +569,7 @@ def t15_sleep_timer():
     check(e.sleepMinutes == 30, "sleep timer 30 min", str(e.sleepMinutes))
     e.setSleepTimer(0)
     check(e.sleepMinutes == 0, "sleep timer off")
-    if e.state != "playing":
-        e.play()
-        wait(lambda: e.state == "playing", 5)
+    video_playing_well_before_its_end()
     e.setSleepTimer(1)
     e._sleep_deadline = time.time() + 0.5  # fast-forward the clock
     wait(lambda: e.state == "paused", 5, "sleep timer pauses playback")

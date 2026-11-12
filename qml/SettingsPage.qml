@@ -245,11 +245,18 @@ Flickable {
                 objectName: "defaultAppRow"
                 visible: winassoc.available && updater.kind !== "store"
                 title: appctl.platform === "windows" ? qsTr("Player padrão do Windows") : qsTr("Player padrão do sistema")
-                desc: appctl.platform === "windows" ? (winassoc.isDefault ? qsTr("O duplo clique num vídeo no Explorer já abre o Refrata.")
-                    : winassoc.registered ? qsTr("Para o duplo clique no Explorer abrir o Refrata, escolha-o como app padrão nas configurações do Windows.")
+                // how many types open in Refrata, and which of the common ones still do not: Windows
+                // lets no app make itself the default, so the person picks each type in Settings
+                readonly property string counted: winassoc.registered && winassoc.typeCount > 0
+                    ? qsTr("Padrão para %1 de %2 tipos de arquivo.").replace("%1", winassoc.defaultCount).replace("%2", winassoc.typeCount) : ""
+                readonly property string missing: winassoc.missingMain.length
+                    ? qsTr("Ainda abrem em outro app: %1.").replace("%1", winassoc.missingMain.join(", ")) : ""
+                desc: appctl.platform === "windows" ? (winassoc.isDefault
+                        ? qsTr("O duplo clique num vídeo no Explorer já abre o Refrata.") + (winassoc.defaultCount < winassoc.typeCount ? " " + counted : "")
+                    : winassoc.registered ? [counted, missing, qsTr("Nas configurações do Windows, clique em cada um e escolha o Refrata.")].filter(function (s) { return s }).join(" ")
                     : qsTr("Esta cópia portátil ainda não aparece no “Abrir com” do Windows. O botão a registra para o seu usuário e abre as configurações para você escolher o Refrata como padrão."))
                     : winassoc.isDefault ? qsTr("O Refrata já abre seus vídeos e músicas com dois cliques.")
-                    : qsTr("Faz o Refrata aparecer em “Abrir com” e abrir vídeos e músicas com dois cliques no gerenciador de arquivos.")
+                    : [qsTr("Faz o Refrata aparecer em “Abrir com” e abrir vídeos e músicas com dois cliques no gerenciador de arquivos."), counted, missing].filter(function (s) { return s }).join(" ")
                 PillButton {
                     objectName: "defaultAppBtn"
                     visible: appctl.platform === "windows" || !winassoc.isDefault

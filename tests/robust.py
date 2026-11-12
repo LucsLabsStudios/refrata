@@ -90,8 +90,21 @@ def pump(seconds=0.05):
     end = time.time() + seconds
     while time.time() < end:
         H.heartbeat = time.time()
+        _rearm_hang_dump()
         app.processEvents()
         time.sleep(0.004)
+
+
+def _rearm_hang_dump(quiet_s=30):
+    """Every thread's stack once the event loop has been still for quiet_s seconds, written by
+    faulthandler's own thread (no GIL needed: a deadlock on the GIL left the Python watchdog mute
+    and the stacks unknown, once, in monkey_random_use)."""
+    f = getattr(H, "hang_dump", None)
+    if f is None or time.time() - getattr(H, "_armed", 0) < 1:
+        return
+    H._armed = time.time()
+    import faulthandler
+    faulthandler.dump_traceback_later(quiet_s, exit=False, file=f)
 
 
 def wait(cond, timeout=10.0, what="condition"):
@@ -1890,12 +1903,38 @@ def feature_review_settings_and_open_with():
     check(rd(r"Software\Classes\.mkv\OpenWithProgids", assoc.PROGID) == "", ".mkv lists Refrata in Abrir com")
     check(rd(r"Software\Classes\.srt\OpenWithProgids", assoc.PROGID) is None, "subtitles are not claimed")
     check(rd(assoc.CAP_KEY + r"\FileAssociations", ".mp3") == assoc.PROGID, "capabilities cover music too")
-    # the user picks Refrata in Windows' settings (UserChoice), then comes back to the app
-    with winreg.CreateKey(winreg.HKEY_CURRENT_USER, root + assoc._FILEEXTS + r"\.mp4\UserChoice") as k:
-        winreg.SetValueEx(k, "ProgId", 0, winreg.REG_SZ, assoc.PROGID)
+    n = len(assoc.exts())
+    pump(0.2)
+    check(wa.typeCount == n and wa.defaultCount == 0 and list(wa.missingMain) == list(assoc.MAIN_EXTS),
+          "registered, nothing picked yet: every type counted, the common ones listed", f"{wa.defaultCount}/{wa.typeCount} {list(wa.missingMain)}")
+    desc = row.property("desc")
+    check(f"0 de {n}" in desc and ".mp4" in desc and ".flac" in desc, "Ajustes says how many and which ones are left", desc)
+
+    def choose(ext, progid, latest=False):
+        """What a choice in Windows' Settings leaves (Windows 11 26H2 writes UserChoiceLatest)."""
+        sub = root + assoc._FILEEXTS + "\\" + ext + (r"\UserChoiceLatest\ProgId" if latest else r"\UserChoice")
+        with winreg.CreateKey(winreg.HKEY_CURRENT_USER, sub) as k:
+            winreg.SetValueEx(k, "ProgId", 0, winreg.REG_SZ, progid)
+    # the user picks Refrata for .mp4 in Windows' settings, then comes back to the app
+    choose(".mp4", assoc.PROGID)
     wa.refresh()
     pump(0.2)
-    check(wa.isDefault, "seen as the default player")
+    check(wa.defaultCount == 1 and ".mp4" not in wa.missingMain and not wa.isDefault,
+          "one type picked: counted, and the switch waits for the other common ones", f"{wa.defaultCount} {list(wa.missingMain)}")
+    check(f"1 de {n}" in row.property("desc") and ".mp4" not in row.property("desc").split(":")[-1], "the count follows", row.property("desc"))
+    # the old key says Refrata, the newer one (the one Windows uses) says another app: not ours
+    choose(".mkv", assoc.PROGID)
+    choose(".mkv", "AppXqj98qxeaynz6dv4459ayz6bnqxbyaqcs", latest=True)
+    wa.refresh()
+    check(".mkv" in wa.missingMain and wa.defaultCount == 1, "the newer key wins over the old one", f"{wa.defaultCount} {list(wa.missingMain)}")
+    for ext in assoc.MAIN_EXTS:
+        choose(ext, assoc.PROGID, latest=True)
+    wa.refresh()
+    pump(0.2)
+    check(wa.isDefault and not wa.missingMain and wa.defaultCount == len(assoc.MAIN_EXTS), "every common type picked: the default player",
+          f"{wa.defaultCount} {list(wa.missingMain)}")
+    desc = row.property("desc")
+    check("já abre o Refrata" in desc and f"{len(assoc.MAIN_EXTS)} de {n}" in desc, "and still says how many of all the types", desc)
     check(btn.property("text") != "Tornar padrão", "the button no longer asks to make it default", btn.property("text"))
     # the portable folder moved: "Abrir com" points at an exe that is gone, and gets repaired
     with winreg.CreateKey(winreg.HKEY_CURRENT_USER, root + rf"Software\Classes\{assoc.PROGID}\shell\open\command") as k:
@@ -2230,6 +2269,26 @@ def feature_pause_asked_while_an_item_loads_holds():
         e._mp.get_state = real
     check(e._want_pause_at > 0, "a poll that finds the item still opening keeps the pause that was asked for")
     wait(lambda: e._mp.get_state() == vlc.State.Paused and e.state == "paused", 6, "and it is applied when the item is up")
+    # a click on the picture (play/pause) while the item is still opening: it did nothing at all,
+    # 27 of 27 times; a second click takes the pause back
+    for i in range(6):
+        e.playAt(0) if e.queue else e.openFiles([a])
+        e.openFiles([b if i % 2 else a])
+        pump(0.01 * i)
+        if e.state != "loading":
+            continue
+        e.togglePlay()
+        wait(lambda: e._mp.get_state() == vlc.State.Paused and e.state == "paused", 6, f"a click while it opens ({i}) pauses it")
+        t = e.time
+        pump(0.5)
+        check(e.state == "paused" and e.time - t < 120, f"({i}) and it stays paused", f"{e.state} {t} -> {e.time}")
+    e.openFiles([a])
+    pump(0.005)
+    if e.state == "loading":
+        e.togglePlay()
+        e.togglePlay()
+        playing_media(video=True)
+        check(e.state == "playing", "two clicks while it opens: it plays")
     # asked for, then another item chosen: the pause belonged to the one left behind
     e.openFiles([a])
     e.pause()
@@ -2241,6 +2300,37 @@ def feature_pause_asked_while_an_item_loads_holds():
     e.pause()
     pump(0.5)
     check(e._want_pause_at == 0 and e.state == "stopped", "stopped: the request is not kept for later", f"{e.state} {e._want_pause_at}")
+
+
+@scenario(timeout=120)
+def feature_opening_another_file_keeps_each_ones_place():
+    """Opening another file saves where the one playing was under its own name. openFiles replaced
+    the queue first, so the video left behind lost its place and the new one was written down with
+    it: the new file then opened 'where you left off', in the middle, never watched."""
+    e, s = eng(), H.parts.settings
+    a, b = str(H.fx["tone_long"]), str(H.fx["video"])       # 40 s and 30 s
+    e.audio_resume_min = 0                                     # the tone resumes like a long audio
+    for p in (a, b):
+        s.set_resume(p, 0, 0)
+    e.openFiles([a])
+    wait(lambda: e.state == "playing" and e.length > 0, 8, "the first file playing")
+    e.seek(22000)
+    wait(lambda: e.time >= 21500, 6, "well into it")
+    e.openFiles([b])                                           # another file, opened over it
+    wait(lambda: Path(e.currentPath).name == Path(b).name and e.state == "playing" and e.time > 0, 8, "the second file playing")
+    check(e.time < 5000, "the new file starts from its beginning", f"{e.time} ms")
+    check(s.resume_position(b) == 0, "and nothing of the first one was written under its name", str(s.resume_position(b)))
+    check(21000 <= s.resume_position(a) <= 24000, "the first file keeps its own place", str(s.resume_position(a)))
+    check(s.resume_length(a) == s.resume_length(a) and 39000 <= s.resume_length(a) <= 41000, "with its own length", str(s.resume_length(a)))
+    e.seek(14000)
+    wait(lambda: e.time >= 13500, 6, "into the second one")
+    e.openFiles([a])
+    wait(lambda: Path(e.currentPath).name == Path(a).name and e.state == "playing" and e.time > 0, 8, "back to the first")
+    check(e.time >= 20000, "the first picks up where it was left", f"{e.time} ms")
+    check(13000 <= s.resume_position(b) <= 16000 and 29000 <= s.resume_length(b) <= 31000,
+          "and the second has its own place and length", f"{s.resume_position(b)} / {s.resume_length(b)}")
+    e.audio_resume_min = 20 * 60_000
+    e.clearQueue()
 
 
 @scenario(timeout=120)

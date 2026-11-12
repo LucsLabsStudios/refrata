@@ -237,6 +237,11 @@ class Mpris(QObject):
             return {"mpris:trackid": QDBusObjectPath(NO_TRACK)}
         md = {"mpris:trackid": QDBusObjectPath(self.track_id()), "xesam:title": e.title or ""}
         if e.length > 0:
+            # MPRIS says int64 ("x"). PySide 6.8 marshals a Python int below 2**31 as int32 ("i")
+            # whatever it is wrapped in (it has no QVariant to type it; QDBusArgument << picks a
+            # 16-bit overload and overflows), so lengths under ~35 min go as "i". GNOME Shell
+            # (deepUnpack), KDE (QVariant) and playerctl read either; checked over a real session
+            # bus by tests/e2e.py t51_linux_media_keys_over_dbus.
             md["mpris:length"] = QDBusVariant(int(e.length) * 1000).variant()
         if e.artist:
             md["xesam:artist"] = [e.artist]
