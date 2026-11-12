@@ -34,6 +34,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 SCENARIOS: dict[str, "Scenario"] = {}
+# time budgets are set for this PC; inside Windows Sandbox (virtual GPU) tools/sandbox_inner.py gives them room
+TIME_SCALE = float(os.environ.get("REFRATA_TIME_SCALE", "1"))
 
 
 class Fail(Exception):
@@ -2224,9 +2226,10 @@ def feature_open_from_the_tray_is_quick():
             raise Fail(f"{gap} s after closing: the window did not come to the front; in front instead: {_foreground_now()}")
         H.notes.append(f"{gap} s after closing: file taken in {taken * 1000:.0f} ms, first picture after {picture * 1000:.0f} ms, "
                        f"longest stop of the interface {longest * 1000:.0f} ms")
-        check(taken < 0.3 and longest < 0.4, f"{gap} s after closing: the interface never stops for the change of item",
+        slow = TIME_SCALE   # Windows Sandbox: a virtual GPU, the budgets get room
+        check(taken < 0.3 * slow and longest < 0.4 * slow, f"{gap} s after closing: the interface never stops for the change of item",
               f"taking the file {taken * 1000:.0f} ms, one turn of the event loop {longest * 1000:.0f} ms")
-        check(picture < 0.8, f"{gap} s after closing: the first picture comes within 0.8 s", f"{picture * 1000:.0f} ms")
+        check(picture < 0.8 * slow, f"{gap} s after closing: the first picture comes within {0.8 * slow:.1f} s", f"{picture * 1000:.0f} ms")
         playing_media(video=True)
     H.parts.tray.background = False
 

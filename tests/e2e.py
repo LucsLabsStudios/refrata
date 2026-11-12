@@ -460,6 +460,7 @@ def t09_audio_tracks_and_delays():
 @test
 def t10_external_subtitle_load_select_delay():
     e = eng()
+    video_playing_well_before_its_end()   # (run alone, nothing would be playing to add it to)
     before = len(e.subtitleTracks)
     e.addSubtitle(Path(C.fx["srt"]).as_uri())
     wait(lambda: len(e.subtitleTracks) > before, 8, "subtitle track added")

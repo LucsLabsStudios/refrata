@@ -2109,6 +2109,12 @@ class Engine(QObject):
 
     @Property(int, notify=tracksChanged)
     def subtitleTrack(self):
+        # a choice still being applied (the item reopening, a switch under way) is what is shown:
+        # libVLC answers with the old track until then, and asking it mid-switch waits for the switch
+        if self._spu_wanted is not None:
+            return self._spu_wanted
+        if self._switching:
+            return -1
         return self._mp.video_get_spu()
 
     @Slot(int)
@@ -2130,9 +2136,10 @@ class Engine(QObject):
         self._spu_wanted = None   # a newer choice: a pending re-selection after a reopen must not undo it
         if tid not in (-1, 0) and self._to_software(spu=tid):
             return
-        self._mp.video_set_spu(tid)
-        self.tracksChanged.emit()
+        if not self._switching:   # mid-switch, libVLC's player is busy: _hold_spu applies it after
+            self._mp.video_set_spu(tid)
         self._hold_spu(tid)
+        self.tracksChanged.emit()
 
     def _hold_spu(self, spu, tries=8):
         """Make a subtitle choice stick. Given while the item is still opening (a reopen in
@@ -2144,6 +2151,9 @@ class Engine(QObject):
         def pick(n):
             if self._spu_wanted != spu:
                 return   # the person chose something else meanwhile
+            if self._switching:   # the item is still being switched: try again, without counting
+                QTimer.singleShot(150, lambda: pick(n))
+                return
             if self._mp.video_get_spu() != spu:
                 self._mp.video_set_spu(spu)
             settled = self._state in ("playing", "paused") and bool(self._sub_tracks)
