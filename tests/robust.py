@@ -2693,9 +2693,12 @@ def feature_space_preview_from_a_real_explorer_window():
         check([os.path.normcase(p) for p in sel] == [os.path.normcase(str(target))], "the selection read from Explorer is the file",
               str(sel))
         check(Q.should_preview(kind, focus, 5), "with the file list focused, Space means preview", focus)
-        # the hook's handler, given a Space key-down as Windows would hand it
+        # the hook's handler, given a Space key-down as Windows would hand it. (The hook is
+        # system-wide: letters the person types in any other window while this runs count as
+        # "typing a name" and a Space right after them rightly opens nothing. Forgotten here.)
         k = Q.KBDLLHOOKSTRUCT(vkCode=Q.VK_SPACE)
         t0 = time.perf_counter()
+        ql._last_typing = 0.0
         ql._on_key(0, Q.WM_KEYDOWN, ctypes.addressof(k))
         wait(lambda: q.isVisible(), 4, "Space on the selected file opens the preview")
         H.notes.append(f"Space → preview window: {(time.perf_counter() - t0) * 1000:.0f} ms")
