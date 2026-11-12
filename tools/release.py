@@ -233,8 +233,10 @@ def main():
     ap.add_argument("--skip-tests", action="store_true")
     ap.add_argument("--draft", action="store_true")
     ap.add_argument("--no-linux", action="store_true", help="Windows only (skip the WSL Linux package)")
-    ap.add_argument("--no-sandbox", action="store_true",
-                    help="run every Windows battery on this PC (needs it idle); default: Windows Sandbox when present")
+    ap.add_argument("--sandbox", action="store_true",
+                    help="the focus tests in Windows Sandbox, so the PC stays usable (default: all on this PC, left idle; "
+                         "after a sandbox run with the GPU shared the host's cursor went invisible once)")
+    ap.add_argument("--no-sandbox", action="store_true", help="(the default; kept for older command lines)")
     args = ap.parse_args()
 
     sys.path.insert(0, str(ROOT / "tools"))
@@ -269,7 +271,7 @@ def main():
     if not args.skip_build or changed:
         run(sys.executable, "tools/build.py", "--no-msix")
     if not args.skip_tests or changed:
-        if not run_tests(sandbox=not args.no_sandbox and sandbox_available()):
+        if not run_tests(sandbox=args.sandbox and not args.no_sandbox and sandbox_available()):
             if changed:
                 roll_back(changed)
             if args.bump:

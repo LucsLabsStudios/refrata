@@ -15,8 +15,9 @@ batteries at logon (tools\\sandbox_inner.cmd) and writes done.txt when they are 
 waits for it, prints the summary, and closes the sandbox. Exit code 0 only when everything passed.
 
 Needs the "Windows Sandbox" optional feature (Containers-DisposableClientVM, Windows Pro); only one
-sandbox runs at a time. The sandbox shares the host's GPU through virtualization, not the GPU
-itself: performance budgets measured there (tests/launch.py) say less than on the host.
+sandbox runs at a time. No GPU is shared with it (VGpu Disable): with the host's GPU shared, the
+host's mouse cursor went invisible and two app launches on the host crashed at their first frame
+right after a sandbox run (2026-11-12). Inside, Qt draws in software: slower, timing budgets get room.
 """
 import argparse
 import json
@@ -39,7 +40,7 @@ def wsb(out: Path, py: Path) -> str:
     def folder(host, inside, ro):
         return (f"<MappedFolder><HostFolder>{escape(str(host))}</HostFolder>"
                 f"<SandboxFolder>{escape(inside)}</SandboxFolder><ReadOnly>{'true' if ro else 'false'}</ReadOnly></MappedFolder>")
-    return ("<Configuration><VGpu>Enable</VGpu><Networking>Enable</Networking><AudioInput>Disable</AudioInput>"
+    return ("<Configuration><VGpu>Disable</VGpu><Networking>Enable</Networking><AudioInput>Disable</AudioInput>"
             "<VideoInput>Disable</VideoInput><ClipboardRedirection>Disable</ClipboardRedirection><MemoryInMB>8192</MemoryInMB>"
             "<MappedFolders>" + folder(ROOT, IN_ROOT, True) + folder(py, IN_PY, True) + folder(out, IN_OUT, False)
             + "</MappedFolders>"
