@@ -33,7 +33,7 @@ Item {
             anchors.fill: parent
             sourceItem: root.backdrop
             visible: false
-            live: true
+            live: blurred.visible
             sourceRect: {
                 root.geometryTick; root.x; root.y; root.width; root.height
                 if (!root.backdrop) return Qt.rect(0, 0, 0, 0)

@@ -67,12 +67,14 @@ Item {
     }
     Rectangle {
         id: knob
-        width: root.active ? 16 : 0; height: width; radius: width / 2
+        width: 16; height: 16; radius: 8
         color: "white"
         x: track.width * root.frac - width / 2
         anchors.verticalCenter: parent.verticalCenter
-        Behavior on width { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
-        layer.enabled: true
+        scale: root.active ? 1 : 0
+        opacity: root.active ? 1 : 0
+        Behavior on scale { NumberAnimation { duration: theme.reduceMotion ? 0 : 120; easing.type: Easing.OutCubic } }
+        Behavior on opacity { NumberAnimation { duration: theme.reduceMotion ? 0 : 100; easing.type: Easing.OutCubic } }
     }
     Rectangle {
         id: bubble

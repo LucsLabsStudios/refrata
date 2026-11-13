@@ -3,11 +3,11 @@ const REPO = "LucsLabsStudios/refrata";
 // the page language (pt, en, es) picks the wording of the lines this script fills in
 const LANG = (document.documentElement.lang || "pt").slice(0, 2);
 const T = {
-  pt: { size: (v, mb) => `versão ${v} · ${mb} MB`, line: (v) => `Versão ${v} · Windows 10 e 11` },
-  en: { size: (v, mb) => `version ${v} · ${mb} MB`, line: (v) => `Version ${v} · Windows 10 and 11` },
-  es: { size: (v, mb) => `versión ${v} · ${mb} MB`, line: (v) => `Versión ${v} · Windows 10 y 11` },
+  pt: { size: (v, mb) => `versão ${v} · ${mb} MB`, line: (v) => `Versão ${v} · Windows 10 e 11`, copy: "Copiar", copied: "Copiado ✓" },
+  en: { size: (v, mb) => `version ${v} · ${mb} MB`, line: (v) => `Version ${v} · Windows 10 and 11`, copy: "Copy", copied: "Copied ✓" },
+  es: { size: (v, mb) => `versión ${v} · ${mb} MB`, line: (v) => `Versión ${v} · Windows 10 y 11`, copy: "Copiar", copied: "Copiado ✓" },
 }[LANG] || null;
-const t = T || { size: (v, mb) => `versão ${v} · ${mb} MB`, line: (v) => `Versão ${v} · Windows 10 e 11` };
+const t = T || { size: (v, mb) => `versão ${v} · ${mb} MB`, line: (v) => `Versão ${v} · Windows 10 e 11`, copy: "Copiar", copied: "Copiado ✓" };
 
 async function latest() {
   try {
@@ -26,8 +26,23 @@ async function latest() {
       const sha = String(setup.digest || "").replace(/^sha256:/i, "");
       if (sha) {
         document.querySelectorAll("[data-sha]").forEach((el) => {
-          el.innerHTML = ` · SHA-256 <code></code>`;
+          el.innerHTML = ` · SHA-256 <code></code> <button type="button" class="copy-sha"></button>`;
           el.querySelector("code").textContent = sha;
+          const btn = el.querySelector(".copy-sha");
+          btn.textContent = t.copy;
+          let timer = 0;
+          btn.addEventListener("click", async () => {
+            try {
+              await navigator.clipboard.writeText(sha);
+              btn.textContent = t.copied;
+              btn.classList.add("copied");
+              clearTimeout(timer);
+              timer = setTimeout(() => {
+                btn.textContent = t.copy;
+                btn.classList.remove("copied");
+              }, 2000);
+            } catch (_) { /* clipboard unavailable */ }
+          });
         });
       }
     }
@@ -69,8 +84,16 @@ if (!reduce) {
 }
 
 // hero window tilts toward the pointer, smoothed every frame (lerp), idle when settled
+let vw = window.innerWidth, vh = window.innerHeight;
 const win = document.querySelector(".hero-shot .window");
 const tilt = document.querySelectorAll(".hero-shot .window");
+let winRect = win ? win.getBoundingClientRect() : null;
+window.addEventListener("resize", () => {
+  vw = window.innerWidth;
+  vh = window.innerHeight;
+  if (win) winRect = win.getBoundingClientRect();
+}, { passive: true });
+
 if (win && finePointer && !reduce) {
   const rest = { x: 4, y: -9 };
   let target = { ...rest }, cur = { ...rest }, raf = 0;
@@ -85,24 +108,28 @@ if (win && finePointer && !reduce) {
   };
   const kick = () => { if (!raf) raf = requestAnimationFrame(tick); };
   const hero = document.querySelector(".hero");
+  hero.addEventListener("pointerenter", () => { winRect = win.getBoundingClientRect(); }, { passive: true });
   hero.addEventListener("pointermove", (e) => {
-    const r = win.getBoundingClientRect();
-    const nx = (e.clientX - (r.left + r.width / 2)) / window.innerWidth;
-    const ny = (e.clientY - (r.top + r.height / 2)) / window.innerHeight;
+    const r = winRect || (winRect = win.getBoundingClientRect());
+    const nx = (e.clientX - (r.left + r.width / 2)) / vw;
+    const ny = (e.clientY - (r.top + r.height / 2)) / vh;
     target = { x: rest.x - ny * 8, y: rest.y + nx * 14 };
     kick();
-  });
+  }, { passive: true });
   hero.addEventListener("pointerleave", () => { target = { ...rest }; kick(); });
 }
 
-// card spotlight follows the cursor
+// card spotlight follows the cursor (cache rect on pointerenter to avoid layout reads per move)
 if (finePointer) {
   document.querySelectorAll(".card").forEach((card) => {
+    let r = null;
+    card.addEventListener("pointerenter", () => { r = card.getBoundingClientRect(); }, { passive: true });
     card.addEventListener("pointermove", (e) => {
-      const r = card.getBoundingClientRect();
+      if (!r) r = card.getBoundingClientRect();
       card.style.setProperty("--mx", `${e.clientX - r.left}px`);
       card.style.setProperty("--my", `${e.clientY - r.top}px`);
-    });
+    }, { passive: true });
+    card.addEventListener("pointerleave", () => { r = null; }, { passive: true });
   });
 }
 

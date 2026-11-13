@@ -121,7 +121,7 @@ Item {
     Item {
         id: drift
         property real t: 0
-        NumberAnimation on t { from: 0; to: Math.PI * 2; duration: 36000; loops: Animation.Infinite; running: root.visible && !theme.reduceMotion }
+        NumberAnimation on t { from: 0; to: Math.PI * 2; duration: 36000; loops: Animation.Infinite; running: root.visible && root.opacity > 0 && !theme.reduceMotion }
     }
 
     // vignette: keeps white text readable at the top and around the dock

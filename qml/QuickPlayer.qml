@@ -131,14 +131,14 @@ Window {
     // in: grows from 92 % and fades up; out: quicker, settles to 97 % (exits ≈ half the entry)
     ParallelAnimation {
         id: openAnim
-        NumberAnimation { target: card; property: "opacity"; from: 0; to: 1; duration: 220; easing.type: Easing.OutCubic }
-        NumberAnimation { target: card; property: "scale"; from: theme.reduceMotion ? 1 : 0.92; to: 1; duration: 340; easing.type: Easing.OutQuint }
+        NumberAnimation { target: card; property: "opacity"; from: 0; to: 1; duration: theme.reduceMotion ? 0 : 200; easing.type: Easing.OutCubic }
+        NumberAnimation { target: card; property: "scale"; from: theme.reduceMotion ? 1 : 0.93; to: 1; duration: theme.reduceMotion ? 0 : 260; easing.type: Easing.OutCubic }
     }
     SequentialAnimation {
         id: closeAnim
         ParallelAnimation {
-            NumberAnimation { target: card; property: "opacity"; to: 0; duration: 150; easing.type: Easing.OutCubic }
-            NumberAnimation { target: card; property: "scale"; to: theme.reduceMotion ? 1 : 0.97; duration: 160; easing.type: Easing.InCubic }
+            NumberAnimation { target: card; property: "opacity"; to: 0; duration: theme.reduceMotion ? 0 : 130; easing.type: Easing.OutCubic }
+            NumberAnimation { target: card; property: "scale"; to: theme.reduceMotion ? 1 : 0.97; duration: theme.reduceMotion ? 0 : 140; easing.type: Easing.OutCubic }
         }
         ScriptAction {
             script: {

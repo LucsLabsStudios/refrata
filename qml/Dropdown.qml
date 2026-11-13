@@ -70,8 +70,18 @@ Item {
         width: Math.max(root.width, 400)
         padding: 6
         height: Math.min(list.contentHeight + 12, 380)
-        enter: Transition { NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 120 } }
-        exit: Transition { NumberAnimation { property: "opacity"; from: 1; to: 0; duration: 90 } }
+        enter: Transition {
+            ParallelAnimation {
+                NumberAnimation { property: "opacity"; from: 0; to: 1; duration: theme.reduceMotion ? 0 : 150; easing.type: Easing.OutCubic }
+                NumberAnimation { property: "scale"; from: theme.reduceMotion ? 1 : 0.96; to: 1; duration: theme.reduceMotion ? 0 : 160; easing.type: Easing.OutCubic }
+            }
+        }
+        exit: Transition {
+            ParallelAnimation {
+                NumberAnimation { property: "opacity"; from: 1; to: 0; duration: theme.reduceMotion ? 0 : 100; easing.type: Easing.OutCubic }
+                NumberAnimation { property: "scale"; from: 1; to: theme.reduceMotion ? 1 : 0.97; duration: theme.reduceMotion ? 0 : 100; easing.type: Easing.OutCubic }
+            }
+        }
         background: Rectangle { radius: 18; color: theme.surface; border.width: 1; border.color: theme.stroke }
         contentItem: ListView {
             id: list
