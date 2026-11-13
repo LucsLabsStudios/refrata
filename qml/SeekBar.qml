@@ -11,6 +11,8 @@ Item {
     property real loopB: -1
     property var chapters: []   // [{time, name}]: ticks on the track, the name in the bubble
     property bool dragging: ma.pressed
+    property bool previewEnabled: false
+    property string previewSource: ""
     function chapterAt(ms) {
         var name = ""
         for (var i = 0; i < chapters.length; i++) if (ms >= chapters[i].time) name = chapters[i].name
@@ -18,6 +20,7 @@ Item {
     }
     signal seekRequested(real ms)
     signal scrub(real ms)
+    signal previewRequested(real ms)
 
     height: 24
     readonly property real frac: to > 0 ? Math.max(0, Math.min(1, (dragging ? dragValue : value) / to)) : 0
@@ -77,6 +80,27 @@ Item {
         Behavior on opacity { NumberAnimation { duration: theme.reduceMotion ? 0 : 100; easing.type: Easing.OutCubic } }
     }
     Rectangle {
+        id: previewCard
+        readonly property bool ready: root.previewEnabled && root.active && previewImg.status === Image.Ready
+        visible: opacity > 0.01
+        opacity: ready ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: theme.reduceMotion ? 0 : 120; easing.type: Easing.OutCubic } }
+        width: 176; height: 100; radius: 10
+        color: "#0D0D10"
+        border.width: 1; border.color: Qt.rgba(1, 1, 1, 0.22)
+        y: bubble.y - height - 6
+        x: Math.max(0, Math.min(root.width - width, (ma.pressed ? track.width * root.frac : ma.mouseX) - width / 2))
+        Image {
+            id: previewImg
+            anchors.fill: parent; anchors.margins: 2
+            source: root.previewEnabled && root.active ? root.previewSource : ""
+            fillMode: Image.PreserveAspectCrop
+            asynchronous: true
+            cache: true
+            smooth: true
+        }
+    }
+    Rectangle {
         id: bubble
         visible: ma.containsMouse || ma.pressed
         color: "#F2F2F4"; radius: 8
@@ -100,10 +124,23 @@ Item {
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
         function msAt(x) { return Math.max(0, Math.min(1, x / root.width)) * root.to }
+        onEntered: if (root.previewEnabled) { previewPace.hoverMs = msAt(mouseX); previewPace.triggerNow() }
         onPressed: (m) => { root.dragValue = msAt(m.x); root.scrub(root.dragValue); scrubPace.restart() }
-        onPositionChanged: (m) => { if (pressed) { root.dragValue = msAt(m.x); scrubPace.pending = true } }
+        onPositionChanged: (m) => {
+            var ms = msAt(m.x)
+            if (pressed) { root.dragValue = ms; scrubPace.pending = true }
+            if (root.previewEnabled) { previewPace.hoverMs = ms; previewPace.restart() }
+        }
         onReleased: (m) => { scrubPace.stop(); scrubPace.pending = false; root.seekRequested(msAt(m.x)) }
-        onCanceled: { scrubPace.stop(); scrubPace.pending = false }
+        onCanceled: { scrubPace.stop(); scrubPace.pending = false; previewPace.stop() }
+        onExited: if (!pressed) previewPace.stop()
+    }
+    Timer {
+        id: previewPace
+        property real hoverMs: 0
+        interval: 35
+        function triggerNow() { stop(); root.previewRequested(hoverMs) }
+        onTriggered: if (root.previewEnabled && root.active) root.previewRequested(hoverMs)
     }
     // a mouse reports far more moves than a player can seek: the newest point every 40 ms
     Timer {

@@ -256,7 +256,13 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
 
     trace.mark("build: updater, preview, tray, associations, shortcuts")
     qml = QQmlApplicationEngine()
+    from refrata.scrub_thumbs import ScrubImageProvider, ScrubPreviewer
+    scrub_provider = ScrubImageProvider()
+    scrub_previewer = ScrubPreviewer(scrub_provider, app)
+    qml.addImageProvider("scrub", scrub_provider)
+    app.aboutToQuit.connect(scrub_previewer.stop)
     ctx = qml.rootContext()
+    ctx.setContextProperty("scrubPreview", scrub_previewer)
     ctx.setContextProperty("settings", settings)
     ctx.setContextProperty("theme", theme)
     ctx.setContextProperty("player", engine)

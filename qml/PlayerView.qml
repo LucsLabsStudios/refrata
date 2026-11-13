@@ -428,8 +428,24 @@ Item {
                     loopA: player.loopA; loopB: player.loopB
                     chapters: player.chapters
                     enabled: player.seekable
+                    previewEnabled: player.hasVideo && player.seekable && player.length > 0 && player.currentPath !== "" && !/^https?:/i.test(player.currentPath)
+                    onPreviewRequested: (ms) => {
+                        var src = scrubPreview.request(player.currentPath, player.length, ms)
+                        if (src) previewSource = src
+                    }
                     onScrub: (ms) => player.scrub(ms)      // the picture follows the drag
                     onSeekRequested: (ms) => player.seek(ms)
+                }
+                Connections {
+                    target: scrubPreview
+                    function onPreviewReady(path, bucketMs, url) {
+                        if (path === player.currentPath && seek.active) seek.previewSource = url
+                    }
+                }
+                Connections {
+                    target: player
+                    function onCurrentPathChanged() { seek.previewSource = ""; scrubPreview.clear() }
+                    function onHasMediaChanged() { if (!player.hasMedia) { seek.previewSource = ""; scrubPreview.clear() } }
                 }
                 Text {
                     id: tlen
