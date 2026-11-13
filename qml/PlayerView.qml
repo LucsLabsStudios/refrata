@@ -428,7 +428,7 @@ Item {
                     loopA: player.loopA; loopB: player.loopB
                     chapters: player.chapters
                     enabled: player.seekable
-                    previewEnabled: player.hasVideo && player.seekable && player.length > 0 && player.currentPath !== "" && !/^https?:/i.test(player.currentPath)
+                    previewEnabled: player.hasMedia && !player.isAudio && player.seekable && player.length > 0 && player.currentPath !== "" && !/^https?:/i.test(player.currentPath)
                     onPreviewRequested: (ms) => {
                         var src = scrubPreview.request(player.currentPath, player.length, ms)
                         if (src) previewSource = src
