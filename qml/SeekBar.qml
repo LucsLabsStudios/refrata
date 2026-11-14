@@ -13,6 +13,7 @@ Item {
     property bool dragging: ma.pressed
     property bool previewEnabled: false
     property string previewSource: ""
+    readonly property real hoverMs: ma.pressed ? root.dragValue : Math.max(0, Math.min(1, ma.mouseX / Math.max(1, root.width))) * root.to
     function chapterAt(ms) {
         var name = ""
         for (var i = 0; i < chapters.length; i++) if (ms >= chapters[i].time) name = chapters[i].name
@@ -81,10 +82,10 @@ Item {
     }
     Rectangle {
         id: previewCard
-        readonly property bool ready: root.previewEnabled && root.active && previewImg.status === Image.Ready
+        readonly property bool ready: root.previewEnabled && root.active && root.previewSource !== "" && previewImg.status === Image.Ready
         visible: opacity > 0.01
         opacity: ready ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: theme.reduceMotion ? 0 : 120; easing.type: Easing.OutCubic } }
+        Behavior on opacity { NumberAnimation { duration: theme.reduceMotion ? 0 : 90; easing.type: Easing.OutCubic } }
         width: 176; height: 100; radius: 10
         color: "#0D0D10"
         border.width: 1; border.color: Qt.rgba(1, 1, 1, 0.22)
@@ -95,8 +96,8 @@ Item {
             anchors.fill: parent; anchors.margins: 2
             source: root.previewEnabled && root.active ? root.previewSource : ""
             fillMode: Image.PreserveAspectCrop
-            asynchronous: true
-            cache: true
+            asynchronous: false
+            cache: false
             smooth: true
         }
     }
@@ -110,7 +111,7 @@ Item {
         Text {
             id: bt
             anchors.centerIn: parent
-            readonly property real at: ma.pressed ? root.dragValue : Math.max(0, Math.min(1, ma.mouseX / root.width)) * root.to
+            readonly property real at: root.hoverMs
             readonly property string chapter: root.chapters.length ? root.chapterAt(at) : ""
             text: U.time(at) + (chapter ? "  ·  " + chapter : "")
             color: "#141416"; font.pixelSize: 12; font.weight: Font.DemiBold
@@ -123,24 +124,22 @@ Item {
         anchors.topMargin: -6; anchors.bottomMargin: -6
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        function msAt(x) { return Math.max(0, Math.min(1, x / root.width)) * root.to }
-        onEntered: if (root.previewEnabled) { previewPace.hoverMs = msAt(mouseX); previewPace.triggerNow() }
-        onPressed: (m) => { root.dragValue = msAt(m.x); root.scrub(root.dragValue); scrubPace.restart() }
+        function msAt(x) { return Math.max(0, Math.min(1, x / Math.max(1, root.width))) * root.to }
+        onEntered: if (root.previewEnabled) root.previewRequested(msAt(mouseX))
+        onPressed: (m) => {
+            var ms = msAt(m.x)
+            root.dragValue = ms
+            root.scrub(ms)
+            scrubPace.restart()
+            if (root.previewEnabled) root.previewRequested(ms)
+        }
         onPositionChanged: (m) => {
             var ms = msAt(m.x)
             if (pressed) { root.dragValue = ms; scrubPace.pending = true }
-            if (root.previewEnabled) { previewPace.hoverMs = ms; previewPace.restart() }
+            if (root.previewEnabled) root.previewRequested(ms)
         }
         onReleased: (m) => { scrubPace.stop(); scrubPace.pending = false; root.seekRequested(msAt(m.x)) }
-        onCanceled: { scrubPace.stop(); scrubPace.pending = false; previewPace.stop() }
-        onExited: if (!pressed) previewPace.stop()
-    }
-    Timer {
-        id: previewPace
-        property real hoverMs: 0
-        interval: 35
-        function triggerNow() { stop(); root.previewRequested(hoverMs) }
-        onTriggered: if (root.previewEnabled && root.active) root.previewRequested(hoverMs)
+        onCanceled: { scrubPace.stop(); scrubPace.pending = false }
     }
     // a mouse reports far more moves than a player can seek: the newest point every 40 ms
     Timer {

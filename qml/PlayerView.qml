@@ -72,7 +72,10 @@ Item {
             var p = point.scenePosition
             if (Math.abs(p.x - last.x) + Math.abs(p.y - last.y) >= 2) {
                 last = Qt.point(p.x, p.y)
-                if (pv.visible) pv.poke()
+                if (pv.visible) {
+                    pv.poke()
+                    if (seek.previewEnabled) scrubPreview.prepare(player.currentPath, player.length)
+                }
             }
         }
     }
@@ -439,7 +442,10 @@ Item {
                 Connections {
                     target: scrubPreview
                     function onPreviewReady(path, bucketMs, url) {
-                        if (path === player.currentPath && seek.active) seek.previewSource = url
+                        if (path === player.currentPath && seek.active) {
+                            var cur = scrubPreview.request(player.currentPath, player.length, seek.hoverMs)
+                            seek.previewSource = cur || url
+                        }
                     }
                 }
                 Connections {
