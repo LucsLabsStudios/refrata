@@ -432,6 +432,11 @@ Item {
                     chapters: player.chapters
                     enabled: player.seekable
                     previewEnabled: player.hasMedia && !player.isAudio && player.seekable && player.length > 0 && player.currentPath !== "" && !/^https?:/i.test(player.currentPath)
+                    previewAspect: videoBox.forced > 0 ? videoBox.forced
+                                   : (player.videoWidth > 0 && player.videoHeight > 0
+                                      ? ((pv.videoRotation % 180 !== 0) ? player.videoHeight / player.videoWidth : player.videoWidth / player.videoHeight) : 0)
+                    previewRotation: pv.videoRotation
+                    previewMirror: pv.videoMirror
                     onPreviewRequested: (ms) => {
                         var src = scrubPreview.request(player.currentPath, player.length, ms)
                         if (src) previewSource = src

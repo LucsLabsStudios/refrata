@@ -141,9 +141,10 @@ class FrameRenderer:
         if sn > 0 and sd > 0 and sn != sd:
             w = int(round(w * sn / sd))
         w, h = max(2, w & ~1), max(2, h & ~1)
-        if w > self._max_width:
-            h = max(2, int(h * self._max_width / w)) & ~1
-            w = self._max_width
+        if max(w, h) > self._max_width:
+            scale = self._max_width / float(max(w, h))
+            w = max(2, int(round(w * scale))) & ~1
+            h = max(2, int(round(h * scale))) & ~1
         ctypes.memmove(chroma, b"RV32", 4)
         width[0], height[0] = w, h
         pitches[0] = w * 4

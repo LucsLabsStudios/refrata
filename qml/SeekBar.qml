@@ -13,6 +13,9 @@ Item {
     property bool dragging: ma.pressed
     property bool previewEnabled: false
     property string previewSource: ""
+    property real previewAspect: 0
+    property int previewRotation: 0
+    property bool previewMirror: false
     readonly property real hoverMs: ma.pressed ? root.dragValue : Math.max(0, Math.min(1, ma.mouseX / Math.max(1, root.width))) * root.to
     function chapterAt(ms) {
         var name = ""
@@ -83,19 +86,30 @@ Item {
     Rectangle {
         id: previewCard
         readonly property bool ready: root.previewEnabled && root.active && root.previewSource !== "" && previewImg.status === Image.Ready
+        readonly property real _imgAr: previewImg.implicitWidth > 0 && previewImg.implicitHeight > 0
+                                       ? previewImg.implicitWidth / previewImg.implicitHeight : (16 / 9)
+        readonly property real _ar: root.previewAspect > 0 ? root.previewAspect
+                                    : ((root.previewRotation % 180 !== 0) ? (1 / Math.max(0.1, _imgAr)) : _imgAr)
+        readonly property real _targetH: _ar < 0.85 ? 168 : (_ar < 1.2 ? 124 : 100)
+        readonly property real _innerW: Math.round(Math.min(216, Math.max(72, _targetH * _ar)))
+        readonly property real _innerH: Math.round(Math.min(180, Math.max(64, _innerW / Math.max(0.2, _ar))))
         visible: opacity > 0.01
         opacity: ready ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: theme.reduceMotion ? 0 : 90; easing.type: Easing.OutCubic } }
-        width: 176; height: 100; radius: 10
+        width: _innerW + 4; height: _innerH + 4; radius: 10
         color: "#0D0D10"
         border.width: 1; border.color: Qt.rgba(1, 1, 1, 0.22)
         y: bubble.y - height - 6
         x: Math.max(0, Math.min(root.width - width, (ma.pressed ? track.width * root.frac : ma.mouseX) - width / 2))
         Image {
             id: previewImg
-            anchors.fill: parent; anchors.margins: 2
+            anchors.centerIn: parent
+            width: (root.previewRotation % 180 !== 0) ? previewCard._innerH : previewCard._innerW
+            height: (root.previewRotation % 180 !== 0) ? previewCard._innerW : previewCard._innerH
+            rotation: root.previewRotation
+            mirror: root.previewMirror
             source: root.previewEnabled && root.active ? root.previewSource : ""
-            fillMode: Image.PreserveAspectCrop
+            fillMode: Image.Stretch
             asynchronous: false
             cache: false
             smooth: true
