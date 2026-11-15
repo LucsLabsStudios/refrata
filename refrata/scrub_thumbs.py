@@ -1,4 +1,4 @@
-"""Real-time timeline hover thumbnail previewer with progressive storyboard pre-warming."""
+"""Real-time timeline hover thumbnail previewer with exact paused-frame seeking."""
 from __future__ import annotations
 
 import hashlib
@@ -40,21 +40,21 @@ PROGRESSIVE_INDICES = _progressive_order(STORYBOARD_SLOTS)
 
 
 class ScrubImageProvider(QQuickImageProvider):
-    """In-memory LRU image provider serving ``image://scrub/<media_id>/<bucket_ms>``."""
+    """In-memory LRU image provider serving ``image://scrub/<media_id>/<ms>``."""
 
-    def __init__(self, capacity: int = 240):
+    def __init__(self, capacity: int = 320):
         super().__init__(QQuickImageProvider.ImageType.Image)
         self._capacity = capacity
         self._lock = threading.Lock()
         self._cache: OrderedDict[str, QImage] = OrderedDict()
         self._by_media: dict[str, set[int]] = {}
 
-    def put(self, mid: str, bucket: int, img: QImage) -> str:
-        key = f"{mid}/{bucket}"
+    def put(self, mid: str, ms: int, img: QImage) -> str:
+        key = f"{mid}/{ms}"
         with self._lock:
             self._cache[key] = img
             self._cache.move_to_end(key)
-            self._by_media.setdefault(mid, set()).add(bucket)
+            self._by_media.setdefault(mid, set()).add(ms)
             while len(self._cache) > self._capacity:
                 old_key, _ = self._cache.popitem(last=False)
                 if "/" in old_key:
@@ -71,9 +71,9 @@ class ScrubImageProvider(QQuickImageProvider):
                 self._cache.move_to_end(key)
             return img
 
-    def nearest_url(self, mid: str, target_ms: int) -> tuple[str, bool]:
-        """Return ``(url, is_exact)`` for the closest cached frame of ``mid``, or ``("", False)``."""
-        exact_key = f"{mid}/{target_ms}"
+    def lookup(self, mid: str, exact_ms: int, max_delta_ms: int) -> tuple[str, bool]:
+        """Return ``(url, is_exact)`` for ``exact_ms`` or closest frame within ``max_delta_ms``."""
+        exact_key = f"{mid}/{exact_ms}"
         with self._lock:
             if exact_key in self._cache:
                 self._cache.move_to_end(exact_key)
@@ -81,8 +81,10 @@ class ScrubImageProvider(QQuickImageProvider):
             buckets = self._by_media.get(mid)
             if not buckets:
                 return "", False
-            closest = min(buckets, key=lambda b: abs(b - target_ms))
-            return f"image://scrub/{mid}/{closest}", False
+            closest = min(buckets, key=lambda b: abs(b - exact_ms))
+            if abs(closest - exact_ms) <= max_delta_ms:
+                return f"image://scrub/{mid}/{closest}", False
+            return "", False
 
     def requestImage(self, id: str, size: QSize, requestedSize: QSize) -> QImage:
         img = self.get(id)
@@ -97,9 +99,9 @@ class ScrubImageProvider(QQuickImageProvider):
 
 
 class ScrubPreviewer(QObject):
-    """Real-time timeline thumbnail generator with coarse-to-fine storyboard pre-warming."""
+    """Exact paused-frame seeker + background storyboard pre-warmer for SeekBar hover previews."""
 
-    previewReady = Signal(str, int, str)  # path, bucket_ms, image://scrub/...
+    previewReady = Signal(str, int, str)  # path, target_ms, image://scrub/...
 
     def __init__(self, provider: ScrubImageProvider, parent=None):
         super().__init__(parent)
@@ -122,13 +124,14 @@ class ScrubPreviewer(QObject):
             return 1000
         return max(500, duration_ms // STORYBOARD_SLOTS)
 
-    @classmethod
-    def _bucket(cls, duration_ms: int, ms: int) -> int:
+    @staticmethod
+    def _quantize(duration_ms: int, ms: int) -> int:
+        """Snap hover timestamps to 250ms steps (or ~500 slots on long videos) for exact scene preview."""
         if duration_ms <= 0:
             return 0
-        step = cls._step(duration_ms)
-        clamped = max(0, min(int(ms), max(0, duration_ms - 200)))
-        return min(STORYBOARD_SLOTS - 1, clamped // step) * step
+        q = max(250, min(1000, duration_ms // 500))
+        clamped = max(0, min(int(ms), max(0, duration_ms - 250)))
+        return (clamped // q) * q
 
     def _ensure_thread_locked(self) -> None:
         if self._thread is None:
@@ -155,13 +158,15 @@ class ScrubPreviewer(QObject):
 
     @Slot(str, int, int, result=str)
     def request(self, path: str, duration_ms: int, ms: int) -> str:
-        """Return an instant cached URL (exact or nearest neighbor) and queue exact frame if needed."""
+        """Return cached URL (exact or nearby storyboard slot) and queue exact hover position."""
         if not path or duration_ms <= 0 or "://" in path:
             return ""
         mid = self._media_id(path)
         dur = int(duration_ms)
-        bucket = self._bucket(dur, ms)
-        url, is_exact = self._provider.nearest_url(mid, bucket)
+        target_ms = self._quantize(dur, ms)
+        # Only fall back to a cached storyboard neighbor if it is close (within 1 storyboard step)
+        max_delta = max(1200, self._step(dur))
+        url, is_exact = self._provider.lookup(mid, target_ms, max_delta)
         if is_exact:
             return url
 
@@ -173,7 +178,7 @@ class ScrubPreviewer(QObject):
                 return url
             self._ensure_thread_locked()
             self._warm_target = (path, mid, dur)
-            self._pending = (path, mid, dur, bucket)
+            self._pending = (path, mid, dur, target_ms)
             self._clear_requested = False
             self._cv.notify()
         return url
@@ -201,7 +206,7 @@ class ScrubPreviewer(QObject):
         inst = vlc.Instance([
             "--quiet", "--verbose=-1", "--no-audio", "--no-spu",
             "--no-sub-autodetect-file", "--avcodec-fast",
-            "--avcodec-hw=none", "--avcodec-threads=2",
+            "--avcodec-hw=none", "--avcodec-threads=4",
             "--no-video-title-show", "--no-osd",
         ])
         cur_path = ""
@@ -254,9 +259,7 @@ class ScrubPreviewer(QObject):
             release_player()
             try:
                 media = inst.media_new_path(path)
-                media.add_option(":file-caching=30")
-                media.add_option(":avcodec-fast")
-                media.add_option(":avcodec-skip-loop-filter=4")
+                media.add_option(":file-caching=20")
                 mp = inst.media_player_new()
                 renderer = FrameRenderer(mp, 256, on_frame)
                 latest_img[0] = None
@@ -269,6 +272,11 @@ class ScrubPreviewer(QObject):
                 mp.play()
                 frame_event.wait(1.5)
                 accept_frames[0] = False
+                # Keep player PAUSED from now on: in paused state, mp.set_time(ms) decodes and
+                # emits ONLY the exact target frame at `ms` (never leftover frames from playing).
+                mp.set_pause(1)
+                time.sleep(0.02)
+                frame_event.clear()
                 if latest_img[0] is not None and not latest_img[0].isNull():
                     mid0 = self._media_id(path)
                     url0 = self._provider.put(mid0, 0, latest_img[0])
@@ -278,27 +286,36 @@ class ScrubPreviewer(QObject):
                 release_player()
                 return False
 
-        def grab_bucket(mid: str, dur: int, bucket: int, timeout: float = 0.35) -> str:
-            key = f"{mid}/{bucket}"
+        def grab_exact(mid: str, dur: int, target_ms: int, timeout: float = 0.65) -> str:
+            key = f"{mid}/{target_ms}"
             if self._provider.get(key) is not None:
                 return f"image://scrub/{key}"
             if mp is None:
                 return ""
             try:
+                if mp.get_state() == vlc.State.Playing:
+                    mp.set_pause(1)
+                clamped = max(0, min(int(target_ms), max(0, dur - 250)))
                 latest_img[0] = None
                 frame_event.clear()
                 accept_frames[0] = True
-                if mp.get_state() == vlc.State.Paused:
-                    mp.set_pause(0)
-                if dur > 0:
-                    mp.set_position(max(0.0, min(0.995, bucket / float(dur))))
-                else:
-                    mp.set_time(int(bucket))
-                frame_event.wait(timeout)
+                mp.set_time(clamped)
+                deadline = time.monotonic() + timeout
+                tol = max(600, dur // 100)
+                while time.monotonic() < deadline and not self._stopping:
+                    rem = deadline - time.monotonic()
+                    if rem <= 0 or not frame_event.wait(min(0.15, rem)):
+                        continue
+                    cur_t = mp.get_time()
+                    if cur_t < 0 or abs(cur_t - clamped) <= tol:
+                        break
+                    # A stale frame from an earlier interrupted seek arrived: wait for the real one
+                    latest_img[0] = None
+                    frame_event.clear()
                 accept_frames[0] = False
                 img = latest_img[0]
                 if img is not None and not img.isNull():
-                    return self._provider.put(mid, bucket, img)
+                    return self._provider.put(mid, target_ms, img)
             except Exception:
                 accept_frames[0] = False
             return ""
@@ -312,12 +329,6 @@ class ScrubPreviewer(QObject):
                         if self._warm_target is not None and warm_cursor < STORYBOARD_SLOTS:
                             warm = self._warm_target
                             break
-                        # Storyboard complete or nothing open: pause decoder to keep 0% idle CPU
-                        if mp is not None and mp.get_state() == vlc.State.Playing:
-                            try:
-                                mp.set_pause(1)
-                            except Exception:
-                                pass
                         self._cv.wait()
                     if self._stopping:
                         break
@@ -331,17 +342,16 @@ class ScrubPreviewer(QObject):
                     elif self._warm_target is not None and warm_cursor < STORYBOARD_SLOTS:
                         warm = self._warm_target
 
-                # 1. Explicit hover request always has top priority
                 if job is not None:
-                    path, mid, dur, bucket = job
+                    path, mid, dur, target_ms = job
                     if not ensure_open(path, dur):
                         continue
-                    url = grab_bucket(mid, dur, bucket, timeout=0.35)
+                    url = grab_exact(mid, dur, target_ms, timeout=0.65)
                     if url and not self._stopping:
-                        self.previewReady.emit(path, bucket, url)
+                        self.previewReady.emit(path, target_ms, url)
                     continue
 
-                # 2. Background coarse-to-fine storyboard pre-warmer (one slot at a time, yields to hover)
+                # 2. Background coarse-to-fine storyboard pre-warmer (paused seeks, yields to hover)
                 if warm is not None:
                     path, mid, dur = warm
                     if not ensure_open(path, dur):
@@ -352,11 +362,11 @@ class ScrubPreviewer(QObject):
                     slot_idx = PROGRESSIVE_INDICES[warm_cursor]
                     warm_cursor += 1
                     step = self._step(dur)
-                    bucket = slot_idx * step
-                    if self._provider.get(f"{mid}/{bucket}") is None:
-                        url = grab_bucket(mid, dur, bucket, timeout=0.25)
+                    slot_ms = self._quantize(dur, slot_idx * step)
+                    if self._provider.get(f"{mid}/{slot_ms}") is None:
+                        url = grab_exact(mid, dur, slot_ms, timeout=0.55)
                         if url and not self._stopping:
-                            self.previewReady.emit(path, bucket, url)
+                            self.previewReady.emit(path, slot_ms, url)
         finally:
             release_player()
             try:
