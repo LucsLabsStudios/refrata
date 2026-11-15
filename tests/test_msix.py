@@ -1,11 +1,11 @@
 """End-to-end test of the MSIX package (dist/Refrata-<v>-x64-dev.msix).
 
-    python tools/test_msix.py --trust     one UAC prompt: trusts build\\lucslabs-dev.cer for package
+    python tests/test_msix.py --trust     one UAC prompt: trusts build\\lucslabs-dev.cer for package
                                           installs (LocalMachine\\TrustedPeople) and runs the Windows App
                                           Certification Kit (the Store's own checks) on the package
-    python tools/test_msix.py             install, checks, E2E battery inside the package, file
+    python tests/test_msix.py             install, checks, E2E battery inside the package, file
                                           activation, uninstall (no admin)
-    python tools/test_msix.py --untrust   one UAC prompt: removes the trust again
+    python tests/test_msix.py --untrust   one UAC prompt: removes the trust again
 """
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from ctypes import wintypes
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "tools"))
 from msix import NAME, VERSION  # noqa: E402
 from refrata.media import AUDIO_EXT, PLAYLIST_EXT, VIDEO_EXT  # noqa: E402
@@ -182,7 +182,7 @@ def test(skip_selftest: bool):
     if not PKG.exists():
         raise SystemExit(f"{PKG} not found — run python tools/build.py")
     if not trusted():
-        raise SystemExit("the development certificate is not trusted yet — run python tools/test_msix.py --trust")
+        raise SystemExit("the development certificate is not trusted yet — run python tests/test_msix.py --trust")
     if package():
         raise SystemExit(f"{NAME} is already installed; remove it first (Remove-AppxPackage)")
     WORK.mkdir(parents=True, exist_ok=True)

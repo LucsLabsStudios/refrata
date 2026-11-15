@@ -50,8 +50,8 @@ def _reduce_motion() -> bool:
 
 def _bundled_icon_font() -> str:
     """Fluent UI System Icons (MIT), cut down to the app's icons: Segoe Fluent Icons is Windows-only."""
-    from .vlcpath import app_root
-    fid = QFontDatabase.addApplicationFont(str(app_root() / "assets" / "fonts" / "FluentSystemIcons-Refrata.ttf"))
+    from .vlcpath import resources_dir
+    fid = QFontDatabase.addApplicationFont(str(resources_dir() / "fonts" / "FluentSystemIcons-Refrata.ttf"))
     fams = QFontDatabase.applicationFontFamilies(fid) if fid >= 0 else []
     return fams[0] if fams else "Sans Serif"
 
@@ -132,7 +132,7 @@ class Theme(QObject):
 
     @Property(str, constant=True)
     def iconSet(self):
-        """Which glyph table qml/Icon.qml uses: "segoe" (Windows) or "fluent" (bundled font)."""
+        """Which glyph table ui/Icon.qml uses: "segoe" (Windows) or "fluent" (bundled font)."""
         return self._icon_set
 
     @Property(str, constant=True)

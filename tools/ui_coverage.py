@@ -19,7 +19,7 @@ LIST = ROOT / "tests" / "ui_untested.txt"
 
 def controls() -> dict:
     out = {}
-    for f in sorted(glob.glob(str(ROOT / "qml" / "*.qml"))):
+    for f in sorted(glob.glob(str(ROOT / "src" / "refrata" / "ui" / "*.qml"))):
         for m in re.finditer(r'objectName:\s*"([A-Za-z0-9_]+)"', open(f, encoding="utf-8").read()):
             out.setdefault(m.group(1), os.path.basename(f))
     return out

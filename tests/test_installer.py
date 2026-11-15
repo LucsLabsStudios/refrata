@@ -1,6 +1,6 @@
 """End-to-end test of the Windows installer (dist/Refrata-Setup-<version>.exe).
 
-    python tools/test_installer.py [--skip-selftest]
+    python tests/test_installer.py [--skip-selftest]
 
 1. silent per-user install into a temp folder (file associations on, no desktop icon)
 2. files, Start-menu shortcut, uninstaller and registry entries (ProgID, Abrir com, Apps padrão)
@@ -24,7 +24,7 @@ from ctypes import wintypes
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "tools"))
 from refrata import __version__  # noqa: E402
 from refrata.media import AUDIO_EXT, PLAYLIST_EXT, VIDEO_EXT  # noqa: E402

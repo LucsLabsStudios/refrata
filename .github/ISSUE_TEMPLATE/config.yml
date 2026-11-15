@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Download Refrata
+    url: https://refrata.vercel.app
+    about: Installers for Windows and Linux.
+  - name: Report a security vulnerability
+    url: https://github.com/LucsLabsStudios/refrata/security/advisories/new
+    about: Please report security problems privately, not as an issue.

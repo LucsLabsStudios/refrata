@@ -477,7 +477,7 @@ class NativeRenderer(DirectRenderer):
 def make_renderer(player, on_frame):
     """Python's frame path, or the Rust one with REFRATA_NATIVE=1 (experimental: the UI thread still
     needs Python for every frame, so it does not beat the Python path yet; it becomes useful once
-    frames go from Rust straight to Qt, see docs/ROTEIRO-DESEMPENHO-E-PLATAFORMAS.md)."""
+    frames go from Rust straight to Qt, see docs/roadmap-performance-and-platforms.md)."""
     if os.environ.get("REFRATA_NATIVE") == "1":
         try:
             import refrata_native  # noqa: F401

@@ -27,6 +27,7 @@ import traceback
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+ENTRY = ROOT / "src" / "refrata" / "__main__.py"
 # `Refrata.exe --selftest` creates the temp dir before the app modules load
 TMP = Path(os.environ.get("REFRATA_E2E_TMP") or tempfile.mkdtemp(prefix="refrata_e2e_"))
 os.environ["REFRATA_E2E_TMP"] = str(TMP)
@@ -39,9 +40,9 @@ os.environ["REFRATA_LANG"] = "pt"
 (TMP / "data").mkdir(parents=True, exist_ok=True)
 FROZEN = bool(getattr(sys, "frozen", False))
 if not FROZEN:
-    sys.path.insert(0, str(ROOT))
+    sys.path[:0] = [str(ROOT), str(ROOT / "src")]
 
-import main  # noqa: E402  (configures libVLC paths + Qt message capture)
+import refrata.__main__ as main  # noqa: E402  (configures libVLC paths + Qt message capture)
 from PySide6.QtCore import QMetaObject, QObject, QPoint, QPointF, Qt, Q_ARG, Q_RETURN_ARG  # noqa: E402
 from PySide6.QtGui import QGuiApplication, QImage, QWindow  # noqa: E402
 from PySide6.QtQuick import QQuickItem  # noqa: E402
@@ -1496,7 +1497,7 @@ def t40_native_subtitle_dialog():
 def _child_cmd(*args):
     if FROZEN:
         return [sys.executable, *args]
-    return [sys.executable, str(ROOT / "main.py"), *args]
+    return [sys.executable, str(ENTRY), *args]
 
 
 def local_request(name: str, payload: bytes) -> bytes:
@@ -2145,7 +2146,7 @@ def t49_ab_repeat_and_always_on_top():
 
 @test
 def t50_language_switch_live_and_complete():
-    import main as M
+    import refrata.__main__ as M
     from refrata.i18n import CODES, tr
     i18n, tray = C.parts.i18n, C.parts.tray
     check(i18n.property("language") == "auto" and i18n.property("current") == "pt", "starts in Portuguese (auto)")
@@ -2466,7 +2467,7 @@ def run(filter_text="", report=None):
             "results": [{"name": n, "ok": good, "detail": d} for n, good, d in RESULTS],
         }, indent=2, ensure_ascii=False), encoding="utf8")
     sys.stdout.flush()
-    # shut down like the real app does (main.py runs this on aboutToQuit): unhook the Space hook,
+    # shut down like the real app does (__main__.py runs this on aboutToQuit): unhook the Space hook,
     # stop the quick player and release libVLC, so no native thread is still running mid-teardown
     if C.parts:
         try:

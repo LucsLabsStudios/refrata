@@ -9,12 +9,12 @@ nova.
 
 | Peça | Arquivo | Uso |
 |---|---|---|
-| Ícone mestre | `assets/brand/icon-1024.png` | lojas, site, materiais |
-| Ícone do Windows | `assets/icon.ico` (16–256 px) | exe, instalador, atalhos, barra de tarefas |
-| Ícone do app | `assets/icon.png`, `assets/brand/icon-256.png`, `icon-96.png` | janela, logo da barra lateral, cartão Sobre |
-| Símbolo sem bloco | `assets/brand/symbol.png` | sobre fundos escuros, splash, vídeos |
-| Key visual | `assets/brand/hero.jpg` (1536×1024), `about.jpg` (faixa) | cartão Sobre, README, posts |
-| Instalador | `assets/installer/*.bmp` | lateral e cabeçalho do Inno Setup |
+| Ícone mestre | `src/refrata/resources/brand/icon-1024.png` | lojas, site, materiais |
+| Ícone do Windows | `src/refrata/resources/icon.ico` (16–256 px) | exe, instalador, atalhos, barra de tarefas |
+| Ícone do app | `src/refrata/resources/icon.png`, `src/refrata/resources/brand/icon-256.png`, `icon-96.png` | janela, logo da barra lateral, cartão Sobre |
+| Símbolo sem bloco | `src/refrata/resources/brand/symbol.png` | sobre fundos escuros, splash, vídeos |
+| Key visual | `docs/images/hero.jpg` (1536×1024), `src/refrata/resources/brand/about.jpg` (faixa) | cartão Sobre, README, posts |
+| Instalador | `packaging/windows/installer/art/*.bmp` | lateral e cabeçalho do Inno Setup |
 
 Até 32 px o ícone usa uma versão vetorial simplificada (contorno grosso e feixe sólido), desenhada em
 `tools/brand/build_assets.py`. Os detalhes de vidro não sobrevivem a esses tamanhos.

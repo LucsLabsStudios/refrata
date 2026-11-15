@@ -3,7 +3,7 @@
 Módulo nativo do Refrata, em Rust (PyO3 + maturin). Hoje traz `FramePool`: os callbacks de cada quadro do
 libVLC (lock / unlock / display) sem o GIL do Python. É experimental e fica desligado por padrão; liga com
 `REFRATA_NATIVE=1`. As medições e o plano estão em
-[docs/ROTEIRO-DESEMPENHO-E-PLATAFORMAS.md](../docs/ROTEIRO-DESEMPENHO-E-PLATAFORMAS.md).
+[docs/roadmap-performance-and-platforms.md](../docs/roadmap-performance-and-platforms.md).
 
 ## Compilar
 

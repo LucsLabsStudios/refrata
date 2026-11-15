@@ -10,7 +10,7 @@ SmartScreen, e você não precisa comprar um certificado.
 2. No Partner Center, em **Apps e jogos › Novo produto › Aplicativo MSIX ou PWA**, reserve o nome
    **Refrata**. Se o nome estiver livre, a reserva já garante que ninguém mais publica com ele na Store.
 3. Abra **Gerenciamento de produtos › Identidade do produto** e copie os três valores para
-   `installer/store.json`, seguindo o modelo de `installer/store.example.json`:
+   `packaging/windows/msix/store.json`, seguindo o modelo de `packaging/windows/msix/store.example.json`:
 
    | Partner Center | store.json |
    |---|---|
@@ -25,7 +25,7 @@ python tools/build.py           # gera também dist\Refrata-1.0.0.0-x64-store.ms
 ```
 
 O pacote da Store sai **sem assinatura**, porque a Microsoft assina na publicação. A cada nova versão,
-aumente `__version__` em `refrata/__init__.py`. A Store exige que o último número da versão seja 0, e
+aumente `__version__` em `src/refrata/__init__.py`. A Store exige que o último número da versão seja 0, e
 o build já cuida disso.
 
 ## 3. Envio
@@ -56,9 +56,9 @@ A certificação costuma levar de algumas horas a três dias úteis.
 O pacote de teste (`-dev.msix`) é assinado com o certificado de desenvolvimento:
 
 ```powershell
-python tools/test_msix.py --trust     # UAC: confia no certificado e roda o Kit de Certificação da Store
-python tools/test_msix.py             # instala, roda os 44 testes dentro do pacote, abre um arquivo, desinstala
-python tools/test_msix.py --untrust   # UAC: remove a confiança
+python tests/test_msix.py --trust     # UAC: confia no certificado e roda o Kit de Certificação da Store
+python tests/test_msix.py             # instala, roda os 44 testes dentro do pacote, abre um arquivo, desinstala
+python tests/test_msix.py --untrust   # UAC: remove a confiança
 ```
 
 O Windows não aceita pacotes sem assinatura que contenham executáveis (erro 0x80073D2B), por isso o

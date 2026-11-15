@@ -4,7 +4,7 @@ r"""Measure the frozen Refrata (Windows): idle CPU, playback CPU + dropped frame
 
 Each run gets a temporary data folder with an empty library (never the copy in use: --new-window and
 --screenshot skip the single-instance hand-over). Test clips (1080p30, 4K60 H.264) are made with ffmpeg
-into build/perf on first use. Results: docs/ROTEIRO-DESEMPENHO-E-PLATAFORMAS.md, section 6.
+into build/perf on first use. Results: docs/roadmap-performance-and-platforms.md, section 6.
 """
 import ctypes
 import ctypes.wintypes as wt

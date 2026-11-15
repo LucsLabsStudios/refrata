@@ -99,7 +99,7 @@ class Run:
         return e
 
     def start(self, *args, **extra):
-        cmd = [self.exe, *args] if self.exe else [sys.executable, str(ROOT / "main.py"), *args]
+        cmd = [self.exe, *args] if self.exe else [sys.executable, str(ROOT / "src" / "refrata" / "__main__.py"), *args]
         p = subprocess.Popen(cmd, env=self.env(**extra), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         self.procs.append(p)
         return p

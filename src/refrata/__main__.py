@@ -14,6 +14,11 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
+if __name__ == "__main__" and not __package__ and not getattr(sys, "frozen", False):
+    # started as a file (python src/refrata/__main__.py, as the tests do): import the package from
+    # src/, never this folder's own modules as top-level ones (trace.py would hide the standard one)
+    sys.path[0] = str(Path(__file__).resolve().parents[1])
+
 from refrata import trace  # noqa: E402  (REFRATA_TRACE: startup timeline)
 
 trace.mark("python ready")
@@ -25,8 +30,8 @@ else:
     FAST_ID = ""
 
 if __name__ == "__main__":
-    # `import main` (tests) must see this very module, not a second copy
-    sys.modules.setdefault("main", sys.modules[__name__])
+    # the tests' `import refrata.__main__ as main` must see this very module, not a second copy
+    sys.modules.setdefault("refrata.__main__", sys.modules[__name__])
 
 # Every video frame passes through Python twice (libVLC's decoder thread, then the UI thread). With
 # another Python thread busy (library scan, yt-dlp, thumbnails) each pass waited up to the default
@@ -46,7 +51,7 @@ if "--selftest" in sys.argv and not os.environ.get("REFRATA_E2E_TMP"):
     os.environ["REFRATA_DATA"] = str(_tmp / "data")
 
 from refrata import __version__  # noqa: E402
-from refrata.vlcpath import app_root, configure as configure_vlc, preload_qt  # noqa: E402
+from refrata.vlcpath import configure as configure_vlc, preload_qt, resources_dir, ui_dir  # noqa: E402
 
 VLC_DIR = configure_vlc()
 QT_PRELOADED = preload_qt()
@@ -75,7 +80,7 @@ from refrata.media import SUB_EXT, is_audio_path, is_media_path  # noqa: E402
 from refrata.mediakeys import MediaKeys  # noqa: E402
 from refrata.subsearch import SubtitleSearch  # noqa: E402
 
-ROOT = app_root()
+RESOURCES = resources_dir()
 trace.mark("imports done (Qt, libVLC, app modules)")
 
 # Every Qt/QML warning goes through here; tests install a collector.
@@ -200,7 +205,7 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
     QGuiApplication.setOrganizationName("LucsLabs Studios")
     QGuiApplication.setApplicationVersion(__version__)
     app = QGuiApplication.instance() or QApplication(argv or sys.argv)
-    app.setWindowIcon(QIcon(str(ROOT / "assets" / "icon.ico")))
+    app.setWindowIcon(QIcon(str(RESOURCES / "icon.ico")))
 
     trace.mark("build: QApplication")
     settings = Settings()
@@ -235,7 +240,7 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
     from refrata import ytdlp
     ytdlp.allowed = lambda: bool(settings.value("autoUpdate", True))
     quicklook = QuickLook(settings)
-    tray = Tray(settings, quicklook, ROOT / "assets" / "icon.ico")
+    tray = Tray(settings, quicklook, RESOURCES / "icon.ico")
     i18n.changed.connect(tray.retranslate)
     from refrata.assoc import Associations
     from refrata.shortcuts import Shortcuts
@@ -280,9 +285,9 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
     ctx.setContextProperty("startHidden", bool(start_hidden))
     ctx.setContextProperty("startPage", page)
     ctx.setContextProperty("startPanel", panel)
-    ctx.setContextProperty("assetsUrl", QUrl.fromLocalFile(str(ROOT / "assets") + "/").toString())
+    ctx.setContextProperty("assetsUrl", QUrl.fromLocalFile(str(RESOURCES) + "/").toString())
     trace.mark("build: QML context")
-    qml.load(QUrl.fromLocalFile(str(ROOT / "qml" / "Main.qml")))
+    qml.load(QUrl.fromLocalFile(str(ui_dir() / "Main.qml")))
     trace.mark("build: QML loaded (window created)")
     if not qml.rootObjects():
         raise RuntimeError("Main.qml failed to load:\n" + "\n".join(QT_MESSAGES))

@@ -1,7 +1,7 @@
 """Localisation helper.
 
     python tools/i18n.py keys        list every translatable source string
-    python tools/i18n.py check       verify i18n/*.json (coverage, placeholders, tags, plural forms)
+    python tools/i18n.py check       verify src/refrata/locales/*.json (coverage, placeholders, tags, plural forms)
     python tools/i18n.py leftovers   Portuguese text in QML that is not wrapped in qsTr()
 
 The source language is Portuguese (qsTr("…") in QML/JS, tr("…") and N_("…") in Python).
@@ -13,7 +13,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "src"))
+PKG = ROOT / "src" / "refrata"
 
 STR = r'"((?:[^"\\\n]|\\.)*)"'
 QML_RE = re.compile(r'qsTr\(\s*' + STR + r'(\s*,\s*' + STR + r'\s*,)?')
@@ -29,7 +30,7 @@ def _unescape(s: str) -> str:
 def keys() -> dict:
     """source text -> {"plural": bool, "where": [file:line]}"""
     out = {}
-    files = sorted(glob.glob(str(ROOT / "qml" / "*.qml"))) + sorted(glob.glob(str(ROOT / "qml" / "*.js")))
+    files = sorted(glob.glob(str(PKG / "ui" / "*.qml"))) + sorted(glob.glob(str(PKG / "ui" / "*.js")))
     for f in files:
         for i, line in enumerate(open(f, encoding="utf8"), 1):
             for m in QML_RE.finditer(line):
@@ -37,7 +38,7 @@ def keys() -> dict:
                 e = out.setdefault(k, {"plural": False, "where": []})
                 e["where"].append(f"{Path(f).name}:{i}")
                 e["plural"] |= "%n" in k
-    for f in sorted(glob.glob(str(ROOT / "refrata" / "*.py"))) + [str(ROOT / "main.py")]:
+    for f in sorted(glob.glob(str(PKG / "*.py"))):
         if f.endswith("i18n.py"):
             continue
         for i, line in enumerate(open(f, encoding="utf8"), 1):
@@ -59,7 +60,7 @@ def check(verbose=True) -> list:
     ks = keys()
     problems = []
     for code in CODES:
-        path = ROOT / "i18n" / f"{code}.json"
+        path = PKG / "locales" / f"{code}.json"
         try:
             table = json.loads(path.read_text(encoding="utf8"))
         except (OSError, ValueError) as exc:
@@ -104,7 +105,7 @@ def check(verbose=True) -> list:
 def leftovers():
     lit = re.compile(STR)
     pt = re.compile(r'[À-ú]|\b(de|da|do|para|com|não|uma?|os?|as?|em|no|na)\b', re.I)
-    for f in sorted(glob.glob(str(ROOT / "qml" / "*.qml"))) + sorted(glob.glob(str(ROOT / "qml" / "*.js"))):
+    for f in sorted(glob.glob(str(PKG / "ui" / "*.qml"))) + sorted(glob.glob(str(PKG / "ui" / "*.js"))):
         for i, line in enumerate(open(f, encoding="utf8"), 1):
             code = line.split(" // ")[0]
             if code.strip().startswith("//"):

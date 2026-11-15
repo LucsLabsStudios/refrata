@@ -22,7 +22,7 @@ import uuid
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+sys.path[:0] = [str(ROOT), str(ROOT / "src")]
 TMP = Path(tempfile.mkdtemp(prefix="refrata_unit_"))
 os.environ.setdefault("REFRATA_DATA", str(TMP / "data"))       # never the person's own data folder
 os.environ.setdefault("REFRATA_E2E_TMP", str(TMP))
@@ -391,7 +391,7 @@ print(json.dumps(out))
 def _launches(name, *steps):
     """Other launches of Refrata, in a process of their own, while this one keeps answering."""
     def run():
-        r = subprocess.run([sys.executable, "-c", _LAUNCH, str(ROOT), name, json.dumps(steps)],
+        r = subprocess.run([sys.executable, "-c", _LAUNCH, str(ROOT / "src"), name, json.dumps(steps)],
                            capture_output=True, text=True, timeout=60)
         check(r.returncode == 0, "the other launch ran", r.stderr[-400:])
         return json.loads(r.stdout.strip().splitlines()[-1])
@@ -435,7 +435,7 @@ def second_launch_hands_its_files_to_the_first():
 
 @test
 def fast_path_talks_to_the_instance_server():
-    """refrata/fastlaunch.py (no Qt, start of main.py) against the real QLocalServer."""
+    """refrata/fastlaunch.py (no Qt, start of __main__.py) against the real QLocalServer."""
     _qt()
     from refrata import fastlaunch as F, single as S
     check(F._roundtrip(b'{"open": [], "id": "0"}\n', 0.5) == b"", "no Refrata running: no answer, quickly")
@@ -485,7 +485,7 @@ def startup_trace_writes_a_timeline_only_when_asked():
     code = ("from refrata import trace; import time; trace.mark('one'); time.sleep(0.08); trace.mark('two');"
             "print(trace.enabled())")
     env = dict(os.environ, REFRATA_TRACE=str(out))
-    r = subprocess.run([sys.executable, "-c", code], cwd=str(ROOT), env=env, capture_output=True, text=True, timeout=60)
+    r = subprocess.run([sys.executable, "-c", code], cwd=str(ROOT / "src"), env=env, capture_output=True, text=True, timeout=60)
     check(r.stdout.strip() == "True", "enabled with REFRATA_TRACE", r.stdout + r.stderr)
     lines = out.read_text("utf8").splitlines()
     check(len(lines) == 2 and lines[0].endswith("ms  one") and lines[1].endswith("ms  two"), "one line per step", str(lines))
@@ -493,10 +493,10 @@ def startup_trace_writes_a_timeline_only_when_asked():
     check(0 <= a < 60000 and b >= a + 60, "times count from the start of the process and grow", f"{a} {b}")
     env.pop("REFRATA_TRACE")
     out.unlink()
-    r = subprocess.run([sys.executable, "-c", code], cwd=str(ROOT), env=env, capture_output=True, text=True, timeout=60)
+    r = subprocess.run([sys.executable, "-c", code], cwd=str(ROOT / "src"), env=env, capture_output=True, text=True, timeout=60)
     check(r.stdout.strip() == "False" and not out.exists(), "without it: off, and nothing is written", r.stdout + r.stderr)
     bad = dict(env, REFRATA_TRACE=str(TMP / "no-such-folder" / "t.txt"))
-    r = subprocess.run([sys.executable, "-c", code], cwd=str(ROOT), env=bad, capture_output=True, text=True, timeout=60)
+    r = subprocess.run([sys.executable, "-c", code], cwd=str(ROOT / "src"), env=bad, capture_output=True, text=True, timeout=60)
     check(r.returncode == 0, "a trace file that cannot be written never stops the app", r.stderr)
 
 

@@ -299,8 +299,8 @@ def make_formats(root: Path) -> dict:
 if __name__ == "__main__":
     import sys
     import time
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    import main  # noqa: F401
+    sys.path[:0] = [str(Path(__file__).resolve().parents[1]), str(Path(__file__).resolve().parents[1] / "src")]
+    import refrata.__main__  # noqa: F401
     from PySide6.QtGui import QGuiApplication
     app = QGuiApplication(sys.argv)
     t = time.time()

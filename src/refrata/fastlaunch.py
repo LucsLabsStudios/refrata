@@ -3,7 +3,7 @@
 Opening a second video while Refrata runs used to start a whole second process (Python, Qt, libVLC:
 half a second or more) only to pass a path along and quit. This talks to the running instance's
 QLocalServer directly - a named pipe on Windows, a Unix socket elsewhere - with the standard library
-alone, at the very top of main.py. When it gets the "ok", the launch ends right there. Anything else
+alone, at the very top of __main__.py. When it gets the "ok", the launch ends right there. Anything else
 (no Refrata running, or one still starting) falls through to the full path in refrata/single.py,
 with the same request id, so a file sent twice is still opened once.
 
@@ -26,7 +26,7 @@ def server_name(tag: str = "") -> str:
     return "Refrata-" + hashlib.sha1(who.encode("utf8")).hexdigest()[:16]
 
 
-# main.py's options that take a value: the value is not a file to open
+# __main__.py's options that take a value: the value is not a file to open
 VALUE_FLAGS = ("--page", "--panel", "--delay", "--size", "--theme", "-k", "--report", "--log")
 
 

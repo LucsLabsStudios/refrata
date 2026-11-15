@@ -31,14 +31,14 @@ import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "tools"))
 import vlc_engine  # noqa: E402
 from refrata.updater import REPO  # noqa: E402
 
 DIST = ROOT / "dist"
 REQS = ROOT / "requirements.txt"
-INIT = ROOT / "refrata" / "__init__.py"
+INIT = ROOT / "src" / "refrata" / "__init__.py"
 
 
 def run(*cmd, **kw):
@@ -249,7 +249,7 @@ def main():
     v = version()
     if released(v):
         if not args.bump:
-            sys.exit(f"v{v} já foi publicado. Suba a versão em refrata/__init__.py, ou use --bump.")
+            sys.exit(f"v{v} já foi publicado. Suba a versão em src/refrata/__init__.py, ou use --bump.")
         parts = v.split(".")
         parts[-1] = str(int(parts[-1]) + 1)
         nv = ".".join(parts)

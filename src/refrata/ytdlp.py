@@ -39,7 +39,7 @@ RETRY_EVERY = 3600             # after a failed link (private videos fail too: d
 MAX_WHEEL = 40 * 1024 * 1024
 UA = f"Refrata/{__version__} (+https://github.com/LucsLabsStudios/refrata)"
 
-allowed = lambda: True         # noqa: E731  — main.py ties it to the auto-update setting
+allowed = lambda: True         # noqa: E731  — __main__.py ties it to the auto-update setting
 _lock = threading.RLock()
 _finder = None
 _active = ""                   # version served from ROOT, "" = the bundled one

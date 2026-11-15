@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "refrata"
+description = "A modern video and music player built on the VLC engine (libVLC)."
+readme = "README.md"
+license = { text = "GPL-3.0-only" }
+authors = [{ name = "LucsLabs Studios" }]
+requires-python = ">=3.12"
+keywords = ["media player", "video player", "music player", "libvlc", "vlc", "qt", "pyside6"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Win32 (MS Windows)",
+    "Environment :: X11 Applications :: Qt",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: Microsoft :: Windows :: Windows 10",
+    "Operating System :: Microsoft :: Windows :: Windows 11",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Sound/Audio :: Players",
+    "Topic :: Multimedia :: Video :: Display",
+]
+# the exact versions every release is tested with live in requirements.txt (tools/release.py updates it)
+dynamic = ["version", "dependencies"]
+
+[project.urls]
+Homepage = "https://refrata.vercel.app"
+Source = "https://github.com/LucsLabsStudios/refrata"
+Issues = "https://github.com/LucsLabsStudios/refrata/issues"
+Changelog = "https://github.com/LucsLabsStudios/refrata/blob/main/CHANGELOG.md"
+
+[project.gui-scripts]
+refrata = "refrata.__main__:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "refrata.__version__" }
+dependencies = { file = ["requirements.txt"] }
+
+# Releases are built by tools/build.py, not as wheels. A wheel built on a machine that has the
+# git-ignored src/refrata/_keys.py (API keys) would contain it: never publish one to PyPI.
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+refrata = ["ui/*.qml", "ui/*.js", "resources/*.*", "resources/brand/*", "resources/fonts/*", "locales/*.json"]

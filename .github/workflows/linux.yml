@@ -21,7 +21,16 @@ jobs:
           sudo apt-get install -y -qq libvlc5 vlc-plugin-base vlc-plugin-video-output \
             libxcb-cursor0 libxkbcommon-x11-0 libegl1 libgl1 libfontconfig1 libdbus-1-3 libpulse0 \
             libxcb-icccm4 libxcb-keysyms1 libxcb-shape0 libxcb-xinerama0 libxcb-randr0 libxcb-render-util0 \
-            libxcb-image0 fonts-noto-core xvfb xauth dbus-x11 libglib2.0-bin xdg-utils ffmpeg
+            libxcb-image0 fonts-noto-core xvfb xauth dbus-x11 libglib2.0-bin xdg-utils ffmpeg pulseaudio
+
+      # the runner has no sound card: without a sound server libVLC has no audio output, tracks
+      # never reach their end and Qt warns "No audio device detected" (7 tests failed on every push).
+      # A null sink plays into nothing at real speed, like the clean installs in tools/build_linux.py.
+      - name: Sound server (PulseAudio, null sink)
+        run: |
+          pulseaudio -D --exit-idle-time=-1
+          pactl load-module module-null-sink >/dev/null
+          pactl info | grep -E "Server Name|Default Sink"
 
       - uses: actions/setup-python@v5
         with:
@@ -35,7 +44,7 @@ jobs:
           QT_QPA_PLATFORM: xcb
         run: |
           dbus-run-session -- xvfb-run -a -s "-screen 0 1920x1080x24" \
-            python main.py --selftest --report e2e-linux.json
+            python src/refrata/__main__.py --selftest --report e2e-linux.json
 
       - name: Report
         if: always()

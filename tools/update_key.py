@@ -14,11 +14,11 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "src"))
 from refrata import ed25519  # noqa: E402
 
 ENV = ROOT / ".env"
-UPDATER = ROOT / "refrata" / "updater.py"
+UPDATER = ROOT / "src" / "refrata" / "updater.py"
 NAME = "REFRATA_UPDATE_KEY"
 
 
@@ -61,9 +61,9 @@ def main():
         src = UPDATER.read_text(encoding="utf8")
         src, n = re.subn(r'^UPDATE_PUBLIC_KEY = "[0-9a-f]*"', f'UPDATE_PUBLIC_KEY = "{public}"', src, flags=re.M)
         if n != 1:
-            raise SystemExit("UPDATE_PUBLIC_KEY not found in refrata/updater.py")
+            raise SystemExit("UPDATE_PUBLIC_KEY not found in src/refrata/updater.py")
         UPDATER.write_text(src, encoding="utf8")
-        print("secret key written to .env; public key in refrata/updater.py:", public)
+        print("secret key written to .env; public key in src/refrata/updater.py:", public)
     elif cmd == "public":
         secret = read_secret()
         print(ed25519.public_key(secret).hex() if secret else f"no {NAME} in .env")

@@ -267,13 +267,13 @@ class Associations(QObject):
         """~/.local/share/applications/refrata.desktop with the MIME types; "Abrir com" in every
         file manager reads it. Making it the default (xdg-mime) is the button's second step."""
         from .tray import _desktop_entry
-        from .vlcpath import app_root
+        from .vlcpath import resources_dir
         d = _linux_apps_dir()
         icons = d.parent / "icons" / "hicolor" / "256x256" / "apps"
         try:
             d.mkdir(parents=True, exist_ok=True)
             icons.mkdir(parents=True, exist_ok=True)
-            (icons / "refrata.png").write_bytes((app_root() / "assets" / "brand" / "icon-256.png").read_bytes())
+            (icons / "refrata.png").write_bytes((resources_dir() / "brand" / "icon-256.png").read_bytes())
             (d / DESKTOP_ID).write_text(_desktop_entry(exe), encoding="utf8")
         except OSError as exc:
             print("desktop entry not written:", exc)

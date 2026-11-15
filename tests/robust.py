@@ -11,7 +11,7 @@ Each scenario passes when: the process exits with code 0 in time, cleanup raised
 crash.log is empty, no Qt/QML warning was printed, settings.json is still valid JSON, and the
 scenario's own checks (inside the app, and on the data it left behind) hold.
 
-Inside the app the module is entered through `main.py --scenario NAME` (see child()).
+Inside the app the module is entered through `src/refrata/__main__.py --scenario NAME` (see child()).
 """
 from __future__ import annotations
 
@@ -30,8 +30,10 @@ import traceback
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+ENTRY = ROOT / "src" / "refrata" / "__main__.py"
+for _p in (str(ROOT / "src"), str(ROOT)):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 SCENARIOS: dict[str, "Scenario"] = {}
 # time budgets are set for this PC; inside Windows Sandbox (virtual GPU) tools/sandbox_inner.py gives them room
@@ -213,7 +215,7 @@ def playing_media(timeout=10, video=None):
 
 def child(name: str):
     """Entry point inside the app: build it like main() does, run the scenario, quit for real."""
-    import main
+    import refrata.__main__ as main
     from PySide6.QtCore import QTimer
     from PySide6.QtWidgets import QApplication
     sc = SCENARIOS[name]
@@ -3501,7 +3503,7 @@ def monkey_random_use():
             elif not still:
                 behind = None
 
-        import main
+        import refrata.__main__ as main
         if main.QT_MESSAGES or H.errors:
             raise Fail("warning or error after steps: " + " | ".join(log[-12:]) +
                        " :: " + "; ".join(main.QT_MESSAGES[:2] + H.errors[:1])[:900])
@@ -3546,8 +3548,8 @@ def _fixtures(cache: Path):
         print(f"fixture cache incomplete ({len(gone)} missing, e.g. {gone[0]}): generating again")
         marker.unlink()
     code = (
-        "import sys, json; sys.path.insert(0, %r)\n"
-        "import main\n"
+        "import sys, json; sys.path[:0] = [%r, %r + '/src']\n"
+        "import refrata.__main__\n"
         "from PySide6.QtGui import QGuiApplication\n"
         "from pathlib import Path\n"
         "app = QGuiApplication([])\n"
@@ -3561,7 +3563,7 @@ def _fixtures(cache: Path):
         "          {kk: str(vv) for kk, vv in v.items()} if isinstance(v, dict) else\n"
         "          [conv(x) for x in v] if isinstance(v, list) else conv(v)) for k, v in fm.items()}\n"
         "Path(%r).write_text(json.dumps({'fx': fx, 'fmt': fm}), encoding='utf8')\n"
-    ) % (str(ROOT), str(cache), str(marker))
+    ) % (str(ROOT), str(ROOT), str(cache), str(marker))
     cache.mkdir(parents=True, exist_ok=True)
     subprocess.run([sys.executable, "-c", code], check=True, cwd=str(ROOT))
     return json.loads(marker.read_text(encoding="utf8"))
@@ -3590,8 +3592,8 @@ def run_one(sc: Scenario, fixtures: dict, exe: str | None, work: Path, extra_env
     if not (data / "settings.json").exists():
         settings.update(extra or {})
         (data / "settings.json").write_text(json.dumps({"settings": settings, "history": []}), encoding="utf8")
-    cmd = [exe] if exe else ([sys.executable, "-m", "coverage", "run", "--rcfile", str(ROOT / "tools" / "coveragerc"), str(ROOT / "main.py")]
-                              if os.environ.get("REFRATA_COVERAGE") else [sys.executable, str(ROOT / "main.py")])
+    cmd = [exe] if exe else ([sys.executable, "-m", "coverage", "run", "--rcfile", str(ROOT / "tools" / "coveragerc"), str(ENTRY)]
+                              if os.environ.get("REFRATA_COVERAGE") else [sys.executable, str(ENTRY)])
     cmd += ["--scenario", sc.name, "--log", str(base / "app.log")]
     t0 = time.time()
     try:

@@ -1,0 +1,71 @@
+name: Bug report
+description: Something in Refrata does not work as it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. Português é bem-vindo.
+        Security problems go through [SECURITY.md](https://github.com/LucsLabsStudios/refrata/blob/main/SECURITY.md), not here.
+  - type: input
+    id: version
+    attributes:
+      label: Refrata version
+      description: Settings › About
+      placeholder: "1.4.16"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows 11
+        - Windows 10
+        - Ubuntu
+        - Debian
+        - Linux Mint
+        - Other Linux
+    validations:
+      required: true
+  - type: dropdown
+    id: package
+    attributes:
+      label: How Refrata is installed
+      options:
+        - Installer (Refrata-Setup)
+        - Portable zip
+        - Microsoft Store
+        - .deb package
+        - .tar.gz
+        - Running from source
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open Settings › Sound
+        2. Click the audio output picker
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: media
+    attributes:
+      label: The file or link involved
+      description: Format, codec, size, or a link, if the problem depends on a particular file. Media information (I key) can be copied from the player.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Contents of crash.log or native.log from %LOCALAPPDATA%\Refrata (Windows) or ~/Refrata (Linux), if any.
+      render: text

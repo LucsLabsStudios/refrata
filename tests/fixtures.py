@@ -148,7 +148,7 @@ if __name__ == "__main__":
     from PySide6.QtGui import QGuiApplication
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    import main  # noqa: F401  (sets libVLC paths)
+    import refrata.__main__  # noqa: F401  (sets libVLC paths)
 
     app = QGuiApplication(sys.argv)
     t = time.time()

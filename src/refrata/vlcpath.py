@@ -3,7 +3,7 @@
 Search order (first hit wins):
   1. PYTHON_VLC_LIB_PATH already set by the caller
   2. a bundled copy next to the app: <app>/vlc/libvlc.dll   (frozen build: _internal/vlc)
-  3. a repo-local copy: vendor/vlc/libvlc.dll               (tools/build.py fills it)
+  3. a repo-local copy: vendor/vlc/libvlc.dll at the repository root (tools/build.py fills it)
   4. a system VLC 3 install (Program Files)
 
 The packaged app therefore needs neither Python nor VLC installed.
@@ -16,10 +16,28 @@ from pathlib import Path
 
 
 def app_root() -> Path:
-    """Folder holding qml/, assets/ and (when bundled) vlc/."""
+    """The bundle folder (frozen build: _internal/) or the repository root (source tree, with vendor/)."""
     if getattr(sys, "frozen", False):
         return Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
-    return Path(__file__).resolve().parents[1]
+    return Path(__file__).resolve().parents[2]
+
+
+def package_dir() -> Path:
+    """Where ui/, resources/ and locales/ are: next to this module, or at the bundle root once frozen
+    (tools/build.py copies them there under the same names)."""
+    return app_root() if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
+
+
+def ui_dir() -> Path:
+    return package_dir() / "ui"
+
+
+def resources_dir() -> Path:
+    return package_dir() / "resources"
+
+
+def locales_dir() -> Path:
+    return package_dir() / "locales"
 
 
 def candidates() -> list[Path]:

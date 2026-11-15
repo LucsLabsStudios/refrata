@@ -1,7 +1,7 @@
 """Localisation.
 
 The source language is Brazilian Portuguese: QML marks text with qsTr("…") and Python with tr("…").
-Each other language lives in i18n/<code>.json, mapping the Portuguese source to a translation
+Each other language lives in locales/<code>.json, mapping the Portuguese source to a translation
 written for that language (not word for word). A plural entry maps to {"one": …, "few": …,
 "many": …, "other": …} with the forms that language uses; "%n" is the count.
 
@@ -13,9 +13,9 @@ import os
 
 from PySide6.QtCore import Property, QCoreApplication, QLocale, QObject, QTranslator, Signal, Slot
 
-from .vlcpath import app_root
+from .vlcpath import locales_dir
 
-I18N_DIR = app_root() / "i18n"
+I18N_DIR = locales_dir()
 
 # code, native name, Qt locale (dates and numbers)
 LANGUAGES = [

@@ -9,10 +9,11 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+*.egg-info/
 
 # local-only
-/refrata/_keys.py
-/installer/store.json
+/src/refrata/_keys.py
+/packaging/windows/msix/store.json
 *.pfx
 *.p12
 .env

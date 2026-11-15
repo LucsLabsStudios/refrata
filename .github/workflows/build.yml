@@ -28,7 +28,7 @@ jobs:
       - name: Build app, portable zip and installer
         run: python tools/build.py --no-msix
 
-      # - name: Assinar com a SignPath (ativar depois da aprovação, veja docs/SIGNING.md)
+      # - name: Assinar com a SignPath (ativar depois da aprovação, veja docs/code-signing.md)
       #   uses: signpath/github-action-submit-signing-request@v1
       #   with:
       #     api-token: ${{ secrets.SIGNPATH_API_TOKEN }}

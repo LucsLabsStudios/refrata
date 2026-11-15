@@ -2,15 +2,15 @@
 
     python tools/brand/build_assets.py [--icon c1_prism]
 
-Outputs (all committed under assets/):
-    assets/icon.png              512 px app/window icon
-    assets/icon.ico              Windows icon, PNG entries 16…256
-    assets/brand/icon-1024.png   master icon
-    assets/brand/symbol.png      prism symbol (no tile)
-    assets/brand/hero.jpg        wide key visual (About card, README)
-    assets/brand/about.jpg       about-card crop
-    assets/installer/wizard*.bmp Inno Setup side images (100 % / 250 %)
-    assets/installer/small*.bmp  Inno Setup header images
+Outputs (all committed):
+    src/refrata/resources/icon.png              512 px app/window icon
+    src/refrata/resources/icon.ico              Windows icon, PNG entries 16…256
+    src/refrata/resources/brand/icon-1024.png   master icon
+    src/refrata/resources/brand/symbol.png      prism symbol (no tile)
+    docs/images/hero.jpg         wide key visual (README)
+    src/refrata/resources/brand/about.jpg       about-card crop
+    packaging/windows/installer/art/wizard*.bmp Inno Setup side images (100 % / 250 %)
+    packaging/windows/installer/art/small*.bmp Inno Setup header images
     build/brand/proof.png        small-size proof sheet (QA only)
 """
 from __future__ import annotations
@@ -182,7 +182,8 @@ def main():
     args = ap.parse_args()
     QGuiApplication(sys.argv)
 
-    assets, brand, inst = ROOT / "assets", ROOT / "assets" / "brand", ROOT / "assets" / "installer"
+    assets = ROOT / "src" / "refrata" / "resources"
+    brand, inst = assets / "brand", ROOT / "packaging" / "windows" / "installer" / "art"
     for d in (brand, inst, ROOT / "build" / "brand"):
         d.mkdir(parents=True, exist_ok=True)
 

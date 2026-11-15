@@ -7,7 +7,7 @@ type: a Python int below 2**31 always goes out as int32 ("i"), and MPRIS says th
 
 jeepney writes the D-Bus wire format itself (pure Python), so here each value carries its signature.
 A thread reads the bus; each call is answered on the Qt main thread (where the engine lives) through
-a queued signal. Used when jeepney is installed (the Linux package bundles it); otherwise main.py
+a queued signal. Used when jeepney is installed (the Linux package bundles it); otherwise __main__.py
 falls back to refrata/mpris.py.
 """
 from __future__ import annotations

@@ -1,11 +1,11 @@
 """refrata/ed25519.py against the test vectors of RFC 8032 (section 7.1), plus tampering checks.
 
-    python tools/test_ed25519.py
+    python tests/test_ed25519.py
 """
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from refrata import ed25519  # noqa: E402
 
 VECTORS = [   # (secret, public, message, signature) - RFC 8032, 7.1, TESTs 1, 2, 3 and SHA(abc)

@@ -8,7 +8,7 @@ Outputs in dist/:
                                  (copy installer/store.example.json).
     Refrata-<v>-x64-dev.msix     signed with the development certificate, for testing on this PC.
                                  Windows installs it only once build\\lucslabs-dev.cer is trusted
-                                 (Cert:\\LocalMachine\\TrustedPeople, admin, done by tools/test_msix.py
+                                 (Cert:\\LocalMachine\\TrustedPeople, admin, done by tests/test_msix.py
                                  --trust). Unsigned packages are not an option: Windows refuses them
                                  when they contain an executable (0x80073D2B).
 """
@@ -22,7 +22,7 @@ from pathlib import Path
 from xml.sax.saxutils import escape
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "tools"))
 from refrata import __version__  # noqa: E402
 from refrata.media import AUDIO_EXT, PLAYLIST_EXT, VIDEO_EXT  # noqa: E402
@@ -30,7 +30,7 @@ from sign import DEV_SUBJECT, TIMESTAMP, create_dev_cert, dev_thumbprint, find_s
 
 APP = ROOT / "dist" / "Refrata"
 BUILD = ROOT / "build" / "msix"
-ASSETS = ROOT / "assets" / "msix"
+ASSETS = ROOT / "packaging" / "windows" / "msix" / "assets"
 VERSION = ".".join((__version__.split(".") + ["0"] * 4)[:3]) + ".0"  # the Store wants revision 0
 NAME = "LucsLabsStudios.Refrata"
 STUDIO = "LucsLabs Studios"
@@ -146,12 +146,12 @@ def pack(kind: str, name: str, publisher: str, publisher_display: str) -> Path:
 
 
 def store_identity() -> dict | None:
-    f = ROOT / "installer" / "store.json"
+    f = ROOT / "packaging" / "windows" / "msix" / "store.json"
     if not f.exists():
         return None
     d = json.loads(f.read_text(encoding="utf-8"))
     if not d.get("publisher", "").startswith("CN=") or "XXXX" in d.get("publisher", ""):
-        raise SystemExit("installer/store.json: fill name/publisher/publisherDisplayName from Partner Center")
+        raise SystemExit("packaging/windows/msix/store.json: fill name/publisher/publisherDisplayName from Partner Center")
     return d
 
 

@@ -1,6 +1,6 @@
 """One Refrata per user, however fast files are opened (Windows).
 
-    python tools/test_single_instance.py [path\\to\\Refrata.exe]
+    python tests/test_single_instance.py [path\\to\\Refrata.exe]
 
 1. A video is opened, and while that Refrata is still starting a second video is opened: the second
    launch must hand its file over and exit; one Refrata stays, and it ends up playing the second video.
@@ -25,7 +25,7 @@ u32 = ctypes.windll.user32
 
 
 def cmd(*files):
-    return [EXE, *files] if EXE else [sys.executable, str(ROOT / "main.py"), *files]
+    return [EXE, *files] if EXE else [sys.executable, str(ROOT / "src" / "refrata" / "__main__.py"), *files]
 
 
 def titles(pids) -> dict:

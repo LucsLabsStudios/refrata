@@ -3,7 +3,7 @@
     python tests/e2e_parallel.py                       # source tree
     python tests/e2e_parallel.py --exe dist/Refrata/Refrata.exe --report build/e2e.json
 
-Each process is a whole app with its own temporary data (main.py --selftest makes one), running a
+Each process is a whole app with its own temporary data (src/refrata/__main__.py --selftest makes one), running a
 share of the tests; the shares are balanced by the last run's times. Tests that type on the keyboard
 need the window in front (Qt hands key events and shortcuts only to the active window), so they run
 in one last process on their own. Every process also runs t01 (no warnings at boot) and t99 (clean
@@ -22,6 +22,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+ENTRY = ROOT / "src" / "refrata" / "__main__.py"
 EVERY = ("t01_", "t99_")                 # per process, not per share
 KEY_MARKERS = ("keyClick", "keyPress", "keySequence", "QTest.key", "key(C.parts", "type_text(", "ensure_focus(", "wkey(")
 LAST = ROOT / "build" / "e2e-last.json"
@@ -111,8 +112,8 @@ def main():
     rest = [n for n in names if n not in every]
     batch = [n for n in rest if n not in keys]
     alone = [n for n in rest if n in keys]
-    cmd = [a.exe] if a.exe else ([sys.executable, "-m", "coverage", "run", "--rcfile", str(ROOT / "tools" / "coveragerc"), str(ROOT / "main.py")]
-                              if os.environ.get("REFRATA_COVERAGE") else [sys.executable, str(ROOT / "main.py")])
+    cmd = [a.exe] if a.exe else ([sys.executable, "-m", "coverage", "run", "--rcfile", str(ROOT / "tools" / "coveragerc"), str(ENTRY)]
+                              if os.environ.get("REFRATA_COVERAGE") else [sys.executable, str(ENTRY)])
     logdir = Path(tempfile.mkdtemp(prefix="refrata_e2e_par_"))
     groups = shares(batch, a.jobs, last_times()) if a.jobs > 1 else ([batch] if batch else [])
     t_all = time.time()

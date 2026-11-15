@@ -1,10 +1,10 @@
 ﻿; Refrata installer — LucsLabs Studios
-; Built by tools/build.py:  ISCC /DAppVersion=x.y.z /DRoot=<repo> installer\Refrata.iss
+; Built by tools/build.py:  ISCC /DAppVersion=x.y.z /DRoot=<repo> packaging\windows\installer\Refrata.iss
 #ifndef AppVersion
   #define AppVersion "0.0.0"
 #endif
 #ifndef Root
-  #define Root ".."
+  #define Root "..\..\.."
 #endif
 #define AppName "Refrata"
 #define AppExe "Refrata.exe"
@@ -33,14 +33,14 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir={#Root}\dist
 OutputBaseFilename=Refrata-Setup-{#AppVersion}
-SetupIconFile={#Root}\assets\icon.ico
+SetupIconFile={#Root}\src\refrata\resources\icon.ico
 UninstallDisplayIcon={app}\{#AppExe}
 UninstallDisplayName={#AppName}
 WizardStyle=modern
 ShowLanguageDialog=auto
 LanguageDetectionMethod=uilanguage
-WizardImageFile={#Root}\assets\installer\wizard.bmp,{#Root}\assets\installer\wizard@2.5x.bmp
-WizardSmallImageFile={#Root}\assets\installer\small.bmp,{#Root}\assets\installer\small@2.5x.bmp
+WizardImageFile={#Root}\packaging\windows\installer\art\wizard.bmp,{#Root}\packaging\windows\installer\art\wizard@2.5x.bmp
+WizardSmallImageFile={#Root}\packaging\windows\installer\art\small.bmp,{#Root}\packaging\windows\installer\art\small@2.5x.bmp
 Compression=lzma2/max
 SolidCompression=yes
 ChangesAssociations=yes
@@ -55,7 +55,7 @@ SignTool=bvsign
 SignedUninstaller=yes
 #endif
 RestartApplications=no
-LicenseFile={#Root}\installer\LICENSE-pt.txt
+LicenseFile={#Root}\packaging\windows\installer\LICENSE-pt.txt
 
 [Languages]
 ; follows the Windows display language (English when Inno has no translation, e.g. Chinese, Hindi)
