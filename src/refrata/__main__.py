@@ -16,8 +16,10 @@ from pathlib import Path
 
 if __name__ == "__main__" and not __package__ and not getattr(sys, "frozen", False):
     # started as a file (python src/refrata/__main__.py, as the tests do): import the package from
-    # src/, never this folder's own modules as top-level ones (trace.py would hide the standard one)
-    sys.path[0] = str(Path(__file__).resolve().parents[1])
+    # src/, never this folder's own modules as top-level ones (trace.py would hide the standard one).
+    # The repository root comes next, for --selftest and --scenario (they import tests.*)
+    _here = Path(__file__).resolve()
+    sys.path[0:1] = [str(_here.parents[1]), str(_here.parents[2])]
 
 from refrata import trace  # noqa: E402  (REFRATA_TRACE: startup timeline)
 
