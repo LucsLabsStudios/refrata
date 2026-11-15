@@ -70,6 +70,9 @@ Item {
         width: Math.max(root.width, 400)
         padding: 6
         height: Math.min(list.contentHeight + 12, 380)
+        // a press on the pill itself must not close the list here: the pill's own click toggles it.
+        // (With the default CloseOnPressOutside the press closed it and the click reopened it.)
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
         enter: Transition {
             ParallelAnimation {
                 NumberAnimation { property: "opacity"; from: 0; to: 1; duration: theme.reduceMotion ? 0 : 150; easing.type: Easing.OutCubic }

@@ -1338,6 +1338,20 @@ def t35_pages_by_mouse():
         check(s.value(key) == v, f"{name} switch back")
     ui_click(sp, "rescanBtn")
     wait(lambda: not lib.scanning and lib.videoCount == 3, 15, "rescan button")
+    # pickers: a second click on the pill closes the list (it used to close on press and reopen)
+    for dd in ("settingsDevices", "subEncoding"):
+        ui_click(sp, dd)
+        wait(lambda: find_under(sp, dd).property("opened") is True, 2, f"{dd} opens on click")
+        ui_click(sp, dd)
+        wait(lambda: find_under(sp, dd).property("opened") is False, 2, f"{dd} closes on a second click")
+        pump(0.2)
+        check(find_under(sp, dd).property("opened") is False, f"{dd} stays closed after the second click")
+        ui_click(sp, dd)
+        wait(lambda: find_under(sp, dd).property("opened") is True, 2, f"{dd} opens again")
+        pill = find_under(sp, dd).mapToScene(QPointF(0, 20))  # the row's title text, left of the pill
+        click(C.parts, sp, at=QPoint(int(pill.x()) - 200, int(pill.y())))  # a press elsewhere still closes it
+        wait(lambda: find_under(sp, dd).property("opened") is False, 2, f"{dd} closes on a click outside")
+        pump(0.2)
     # network
     win().setProperty("page", 4)
     pump(0.4)
