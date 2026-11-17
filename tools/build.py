@@ -52,6 +52,16 @@ def vendor_vlc(zip_path: str | None, system: bool = False):
     if not zip_path and not system:
         log(f"libVLC {vlc_engine.pinned()}: official VideoLAN zip")
         zip_path = str(vlc_engine.fetch())
+    # vendor/vlc made from this very zip already: nothing to do (a new libVLC is another zip)
+    stamp_file = BUILD / "vendor-vlc.stamp"     # outside vendor/vlc: that folder ships whole
+    stamp = f"{Path(zip_path).name} {Path(zip_path).stat().st_size}" if zip_path else f"system {SYSTEM_VLC}"
+    try:
+        if (VENDOR / "libvlc.dll").exists() and (VENDOR / "plugins" / "plugins.dat").exists() \
+                and stamp_file.read_text(encoding="utf8") == stamp:
+            log(f"libVLC already vendored from {stamp.split()[0]}")
+            return
+    except OSError:
+        pass
     if VENDOR.exists():
         shutil.rmtree(VENDOR)
     VENDOR.mkdir(parents=True)
@@ -82,6 +92,8 @@ def vendor_vlc(zip_path: str | None, system: bool = False):
         # plugins.dat must describe exactly the plugins we ship
         subprocess.run([str(gen), str(VENDOR / "plugins")], check=True, cwd=str(src))
     size = sum(p.stat().st_size for p in VENDOR.rglob("*") if p.is_file()) / 1e6
+    BUILD.mkdir(exist_ok=True)
+    stamp_file.write_text(stamp, encoding="utf8")
     log(f"libVLC vendored from {src} ({size:.0f} MB)")
 
 
@@ -384,9 +396,19 @@ def main():
         app = pyinstaller()
     if not sign.sign([app / "Refrata.exe"]):
         log("not signed (set REFRATA_SIGN_* — see tools/sign.py)")
-    portable_zip(app)
-    if not a.no_installer:
-        installer()
+    # the zip and the installer both only read the finished app folder: made at the same time (zlib
+    # lets go of the GIL while it compresses, Inno Setup is its own process): ~30 s less per build
+    import threading
+    zipped: list = []
+    zt = threading.Thread(target=lambda: zipped.append(portable_zip(app)), name="portable-zip")
+    zt.start()
+    try:
+        if not a.no_installer:
+            installer()
+    finally:
+        zt.join()
+    if not zipped:
+        raise SystemExit("portable zip failed (see above)")
     if not a.no_msix:
         import msix
         msix.main()

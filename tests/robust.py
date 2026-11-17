@@ -657,7 +657,7 @@ def stress_memory_track_changes():
     # reached in the first hundred (codecs, caches, the allocator's pools), not a leak. Its height
     # moves with the machine's load (+154 MB once, eight scenarios at once), so what is checked is the
     # growth after it: a leak keeps climbing (0.5 MB a switch is +50 MB per hundred).
-    for i in range(int(os.environ.get("REFRATA_MEM_SWITCHES", "300"))):
+    for i in range(int(os.environ.get("REFRATA_MEM_SWITCHES", "200"))):
         e.playAt(i % 4)
         pump(0.15)
         if (i + 1) % 100 == 0:

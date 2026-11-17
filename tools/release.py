@@ -140,7 +140,19 @@ def sandbox_available() -> bool:
     return (Path(os.environ.get("WINDIR", r"C:\Windows")) / "System32" / "WindowsSandbox.exe").exists()
 
 
-def run_tests(sandbox: bool = False) -> bool:
+def start_source_checks() -> list:
+    """The unit tests and the interface coverage read the source only: they run while the app
+    builds (their output is kept and shown when run_tests waits for them)."""
+    out = []
+    for name, cmd in (("testes de unidade", ["tests/unit.py"]), ("cobertura dos controles", ["tools/ui_coverage.py"])):
+        log = tempfile.NamedTemporaryFile("w+", suffix=".log", delete=False, encoding="utf8")
+        p = subprocess.Popen([sys.executable, *cmd], cwd=str(ROOT), stdout=log, stderr=subprocess.STDOUT,
+                             env=dict(os.environ, PYTHONIOENCODING="utf8"))
+        out.append((name, p, log))
+    return out
+
+
+def run_tests(sandbox: bool = False, source_checks: list | None = None) -> bool:
     """Both suites against the built app, as a user would get it.
 
     sandbox: what needs the keyboard focus (the whole e2e battery, the robustness scenarios that run
@@ -150,8 +162,18 @@ def run_tests(sandbox: bool = False) -> bool:
     exe = DIST / "Refrata" / "Refrata.exe"
     env = dict(os.environ, REFRATA_NO_MEDIAKEYS="1")
     print("\n== testes de unidade e cobertura dos controles da interface", flush=True)
-    unit = subprocess.run([sys.executable, "tests/unit.py"], cwd=str(ROOT)).returncode
-    ui = subprocess.run([sys.executable, "tools/ui_coverage.py"], cwd=str(ROOT)).returncode
+    if source_checks:
+        codes = []
+        for name, p, log in source_checks:       # started with the build (start_source_checks)
+            codes.append(p.wait())
+            log.seek(0)
+            print(log.read().rstrip(), flush=True)
+            log.close()
+            os.unlink(log.name)
+        unit, ui = codes
+    else:
+        unit = subprocess.run([sys.executable, "tests/unit.py"], cwd=str(ROOT)).returncode
+        ui = subprocess.run([sys.executable, "tools/ui_coverage.py"], cwd=str(ROOT)).returncode
     if unit or ui:
         return False
     if sandbox:
@@ -268,10 +290,11 @@ def main():
     from concurrent.futures import ThreadPoolExecutor
     linux_pool = ThreadPoolExecutor(1)
     linux_job = None if args.no_linux else linux_pool.submit(linux_package, v)
+    checks = start_source_checks() if (not args.skip_tests or changed) else None
     if not args.skip_build or changed:
         run(sys.executable, "tools/build.py", "--no-msix")
     if not args.skip_tests or changed:
-        if not run_tests(sandbox=args.sandbox and not args.no_sandbox and sandbox_available()):
+        if not run_tests(sandbox=args.sandbox and not args.no_sandbox and sandbox_available(), source_checks=checks):
             if changed:
                 roll_back(changed)
             if args.bump:

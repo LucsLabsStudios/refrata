@@ -43,6 +43,9 @@ WizardImageFile={#Root}\packaging\windows\installer\art\wizard.bmp,{#Root}\packa
 WizardSmallImageFile={#Root}\packaging\windows\installer\art\small.bmp,{#Root}\packaging\windows\installer\art\small@2.5x.bmp
 Compression=lzma2/max
 SolidCompression=yes
+; the same compression on several cores (lzma2 in blocks, in a process of its own): faster builds
+LZMAUseSeparateProcess=yes
+LZMANumBlockThreads=6
 ChangesAssociations=yes
 CloseApplications=yes
 ; Only ask Restart Manager about executables: by default it registers every .exe/.dll that will be
