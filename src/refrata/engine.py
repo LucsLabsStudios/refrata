@@ -2669,6 +2669,18 @@ class Engine(QObject):
         if path.startswith("file:"):
             path = QUrl(path).toLocalFile()
         uri = QUrl.fromLocalFile(path).toString()
+        known = self._ext_subs.get(self.currentPath, []) if self.currentPath else []
+        if uri in known:
+            # attached already: remembered for this file, so it came back when the file opened.
+            # Adding it again made a second copy of the track, and libVLC's late selection of that
+            # copy then overrode the one the person picked meanwhile. The file's own subtitles come
+            # first in libVLC's list, the added ones after them, in the order they were added.
+            ids = [tid for tid, _ in (self._mp.video_get_spu_description() or []) if tid != -1]
+            self.message.emit(tr("Legenda carregada"))
+            if len(ids) >= len(known):
+                self.setSubtitleTrack(ids[len(ids) - len(known) + known.index(uri)])
+            QTimer.singleShot(800, self._refresh_tracks)
+            return
         ok = self._mp.add_slave(vlc.MediaSlaveType.subtitle, uri, True) == 0
         self.message.emit(tr("Legenda carregada") if ok else tr("Não foi possível carregar a legenda"))
         if ok and self.currentPath:

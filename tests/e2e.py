@@ -1100,6 +1100,18 @@ def ui_click(parent_or_name, name=None, double=False, frac=None):
     return item
 
 
+def subtitle_on(loaded_before: int) -> bool:
+    """A subtitle file was taken: the app said so, it is a track, and it is the one on. (Counting
+    tracks is not enough: a file this video already had is remembered and is not added twice.)"""
+    e = eng()
+    return (loaded_count() > loaded_before and len(e.subtitleTracks) >= 2
+            and e.subtitleTrack not in (-1, 0))
+
+
+def loaded_count() -> int:
+    return sum(1 for m in C.messages if "Legenda carregada" in m)
+
+
 def open_player_with(paths, index=0):
     e = eng()
     e.openFiles([str(p) for p in paths], index)
@@ -1527,7 +1539,7 @@ def t40_native_subtitle_dialog():
     e = eng()
     stop_playback()
     pv = open_player_with([C.fx["video"]])
-    n0 = len(e.subtitleTracks)
+    loaded0 = loaded_count()
     pv.setProperty("panel", "tracks")
     pump(0.6)
     from PySide6.QtCore import SIGNAL
@@ -1537,7 +1549,7 @@ def t40_native_subtitle_dialog():
                        folder=str(C.fx["srt"].parent), names=[C.fx["srt"].name])
     check(len(requests) == 1, "one click asks for one dialog", str(len(requests)))
     check("Legendas" in drv.seen_filter, "subtitle name filter is the default", drv.seen_filter)
-    wait(lambda: len(e.subtitleTracks) > n0, 8, "picked subtitle becomes a track")
+    wait(lambda: subtitle_on(loaded0), 8, "picked subtitle becomes a track, turned on")
     pv.setProperty("panel", "")
     stop_playback()
     go_page(0)
@@ -1725,10 +1737,10 @@ def t41_second_launch_hands_files_to_running_instance():
         check(not C.parts.win.isVisible(), "and it hides again on close")
     # a subtitle handed over while a video plays is attached, not queued
     open_player_with([C.fx["video"]])
-    n0 = len(e.subtitleTracks)
+    loaded0 = loaded_count()
     reply = local_request(inst.name, json.dumps({"open": [str(C.fx["srt"])]}).encode("utf8") + b"\n")
     check(reply.startswith(b"ok"), "running instance acknowledged", repr(reply))
-    wait(lambda: len(e.subtitleTracks) > n0, 8, "handed-over subtitle attached")
+    wait(lambda: subtitle_on(loaded0), 8, "handed-over subtitle attached, turned on")
     check(len(e.queue) == 1, "subtitle not queued")
     # garbage on the pipe is rejected without side effects
     reply = local_request(inst.name, b"this is not json\n")
@@ -1756,9 +1768,9 @@ def t42_command_line_files_route_to_the_ui():
     ctl.handOver([str(C.fx["video"])])
     wait(lambda: e.state == "playing" and win().property("playerOpen") is True, 10, "with the app open, the video plays in it")
     check(not quick.isVisible(), "no quick player over the open app")
-    n0 = len(e.subtitleTracks)
+    loaded0 = loaded_count()
     ctl.handOver([str(C.fx["srt"])])
-    wait(lambda: len(e.subtitleTracks) > n0, 8, "subtitle from argv attaches")
+    wait(lambda: subtitle_on(loaded0), 8, "subtitle from argv attaches, turned on")
     ctl.handOver([str(C.fx["m3u"])])
     wait(lambda: len(e.queue) == 2 and e.state == "playing", 8, "playlist from argv expands")
     ctl.handOver([str(TMP / "nao existe.txt")])

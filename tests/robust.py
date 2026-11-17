@@ -1795,6 +1795,43 @@ def feature_player_tools_edge_cases():
     check(e.state == "paused" and e.currentPath == b, "playback untouched by the exports", f"{e.state} {e.currentPath}")
 
 
+@scenario(timeout=120)
+def feature_same_subtitle_added_twice():
+    """A subtitle file added to a video is remembered and comes back when the video opens again.
+    Added once more then (by hand, or a test that knows nothing of the first time): one track, not
+    two, and the subtitle picked afterwards stays picked (the second copy's late selection by
+    libVLC took it over, seen on Linux)."""
+    e = eng()
+    srt = str(H.fx["srt"]) if "srt" in H.fx else None
+    if not srt:
+        tmp = os.path.join(os.environ["REFRATA_E2E_TMP"], "twice.srt")
+        with open(tmp, "w", encoding="utf8") as f:
+            f.write("1\n00:00:00,500 --> 00:00:20,000\nOnce\n")
+        srt = tmp
+    video = str(H.fx["video"])
+    e.openFiles([video])
+    playing_media(video=True)
+    uri = Path(srt).as_uri()
+
+    def externals():
+        return [tid for tid, _ in (e._mp.video_get_spu_description() or []) if tid != -1]
+    e.addSubtitle(uri)
+    wait(lambda: len(externals()) >= 1 and e.state == "playing", 10, "the subtitle is attached")
+    n0 = len(externals())
+    e.openFiles([video])                       # the same video again: the subtitle comes back by itself
+    playing_media(video=True)
+    wait(lambda: len(externals()) == n0, 10, "it came back with the video")
+    e.addSubtitle(uri)                         # and is added once more
+    pump(2.5)
+    check(len(externals()) == n0, "still one copy of it", str(e._mp.video_get_spu_description()))
+    pick = externals()[-1]
+    e.setSubtitleTrack(pick)
+    pump(3.0)                                  # past libVLC's late selection of a copy
+    check(e.subtitleTrack == pick and e._mp.video_get_spu() == pick, "the subtitle picked stays picked",
+          f"{e.subtitleTrack} / libVLC {e._mp.video_get_spu()}")
+    e.setSubtitleTrack(-1)
+
+
 @scenario(timeout=150)
 def feature_save_clip_and_gif():
     """The A-B stretch saved as MP4 (streams copied, sound in sync) and as an animated GIF."""

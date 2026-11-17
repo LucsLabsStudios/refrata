@@ -62,6 +62,8 @@ ship updated components only (libVLC, yt-dlp, python-vlc) after passing the full
 - A video opened in the middle (resumed, or handed over from the quick player) no longer flashes
   the music player over it before its first picture. A link of unknown kind takes the music look
   only once libVLC finds no video track in it, about 2 s after its sound starts.
+- Adding a subtitle file that the video already had (Refrata remembers them per file) no longer
+  makes a second copy of the track, whose late selection overrode the subtitle picked next.
 - Starting Refrata with a double-click on a video no longer flashes the music player over it 1.2 s
   after launch (the player's start-up warm-up now runs only while it is closed).
 
