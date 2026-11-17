@@ -4,9 +4,10 @@
 
 # Refrata
 
-**Um player moderno de vídeo e música sobre o motor do VLC.**
+**Um player de vídeo e música para Windows e Linux, sobre o motor do VLC, com HDR de verdade.**
 
-Todos os codecs, formatos e protocolos que o VLC toca, numa interface desenhada do zero.
+Todos os codecs, formatos e protocolos que o VLC toca, numa interface desenhada do zero, com HDR no
+brilho real, movimento suave e legendas escritas por IA no seu próprio computador.
 
 [![Última versão](https://img.shields.io/github/v/release/LucsLabsStudios/refrata?label=vers%C3%A3o&color=FF7A2F)](https://github.com/LucsLabsStudios/refrata/releases/latest)
 [![Build Windows](https://img.shields.io/github/actions/workflow/status/LucsLabsStudios/refrata/build.yml?branch=main&label=windows)](https://github.com/LucsLabsStudios/refrata/actions/workflows/build.yml)
@@ -21,11 +22,16 @@ Todos os codecs, formatos e protocolos que o VLC toca, numa interface desenhada 
 
 ## Por que o Refrata
 
-O VLC toca tudo. O Refrata mantém esse motor e entrega a experiência que se espera de um player
-hoje.
+O VLC toca tudo. O Refrata mantém esse motor, mostra cada vídeo como ele foi masterizado e entrega
+a experiência que se espera de um player hoje.
 
 - **Toca tudo o que o VLC toca.** O libVLC 3 e todos os módulos vêm dentro do app; não é preciso
   instalar mais nada.
+- **Mostra a imagem como ela foi feita.** HDR10, HDR10+ e HLG com as cores certas, saída HDR real em
+  telas com o HDR do Windows ligado, movimento suave na taxa do monitor e resolução nativa até 8K,
+  tudo na placa de vídeo.
+- **Escreve a legenda que falta.** O reconhecimento de fala do Whisper roda na sua placa de vídeo,
+  sem internet, e pode traduzir para o inglês.
 - **Parece um app de hoje.** Tipografia grande, vidro fosco com desfoque em tempo real sobre o
   vídeo, temas claro e escuro, e animações que respeitam a opção do sistema de reduzir movimento.
 - **Abre na hora.** Uma janela só, entrega rápida de arquivos vindos do Explorer e prévia no estilo
@@ -34,8 +40,24 @@ hoje.
   assinatura Ed25519 da chave do projeto antes de instalar qualquer coisa.
 - **Fala o seu idioma.** 14 idiomas, trocados na hora.
 - **Testado como produto.** Todo lançamento passa por testes de unidade, uma bateria de ponta a
-  ponta que clica em todos os controles, cenários de robustez, limites de tempo de abertura e de
-  quadros perdidos, e instalações limpas no Ubuntu e no Debian.
+  ponta que clica pela interface, mais de 100 cenários de robustez (entre eles o ritmo de quadros em
+  4K60), uma conferência de que cada um dos 224 controles da interface é usado por algum teste, e
+  instalações limpas no Ubuntu e no Debian.
+
+## Novidades da 2.0
+
+| | |
+|---|---|
+| **HDR de verdade** | Com o HDR do Windows ligado, o vídeo HDR aparece com o brilho real, até o pico da tela, e a interface fica no brilho SDR da área de trabalho. Numa tela SDR, o HDR é convertido com a curva BT.2390. |
+| **HDR10+ e brilho por quadro** | Os metadados HDR10+ (SMPTE ST 2094-40) são seguidos cena por cena; o HDR10 comum é medido na GPU a cada quadro, e cena escura não fica apagada. |
+| **Movimento suave** | Vídeo de 24 e 30 fps passa a 60, 120 fps ou na taxa do monitor. O movimento é buscado com precisão de ¼ de pixel; logotipos e legendas ficam parados; cortes de cena mostram o quadro real. |
+| **NVIDIA RTX Video** | Super Resolution e RTX Video HDR pelo processador de vídeo da GPU, em placas RTX. |
+| **Legendas por IA** | whisper.cpp dentro do app, rodando na GPU pelo Vulkan. O modelo (82 MB, ou 574 MB em placas com 3 GB ou mais) é baixado uma vez e conferido por SHA-256. |
+| **Ferramentas do player** | Segunda legenda no alto da imagem, voltar um quadro, favoritos na barra de tempo, pular abertura e encerramento por pasta, trecho A-B em MP4 ou GIF, passthrough de Dolby, DTS, TrueHD e Atmos. |
+| **Caminho nativo dos quadros** | Os quadros vão do libVLC ao Qt em Rust e C++, sem passar pelo Python; nos testes de lançamento, 4K60 em SDR e HDR10+ roda a 60 fps sem quadros descartados. |
+
+A saída HDR real, o RTX Video e as legendas por IA são, por enquanto, só do Windows. A lista
+completa está no [histórico de mudanças](CHANGELOG.md).
 
 <table>
   <tr>

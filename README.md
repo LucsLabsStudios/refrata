@@ -4,9 +4,10 @@
 
 # Refrata
 
-**A modern video and music player built on the VLC engine.**
+**A video and music player for Windows and Linux, built on the VLC engine, with true HDR.**
 
-Every codec, format and protocol VLC plays, in an interface designed from scratch.
+Every codec, format and protocol VLC plays, in an interface designed from scratch, with HDR at its
+real brightness, smooth motion and subtitles written by AI on your own computer.
 
 [![Latest release](https://img.shields.io/github/v/release/LucsLabsStudios/refrata?label=release&color=FF7A2F)](https://github.com/LucsLabsStudios/refrata/releases/latest)
 [![Windows build](https://img.shields.io/github/actions/workflow/status/LucsLabsStudios/refrata/build.yml?branch=main&label=windows)](https://github.com/LucsLabsStudios/refrata/actions/workflows/build.yml)
@@ -21,11 +22,16 @@ Every codec, format and protocol VLC plays, in an interface designed from scratc
 
 ## Why Refrata
 
-VLC plays everything. Refrata keeps that engine and gives it the experience people expect from a
-player today.
+VLC plays everything. Refrata keeps that engine, shows each video the way it was mastered, and
+wraps it in the experience people expect from a player today.
 
 - **Plays anything VLC plays.** libVLC 3 and all of its modules ship inside the app, so nothing
   else needs to be installed.
+- **Shows the picture as it was made.** HDR10, HDR10+ and HLG with correct color, true HDR output
+  on Windows HDR screens, smooth motion at the monitor's refresh rate and native resolution up to
+  8K, all on the GPU.
+- **Writes the subtitles a video lacks.** Speech recognition with Whisper runs on your graphics
+  card, offline, and can translate into English.
 - **Feels like a modern app.** Large type, real-time frosted glass over the video, light and dark
   themes, and motion that respects the system's reduced-motion setting.
 - **Opens instantly.** Single instance, a fast hand-off from Explorer, and a QuickLook-style
@@ -33,9 +39,24 @@ player today.
 - **Updates itself, safely.** In-app updates check both a SHA-256 checksum and an Ed25519
   signature from the project key before anything installs.
 - **Speaks your language.** 14 interface languages, switched live.
-- **Tested like a product.** Every release passes unit tests, an end-to-end suite that clicks every
-  control, robustness scenarios, launch-time and frame-drop budgets, and clean installs on Ubuntu
-  and Debian.
+- **Tested like a product.** Every release passes unit tests, an end-to-end suite that clicks
+  through the interface, over 100 robustness scenarios (4K60 frame pacing among them), a check that
+  each of the 224 interface controls is used by a test, and clean installs on Ubuntu and Debian.
+
+## New in 2.0
+
+| | |
+|---|---|
+| **True HDR** | With Windows HDR on, HDR video shows at its real brightness up to the screen's peak, while the interface stays at the desktop's SDR brightness. On an SDR screen, HDR is tone mapped with the BT.2390 curve. |
+| **HDR10+ and per-frame brightness** | HDR10+ (SMPTE ST 2094-40) metadata is followed scene by scene; plain HDR10 is measured on the GPU every frame, so dark scenes are not dimmed. |
+| **Smooth motion** | 24 and 30 fps video plays at 60, 120 fps or the monitor's refresh rate. Motion is searched to a quarter of a pixel; logos and subtitles stay still; scene cuts show the real frame. |
+| **NVIDIA RTX Video** | Super Resolution and RTX Video HDR through the GPU's video processor on RTX cards. |
+| **AI subtitles** | whisper.cpp built into the app, running on the GPU through Vulkan. The model (82 MB, or 574 MB on GPUs with 3 GB or more) downloads once and is checked by SHA-256. |
+| **Player tools** | A second subtitle at the top of the picture, one frame back, bookmarks on the timeline, skip intro and credits per folder, A-B clips to MP4 or GIF, Dolby, DTS, TrueHD and Atmos passthrough. |
+| **Native frame path** | Frames go from libVLC to Qt in Rust and C++, without Python; in the release tests, 4K60 SDR and HDR10+ play at 60 fps with no dropped frames. |
+
+True HDR output, RTX Video and AI subtitles are Windows-only for now. The full list is in the
+[changelog](CHANGELOG.md).
 
 <table>
   <tr>

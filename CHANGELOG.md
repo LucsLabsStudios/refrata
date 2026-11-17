@@ -7,7 +7,7 @@ All notable changes to Refrata are listed here, newest first. Each version links
 The project follows [Semantic Versioning](https://semver.org/). Patch releases (`1.4.x`) can also
 ship updated components only (libVLC, yt-dlp, python-vlc) after passing the full test suite.
 
-## [1.5.0] - 2026-11-17
+## [2.0.0] - 2026-11-17
 ### Added
 - Smooth motion (Settings › Playback › Picture): in-between frames computed on the GPU, so 24 and
   30 fps video plays at 60, 120 or the monitor's own refresh rate (144, 165, 240 Hz...). Motion is
@@ -209,7 +209,7 @@ ship updated components only (libVLC, yt-dlp, python-vlc) after passing the full
 ### Added
 - First public, open-source release, with in-app updates verified by SHA-256.
 
-[1.5.0]: https://github.com/LucsLabsStudios/refrata/releases/tag/v1.5.0
+[2.0.0]: https://github.com/LucsLabsStudios/refrata/releases/tag/v2.0.0
 [1.4.16]: https://github.com/LucsLabsStudios/refrata/releases/tag/v1.4.16
 [1.4.15]: https://github.com/LucsLabsStudios/refrata/releases/tag/v1.4.15
 [1.4.14]: https://github.com/LucsLabsStudios/refrata/releases/tag/v1.4.14
