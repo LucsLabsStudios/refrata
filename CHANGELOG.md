@@ -52,12 +52,18 @@ ship updated components only (libVLC, yt-dlp, python-vlc) after passing the full
   while a video plays; HDR10+ is read in Rust.
 - Opening a video while Refrata runs no longer shows the splash screen; it shows only on a cold
   start (a native window instead of the bootloader's).
+- Library thumbnails wait while a video plays: on a first run over a full Videos folder they took
+  about 1.7 CPU cores from the film on screen. 1080p30 now plays with 0.18 cores, 4K60 with 0.57.
+- The window redraws at the video's pace instead of every display refresh: hidden "now playing"
+  bars and the progress clock kept it at 165 redraws a second on a 165 Hz screen.
 ### Changed
 - Video above 4K plays at its own size: 8K (7680×4320) and DCI 8K are no longer scaled down.
 ### Fixed
 - A video opened in the middle (resumed, or handed over from the quick player) no longer flashes
   the music player over it before its first picture. A link of unknown kind takes the music look
   only once libVLC finds no video track in it, about 2 s after its sound starts.
+- Starting Refrata with a double-click on a video no longer flashes the music player over it 1.2 s
+  after launch (the player's start-up warm-up now runs only while it is closed).
 
 ## [1.4.16] - 2026-11-15
 ### Fixed

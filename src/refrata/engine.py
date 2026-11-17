@@ -2500,6 +2500,11 @@ class Engine(QObject):
         """From the poll: decide once per item whether a picture-less stream is sound only."""
         if self._audio_suspect or self._frames_seen > 0 or self._state != "playing" or not self._playing_since:
             return
+        if 0 <= self._index < len(self._queue) and self._queue[self._index]["audio"]:
+            # known sound by its name: nothing to decide. (Deciding anyway emitted mediaChanged 2 s
+            # in, and the progress clocks snapped back to the engine's last poll: a 0.3 s jump back.)
+            self._audio_suspect = True
+            return
         if time.monotonic() - self._playing_since < 2.0:
             return
         try:

@@ -47,7 +47,7 @@ Item {
     onHeightChanged: Qt.callLater(function () { pv.glassTick++ })
     onVisibleChanged: if (visible && !warm) { poke(); Qt.callLater(function () { pv.glassTick++ }) }
 
-    SmoothTime { id: pvClock; active: pv.visible && !player.isAudio }
+    SmoothTime { id: pvClock; active: pv.visible && !player.isAudio; frameSource: video.videoSink }
     Timer {
         id: hideTimer
         interval: 2800

@@ -8,7 +8,7 @@ Item {
     id: root
     signal expand()
     height: 80
-    SmoothTime { id: clock; active: root.visible }
+    SmoothTime { id: clock; active: root.visible; frameSource: vo.videoSink }
     // the library already has the tags; player.title is the file name until libVLC parses it
     readonly property var info: { library.revision; return library.info(player.currentPath) }
     readonly property string title: info.title || player.title

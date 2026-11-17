@@ -386,8 +386,10 @@ Window {
 
     // Pre-warm: render the (off-screen) player once while the app is idle, so the GPU
     // pipelines of its blur/shadow effects exist before the first real open (no hitch then).
+    // Only while the player is closed: warm, it shows its music stage, and an app started by a
+    // double-click on a video has that video open by now (the stage flashed over it).
     property bool pvWarm: false
-    Timer { interval: 1200; running: true; onTriggered: { win.pvWarm = true; warmEnd.start() } }
+    Timer { interval: 1200; running: true; onTriggered: if (!win.playerOpen) { win.pvWarm = true; warmEnd.start() } }
     Timer { id: warmEnd; interval: 400; onTriggered: win.pvWarm = false }
     // a new queue brings new covers: upload them while the player is still closed, after the
     // mini player has finished sliding in, so the first open has nothing left to load
@@ -401,7 +403,7 @@ Window {
         height: parent.height
         y: win.playerOpen ? 0 : parent.height
         visible: y < parent.height || win.pvWarm
-        warm: win.pvWarm
+        warm: win.pvWarm && !win.playerOpen        // opened meanwhile: the warm-up ends at once
         Behavior on y { NumberAnimation { duration: theme.reduceMotion ? 0 : (win.playerOpen ? 440 : 300); easing.type: win.playerOpen ? Easing.OutQuart : Easing.InOutCubic } }
         fullscreen: win.fullscreen
         onMinimize: { if (win.fullscreen) win.toggleFullscreen(); win.playerOpen = false }

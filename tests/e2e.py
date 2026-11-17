@@ -1858,8 +1858,9 @@ def t46_music_mode_carousel_and_dock_by_mouse():
         pump(0.02)
         track_fill.append(clock_items[0].property("value"))
     steps = len(set(round(v) for v in track_fill))
-    check(steps >= 15 and all(b >= a for a, b in zip(track_fill, track_fill[1:])),
-          "progress advances every frame and monotonically", f"{steps} distinct values")
+    back = [(round(a), round(b)) for a, b in zip(track_fill, track_fill[1:]) if b < a]
+    check(steps >= 15 and not back, "progress advances every frame and monotonically",
+          f"{steps} distinct values; backwards: {back[:5]}")
 
     # hovering a card shows what a click will do (topmost card only)
     pump(0.8)

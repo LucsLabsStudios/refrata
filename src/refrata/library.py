@@ -190,13 +190,29 @@ class Thumbnailer(threading.Thread):
                                   "--avcodec-hw=none", "--no-video-title-show", "--no-osd"])
         self._stopping = False
         self._halt = threading.Event()
+        self._go = threading.Event()      # cleared while a video plays: see hold()
+        self._go.set()
 
     def push(self, item):
         self._q.put(item)
 
+    def hold(self, on: bool):
+        """Wait while a video plays. Each file is decoded in software by a player of its own: on a
+        first run over a full Videos folder that took ~1.7 CPU cores away from the film on screen
+        (tests/launch.py measured 2 cores for a 1080p30 video). The file in hand is finished."""
+        if on:
+            self._go.clear()
+        else:
+            self._go.set()
+
+    @property
+    def holding(self) -> bool:
+        return not self._go.is_set()
+
     def stop(self, timeout=3.0):
         self._stopping = True
         self._halt.set()
+        self._go.set()
         self._q.put(None)
         self.join(timeout)
 
@@ -204,6 +220,9 @@ class Thumbnailer(threading.Thread):
         while not self._stopping:
             it = self._q.get()
             if it is None or self._stopping:
+                break
+            self._go.wait()
+            if self._stopping:
                 break
             try:
                 self._process(it)

@@ -18,7 +18,10 @@ Row {
         anchors.bottom: parent.bottom
         height: 4
         SequentialAnimation on height {
-            running: root.running
+            // only while seen: a running animation makes the window redraw every refresh even
+            // when its item is hidden (the music stage's bars, under a playing video: 165 redraws
+            // a second on a 165 Hz screen, ~2 CPU cores)
+            running: root.running && root.visible && root.opacity > 0
             loops: Animation.Infinite
             NumberAnimation { to: 6 + (bar.index * 7) % 11; duration: 260 + bar.index * 70; easing.type: Easing.InOutSine }
             NumberAnimation { to: 16 - bar.index * 2; duration: 300 + bar.index * 50; easing.type: Easing.InOutSine }

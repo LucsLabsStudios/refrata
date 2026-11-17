@@ -242,6 +242,11 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
         engine.openFiles(preopen, 0)
         trace.mark("build: file handed to libVLC")
     library = Library(settings)
+    # library thumbnails wait while a video plays or opens (refrata/library.py Thumbnailer.hold)
+    hold_thumbs = lambda: library._thumbs.hold(engine.state in ("playing", "loading") and not engine.isAudio)  # noqa: E731
+    engine.stateChanged.connect(hold_thumbs)
+    engine.mediaChanged.connect(hold_thumbs)
+    hold_thumbs()
     trace.mark("build: library")
     ctl = AppController()
     updater = Updater(settings)

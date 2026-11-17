@@ -1326,7 +1326,8 @@ def feature_hdr_output_math():
     # the layer shader on its own: scale 1 over an opaque window colour = no change
     view = QQuickView()
     qml = Path(os.environ["REFRATA_E2E_TMP"]) / "hdrlayer_probe.qml"
-    shader = (Path(__file__).resolve().parents[1] / "src" / "refrata" / "ui" / "shaders" / "hdrlayer.frag.qsb").as_uri()
+    from refrata.vlcpath import ui_dir                     # the app's own (source tree or packaged)
+    shader = (ui_dir() / "shaders" / "hdrlayer.frag.qsb").as_uri()
     qml.write_text("import QtQuick\nItem { width: 256; height: 64\n"
                    " property bool on: false\n"
                    " Item { anchors.fill: parent\n"
@@ -1511,7 +1512,6 @@ def _watch_mode(seconds, what):
     (The mini player is not checked: it lives on the library page, behind the open player.)"""
     e = eng()
     stage = H.parts.find("musicStage")
-    pv = H.parts.find("playerView")
     bad = []
     t0 = time.perf_counter()
     while time.perf_counter() - t0 < seconds:
@@ -1519,7 +1519,9 @@ def _watch_mode(seconds, what):
         ms = int((time.perf_counter() - t0) * 1000)
         if e.isAudio:
             bad.append(f"{what}: isAudio at {ms} ms (frames {e._frames_seen}, time {e.time})")
-        elif stage.property("visible") and not pv.property("warm") and win().property("playerOpen"):
+        # the player is open on a video: its music stage must not show, for any reason (a
+        # warm-up included: that is how it flashed over a video opened by a double-click)
+        elif stage.property("visible") and win().property("playerOpen"):
             bad.append(f"{what}: music stage over the video at {ms} ms")
     return bad
 
@@ -1548,6 +1550,11 @@ def feature_video_never_opens_in_the_audio_look():
     win().setProperty("playerOpen", True)
     bad += _watch_mode(4.0, "resumed video")
     check(e._frames_seen > 0 and abs(e.time - 15000) < 4000, "it resumed and plays", f"time {e.time}")
+    # the start-up warm-up of the player (Main.qml, 1.2 s after launch) while a video is already
+    # open, as when Refrata is started by a double-click on a video: it showed the music stage
+    win().setProperty("pvWarm", True)
+    bad += _watch_mode(0.6, "start-up warm-up over an open video")
+    win().setProperty("pvWarm", False)
     # music, then a video
     e.openFiles([str(H.fx["tone_c"])])
     win().setProperty("playerOpen", False)
