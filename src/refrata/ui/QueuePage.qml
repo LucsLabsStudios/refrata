@@ -35,7 +35,8 @@ ListView {
         width: page.width - 56
         height: 72
         readonly property bool current: index === player.currentIndex
-        readonly property var info: { library.revision; return library.info(modelData.path) }
+        // a cleared queue drops its rows a moment after their data: modelData is undefined then
+        readonly property var info: { library.revision; return modelData ? library.info(modelData.path) : ({}) }
         Rectangle {
             anchors.fill: parent; radius: 20
             color: row.current ? theme.accentSoft : (rma.containsMouse ? theme.surface : "transparent")

@@ -1161,12 +1161,14 @@ def t33_player_controls_by_mouse():
     check(pv.property("panel") == "tracks", "tracks panel opens")
     pop = C.parts.find("popover")
     wait(lambda: pop.property("opacity") > 0.95, 2)
+    # a track change goes through libVLC (and a subtitle may reopen the item in software decoding):
+    # it lands within a moment, later on a slow machine (the Linux package without a GPU)
     ui_click(pop, "atrack_2"); poke()
-    check(e.audioTrack == e.audioTracks[2]["id"], "audio track chosen by click")
+    wait(lambda: e.audioTrack == e.audioTracks[2]["id"], 3, "audio track chosen by click")
     ui_click(pop, "strack_1"); poke()
-    check(e.subtitleTrack == e.subtitleTracks[1]["id"], "subtitle chosen by click")
+    wait(lambda: e.subtitleTrack == e.subtitleTracks[1]["id"], 3, "subtitle chosen by click")
     ui_click(pop, "strack_0"); poke()
-    check(e.subtitleTrack == -1, "subtitles off by click")
+    wait(lambda: e.subtitleTrack == -1, 3, "subtitles off by click")
     ui_click("pvTracks"); poke()
     check(pv.property("panel") == "", "tracks panel closes")
     # speed panel
