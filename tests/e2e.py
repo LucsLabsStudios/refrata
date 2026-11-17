@@ -1066,6 +1066,22 @@ def scroll_into_view(item):
         pump(0.15)
 
 
+def _until_still(item, limit=1.5):
+    """Wait (up to `limit` s) for an item to stop moving on screen, as a person sees it settle
+    before clicking. A panel that grows around a new row (the tools panel's bookmark list) moved
+    the row while the click went out; without a GPU (WSL) it hit the A-B button instead."""
+    def where():
+        p = item.mapToScene(QPointF(item.width() / 2, item.height() / 2))
+        return round(p.x()), round(p.y()), round(item.width()), round(item.height())
+    last, t_end = where(), time.time() + limit
+    while time.time() < t_end:
+        pump(0.04)
+        now = where()
+        if now == last:
+            return
+        last = now
+
+
 def ui_click(parent_or_name, name=None, double=False, frac=None):
     """Click a named control (optionally searched under a parent), scrolling to it first."""
     if name is None:
@@ -1074,6 +1090,7 @@ def ui_click(parent_or_name, name=None, double=False, frac=None):
         parent = C.parts.find(parent_or_name) if isinstance(parent_or_name, str) else parent_or_name
         item = find_under(parent, name)
     scroll_into_view(item)
+    _until_still(item)
     at = None
     if frac is not None:
         fx, fy = frac
@@ -1542,7 +1559,14 @@ def t52_player_tools_by_mouse():
     e.seek(1000)
     pump(0.4); poke()
     ui_click(pop, "bookmark_0"); poke()
-    wait(lambda: abs(e.time - tools.property("bookmarks")[0]) < 500, 4, "a click on the bookmark jumps there")
+    # paused, the distributions' libVLC (Linux) may stop on the keyframe before the mark (5080 for a
+    # mark at 5960 seen in WSL) instead of decoding up to it; the bundled one (Windows) is exact
+    lead = 1500 if sys.platform != "win32" else 500
+    try:
+        wait(lambda: -lead < e.time - tools.property("bookmarks")[0] < 500, 4, "a click on the bookmark jumps there")
+    except Exception:
+        raise AssertionError(f"a click on the bookmark jumps there: bookmark {tools.property('bookmarks')}, "
+                             f"engine {e.time}, libVLC {e._mp.get_time()}, state {e.state}")
     ui_click(pop, "bookmarkDel_0"); poke()
     wait(lambda: tools.property("bookmarks") == [], 3, "bookmark removed by click")
     e.seek(3000)

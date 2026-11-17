@@ -725,7 +725,10 @@ class Engine(QObject):
         if pt in ("on", "hd"):
             # the receiver or soundbar decodes Dolby / DTS itself (HDMI or S/PDIF): libVLC sends the
             # encoded stream as is; "hd" also TrueHD, DTS-HD and E-AC-3 (HDMI only)
-            args += ["--spdif", f"--mmdevice-passthrough={2 if pt == 'hd' else 1}"]
+            args.append("--spdif")
+            if sys.platform == "win32":
+                # Windows' audio output only: on Linux libVLC refused the whole instance with it
+                args.append(f"--mmdevice-passthrough={2 if pt == 'hd' else 1}")
         return args
 
     def _make_player(self):
