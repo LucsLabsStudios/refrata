@@ -1155,8 +1155,18 @@ def t33_player_controls_by_mouse():
         reps.append(e.repeat)
     check(reps == [1, 2, 0], "repeat button cycles", str(reps))
     # tracks panel
+    def tracks_state():
+        return (f"subs {e.subtitleTracks} chosen {e.subtitleTrack} wanted {e._spu_wanted} "
+                f"libVLC spu {e._mp.video_get_spu()} {e._mp.video_get_spu_description()} state {e.state} "
+                f"hw {bool(e._hw_item)} sw {len(e._sw_paths)} polled {e._tracks_polled}")
+
+    def wait_tracks(cond, what):
+        try:
+            wait(cond, 8, what)
+        except Fail:
+            raise Fail(f"timeout waiting for {what} — {tracks_state()}")
     e.addSubtitle(Path(C.fx["srt"]).as_uri())
-    wait(lambda: len(e.subtitleTracks) >= 2, 8, "subtitle loaded")
+    wait_tracks(lambda: len(e.subtitleTracks) >= 2, "subtitle loaded")
     ui_click("pvTracks"); poke()
     check(pv.property("panel") == "tracks", "tracks panel opens")
     pop = C.parts.find("popover")
@@ -1165,11 +1175,11 @@ def t33_player_controls_by_mouse():
     # open, so the time an open is given (open_player_with: 10 s). The Linux package's run shares
     # the CPU with the Windows release tests, and 3 s ran out there.
     ui_click(pop, "atrack_2"); poke()
-    wait(lambda: e.audioTrack == e.audioTracks[2]["id"], 8, "audio track chosen by click")
+    wait_tracks(lambda: e.audioTrack == e.audioTracks[2]["id"], "audio track chosen by click")
     ui_click(pop, "strack_1"); poke()
-    wait(lambda: e.subtitleTrack == e.subtitleTracks[1]["id"], 8, "subtitle chosen by click")
+    wait_tracks(lambda: e.subtitleTrack == e.subtitleTracks[1]["id"], "subtitle chosen by click")
     ui_click(pop, "strack_0"); poke()
-    wait(lambda: e.subtitleTrack == -1, 8, "subtitles off by click")
+    wait_tracks(lambda: e.subtitleTrack == -1, "subtitles off by click")
     ui_click("pvTracks"); poke()
     check(pv.property("panel") == "", "tracks panel closes")
     # speed panel
