@@ -2607,13 +2607,28 @@ class Engine(QObject):
         default subtitle by itself: "off" came back on. Applied again until the item plays with
         its tracks known."""
         self._spu_wanted = spu
+        # by name as well: a reopen may number the tracks anew (an added .srt took another id on
+        # Linux), and the old number then selected nothing
+        name = next((t["name"] for t in self._sub_tracks if t["id"] == spu), None) if spu not in (-1, 0) else None
+        state = {"spu": spu}
 
         def pick(n):
+            spu = state["spu"]
             if self._spu_wanted != spu:
                 return   # the person chose something else meanwhile
             if self._switching:   # the item is still being switched: try again, without counting
                 QTimer.singleShot(150, lambda: pick(n))
                 return
+            if name:
+                desc = self._mp.video_get_spu_description() or []
+                ids = [tid for tid, _ in desc]
+                if ids and spu not in ids:
+                    for tid, nm in desc:
+                        nm = nm.decode("utf8", "ignore") if isinstance(nm, bytes) else str(nm)
+                        if nm == name:
+                            state["spu"] = spu = tid
+                            self._spu_wanted = tid
+                            break
             if self._mp.video_get_spu() != spu:
                 self._mp.video_set_spu(spu)
             settled = self._state in ("playing", "paused") and bool(self._sub_tracks)

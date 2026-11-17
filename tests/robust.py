@@ -640,7 +640,7 @@ def _vanishing(data: Path) -> Path:
     return root
 
 
-@scenario(timeout=240)
+@scenario(timeout=240, solo=True)   # memory is measured alone: the other scenarios' load moved it
 def stress_memory_track_changes():
     e = eng()
     seq = [str(H.fx["video"]), str(H.fx["tone_a"]), str(H.fx["video2"]), str(H.fx["tone_long"])]
@@ -652,13 +652,24 @@ def stress_memory_track_changes():
     import gc
     gc.collect(); pump(1.0)
     base = rss_mb()
-    for i in range(200):
+    marks = []
+    # Measured (Windows, 500 switches): +82, +84, +91, +97, +90 MB at each hundred, then +77: a level
+    # reached in the first hundred (codecs, caches, the allocator's pools), not a leak. Its height
+    # moves with the machine's load (+154 MB once, eight scenarios at once), so what is checked is the
+    # growth after it: a leak keeps climbing (0.5 MB a switch is +50 MB per hundred).
+    for i in range(int(os.environ.get("REFRATA_MEM_SWITCHES", "300"))):
         e.playAt(i % 4)
         pump(0.15)
+        if (i + 1) % 100 == 0:
+            gc.collect(); pump(1.0)
+            marks.append(round(rss_mb() - base))
     gc.collect(); pump(1.5)
     grown = rss_mb() - base
-    H.notes.append(f"memory after 200 switches: +{grown:.0f} MB (base {base:.0f} MB)")
-    check(grown < 120, "no runaway memory growth across 200 track changes", f"+{grown:.0f} MB")
+    H.notes.append(f"memory after {len(marks) * 100} switches: +{grown:.0f} MB (base {base:.0f} MB), every 100: {marks}")
+    climb = grown - marks[0]
+    check(climb < 40, "no memory growth once warm (switches 100 to the end)",
+          f"+{climb:.0f} MB after the first hundred; every 100: {marks}, end +{grown:.0f} MB")
+    check(grown < 300, "the level itself stays sane", f"+{grown:.0f} MB")
 
 
 # ============================================================ scenarios: corrupted data
