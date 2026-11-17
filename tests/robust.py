@@ -4197,7 +4197,7 @@ def feature_pip_keys_drive_the_video_once():
     w.showNormal()
 
 
-@scenario(timeout=60)
+@scenario(timeout=60, solo=True)   # timed: a 6 s decode from a keyframe ran late with 8 scenarios at once
 def feature_live_scrubbing():
     """Dragging the seek bar moves the picture while the button is still down (playing and paused),
     not only on release; the drop point is where it ends up."""
