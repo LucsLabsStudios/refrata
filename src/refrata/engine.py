@@ -683,6 +683,7 @@ class Engine(QObject):
         self._first_video_frame = True   # for REFRATA_TRACE (refrata/trace.py)
         self._hw_item = ""            # path decoding on the GPU right now
         self._spu_wanted = None       # subtitle to select once a software reopen is up
+        self._keep_tracks = False     # the next _play_index is a software reopen of the same item
         self._sw_paths: set[str] = set()   # items that showed subtitles: software from then on
         self._audio_dirty = True
         self._poll = QTimer(self)
@@ -1862,7 +1863,14 @@ class Engine(QObject):
             media.add_option(":avcodec-hw=any")
             self._hw_item = e["path"]
         self._meta = {"title": e["title"], "artist": "", "album": "", "artwork": ""}
-        self._audio_tracks, self._sub_tracks, self._tracks_polled = [], [], 0
+        # reopened in software decoding for a subtitle (_to_software): the same tracks, so they stay,
+        # or the Tracks panel emptied and refilled under the pointer and the next click (subtitles
+        # off, say) landed on a row that was gone. Any other open starts from no tracks: the same
+        # file opened later may carry other subtitles.
+        if not self._keep_tracks:
+            self._audio_tracks, self._sub_tracks = [], []
+        self._keep_tracks = False
+        self._tracks_polled = 0
         if self._chapters or self._chapter != -1:
             self._chapters, self._chapter = [], -1
             self.chaptersChanged.emit()
@@ -2633,6 +2641,7 @@ class Engine(QObject):
             # has not reached the point asked for yet, and reopening "here" went back to 0:00
             t = max(t, self._mp.get_time(), self._item_start)
         self._start_at = t
+        self._keep_tracks = True          # the same item: its track lists stay (see _play_index)
         self._play_index(self._index)
         if st == "paused":
             self._pause_when_playing = True

@@ -35,8 +35,10 @@ ListView {
         width: page.width - 56
         height: 72
         readonly property bool current: index === player.currentIndex
-        // a cleared queue drops its rows a moment after their data: modelData is undefined then
-        readonly property var info: { library.revision; return modelData ? library.info(modelData.path) : ({}) }
+        // a cleared queue drops its rows a moment after their data: modelData is undefined then,
+        // and every binding below reads the row's copy instead
+        readonly property var item: modelData || ({ path: "", title: "", audio: false, isUrl: false })
+        readonly property var info: { library.revision; return item.path ? library.info(item.path) : ({}) }
         Rectangle {
             anchors.fill: parent; radius: 20
             color: row.current ? theme.accentSoft : (rma.containsMouse ? theme.surface : "transparent")
@@ -77,9 +79,9 @@ ListView {
         Rectangle {
             id: th
             x: 58; anchors.verticalCenter: parent.verticalCenter
-            height: 52; width: modelData.audio ? 52 : 92; radius: 12
+            height: 52; width: row.item.audio ? 52 : 92; radius: 12
             color: theme.surface2
-            Icon { anchors.centerIn: parent; name: modelData.isUrl ? "globe" : modelData.audio ? "music" : "film"; size: 16; color: theme.textFaint; visible: ti.status !== Image.Ready }
+            Icon { anchors.centerIn: parent; name: row.item.isUrl ? "globe" : row.item.audio ? "music" : "film"; size: 16; color: theme.textFaint; visible: ti.status !== Image.Ready }
             RoundedImage { id: ti; anchors.fill: parent; radius: 12; source: row.info.thumb || ""; sourceWidth: 200 }
         }
         Column {
@@ -87,10 +89,10 @@ ListView {
             anchors.right: acts.left; anchors.rightMargin: 16
             anchors.verticalCenter: parent.verticalCenter
             spacing: 3
-            Text { width: parent.width; elide: Text.ElideRight; text: modelData.title; color: row.current ? theme.accent : theme.text; font.pixelSize: 15; font.weight: Font.DemiBold }
+            Text { width: parent.width; elide: Text.ElideRight; text: row.item.title; color: row.current ? theme.accent : theme.text; font.pixelSize: 15; font.weight: Font.DemiBold }
             Text {
                 width: parent.width; elide: Text.ElideMiddle
-                text: (row.info.duration ? U.time(row.info.duration) + "  ·  " : "") + modelData.path
+                text: (row.info.duration ? U.time(row.info.duration) + "  ·  " : "") + row.item.path
                 color: theme.textDim; font.pixelSize: 12
             }
         }
@@ -115,7 +117,7 @@ ListView {
             onClicked: {
                 if (row.current) { player.togglePlay(); return }
                 player.playAt(index)
-                if (!modelData.audio) page.openPlayer()   // same as the library: videos open the player
+                if (!row.item.audio) page.openPlayer()   // same as the library: videos open the player
             }
             onDoubleClicked: { if (row.current && player.state === "paused") player.togglePlay(); page.openPlayer() }
         }
