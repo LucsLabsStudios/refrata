@@ -34,6 +34,7 @@ Item {
     signal toggleFullscreen()
     signal pipRequested()
     signal loadSubtitle()
+    signal loadSecondSubtitle()
 
     // music mode keeps its dock on screen; video hides the chrome while playing
     readonly property bool idleHide: player.playing && !player.isAudio && panel === "" && !queueOpen && !pinned
@@ -100,9 +101,10 @@ Item {
                 return a.length === 2 && +a[1] > 0 ? (+a[0]) / (+a[1]) : 0
             }
             readonly property bool crop: pv.fillMode === VideoOutput.PreserveAspectCrop
-            VideoOutput {
+            // the picture, with smooth motion, HDR tone mapping and the boosts (VideoPipeline.qml)
+            VideoPipeline {
                 id: video
-                objectName: "videoOutput"
+                objectName: "videoPipeline"
                 anchors.centerIn: parent
                 width: videoBox.forced > 0 ? (videoBox.crop ? Math.max(parent.width, parent.height * videoBox.forced)
                                                           : Math.min(parent.width, parent.height * videoBox.forced))
@@ -114,8 +116,43 @@ Item {
                     origin.x: video.width / 2; origin.y: video.height / 2
                     xScale: pv.videoZoom * (pv.videoMirror ? -1 : 1); yScale: pv.videoZoom
                 }
-                Component.onCompleted: player.addSink(video.videoSink)
-                Component.onDestruction: player.removeSink(video.videoSink)
+                smoothMotion: settings.smoothMotion !== "off" && !player.isAudio && player.castingTo === ""
+                maxFps: settings.smoothMotion === "60" ? 60 : settings.smoothMotion === "120" ? 120 : 0
+                hdr: player.videoHdr === "pq" ? 1 : player.videoHdr === "hlg" ? 2 : 0
+                srcPeak: player.videoPeak
+                scene: player.hdrScene
+                measure: settings.hdrDynamic
+                hdrOut: typeof hdrout !== "undefined" && hdrout.screenHdr
+                outWhite: typeof hdrout !== "undefined" ? hdrout.sdrWhite : 80
+                outPeak: typeof hdrout !== "undefined" ? hdrout.peak : 0
+                rtxVsr: settings.rtxVsr && appctl.nvidiaRtx
+                rtxHdr: settings.rtxHdr && appctl.nvidiaRtx
+                router: player.nativeRouter
+                light: settings.lightBoost / 100
+                detail: settings.detailBoost / 100
+                sourceFps: player.videoFps * player.rate
+                playing: player.playing
+                onPairingChanged: player.setPairSinks(pairing ? video.videoSink : null, pairing ? video.videoSinkB : null)
+                onPipelineDelay: (ms) => player.setPipelineDelay(ms)
+                Connections { target: player; function onPairFrame(slot) { video.frameArrived(slot) } }
+                Component.onCompleted: {
+                    player.addSink(video.videoSink)
+                    if (pairing) player.setPairSinks(video.videoSink, video.videoSinkB)
+                }
+                Component.onDestruction: {
+                    player.setPairSinks(null, null)
+                    player.setPipelineDelay(0)
+                    player.removeSink(video.videoSink)
+                }
+            }
+            // the second subtitle (top) or the subtitles made from the sound (bottom)
+            SubOverlay {
+                objectName: "subOverlay"
+                anchors.fill: parent
+                cues: JSON.parse(tools.cuesJson)
+                visible: cues.length > 0
+                time: pvClock.value
+                atTop: tools.cuesName !== "ai"
             }
         }
 
@@ -430,6 +467,7 @@ Item {
                     value: pvClock.value; to: Math.max(1, player.length)
                     loopA: player.loopA; loopB: player.loopB
                     chapters: player.chapters
+                    marks: tools.bookmarks
                     enabled: player.seekable
                     previewEnabled: player.hasMedia && !player.isAudio && player.seekable && player.length > 0 && player.currentPath !== "" && !/^https?:/i.test(player.currentPath)
                     previewAspect: videoBox.forced > 0 ? videoBox.forced
@@ -487,6 +525,7 @@ Item {
                     PillButton { objectName: "pvEq"; variant: "glass"; icon: "eq"; text: bottom.compact ? "" : qsTr("Equalizador"); h: 44; checked: pv.panel === "eq"; onClicked: pv.togglePanel("eq") }
                     PillButton { objectName: "pvAdjust"; variant: "glass"; icon: "brightness"; text: bottom.compact ? "" : qsTr("Imagem"); h: 44; visible: !player.isAudio; checked: pv.panel === "adjust"; onClicked: pv.togglePanel("adjust") }
                     PillButton { objectName: "pvChapters"; variant: "glass"; icon: "chapters"; visible: player.chapters.length > 0; text: bottom.compact ? "" : qsTr("Capítulos"); h: 44; checked: pv.panel === "chapters"; onClicked: pv.togglePanel("chapters") }
+                    PillButton { objectName: "pvTools"; variant: "glass"; icon: "star"; visible: !player.isAudio && player.currentPath !== "" && !/^\w+:\/\//.test(player.currentPath); text: bottom.compact ? "" : qsTr("Ferramentas"); h: 44; checked: pv.panel === "tools"; onClicked: pv.togglePanel("tools") }
                     PillButton { objectName: "pvSleep"; variant: "glass"; icon: "timer"; text: player.sleepMinutes > 0 ? qsTr("%1 min").arg(player.sleepMinutes) : (bottom.compact ? "" : qsTr("Timer")); h: 44; checked: pv.panel === "sleep"; onClicked: pv.togglePanel("sleep") }
                 }
                 Row {
@@ -549,30 +588,41 @@ Item {
         x: player.isAudio ? Math.max(32, (pv.width - (pv.queueOpen ? queuePanel.width + 32 : 0) - width) / 2) : 48 + 120
         anchors.bottom: parent.bottom
         anchors.bottomMargin: player.isAudio ? musicStage.dockBottom + musicStage.dockH + 16 : 36 + 48 + 16
-        width: Math.min(pv.width - 96, pv.panel === "eq" ? 620 : pv.panel === "tracks" ? 680 : pv.panel === "adjust" ? 780
+        width: Math.min(player.isAudio ? pv.width - 64 : pv.width - 168 - 24, pv.panel === "eq" ? 620 : pv.panel === "tracks" ? 1000 : pv.panel === "adjust" ? 780
+               : pv.panel === "tools" ? 760
                : pv.panel === "info" ? 560 : pv.panel === "chapters" ? 460 : pv.panel === "subs" ? 640 : 420)
-        height: panelLoader.item ? panelLoader.item.implicitHeight + 56 : 100
+        // never taller than the room above the controls: the content scrolls instead
+        height: Math.min(panelLoader.item ? panelLoader.item.implicitHeight + 56 : 100, Math.max(160, pv.height - anchors.bottomMargin - 16))
         radius: 28
         backdrop: backdrop
         geometryTick: pv.glassTick + width + height
         tint: Qt.rgba(0.07, 0.07, 0.09, 0.66)
         blurMax: 64
         MouseArea { anchors.fill: parent; hoverEnabled: true; onPositionChanged: pv.poke(); onWheel: (w) => { w.accepted = true; pv.poke() } }
+        Flickable {
+            id: panelScroll
+            x: 28; y: 28
+            width: parent.width - 56; height: parent.height - 56
+            clip: contentHeight > height
+            interactive: contentHeight > height
+            boundsBehavior: Flickable.StopAtBounds
+            contentHeight: panelLoader.item ? panelLoader.item.implicitHeight : 0
         Loader {
             id: panelLoader
-            x: 28; y: 28
-            width: parent.width - 56
+            width: panelScroll.width
             sourceComponent: pv.panel === "tracks" ? tracksPanel : pv.panel === "speed" ? speedPanel
                              : pv.panel === "eq" ? eqPanel : pv.panel === "adjust" ? adjustPanel
                              : pv.panel === "sleep" ? sleepPanel : pv.panel === "chapters" ? chaptersPanel
                              : pv.panel === "info" ? infoPanel : pv.panel === "cast" ? castPanel
-                             : pv.panel === "subs" ? subsPanel : null
+                             : pv.panel === "subs" ? subsPanel : pv.panel === "tools" ? toolsPanel : null
+        }
         }
     }
 
     Component {
         id: tracksPanel
-        Row {
+        Flow {
+            width: parent ? parent.width : 0   // a narrow window: the columns wrap
             spacing: 24
             Column {
                 id: ac
@@ -637,6 +687,95 @@ Item {
                         Chip { objectName: modelData.k + "_" + modelData.v; height: 32; text: modelData.t; selected: player.subtitleStyle[modelData.k] === modelData.v; onClicked: player.setSubtitleStyle(modelData.k, modelData.v) }
                     }
                 }
+            }
+            Column {
+                width: 250
+                spacing: 6
+                visible: !player.isAudio
+                PanelTitle { text: qsTr("Mais legendas") }
+                Item { width: 1; height: 6 }
+                Caption { text: qsTr("SEGUNDA LEGENDA") }
+                Text {
+                    width: parent.width; wrapMode: Text.WordWrap; font.pixelSize: 13
+                    color: Qt.rgba(1, 1, 1, tools.cuesName && tools.cuesName !== "ai" ? 0.9 : 0.5)
+                    text: tools.cuesName && tools.cuesName !== "ai" ? tools.cuesName : qsTr("Duas línguas ao mesmo tempo: esta aparece no alto da tela.")
+                }
+                Row {
+                    spacing: 6
+                    Chip { objectName: "secondSubBtn"; text: qsTr("+ Arquivo"); onClicked: pv.loadSecondSubtitle() }
+                    Chip { objectName: "secondSubClear"; visible: tools.cuesName !== "" && tools.cuesName !== "ai"; text: qsTr("Remover"); onClicked: tools.clearSecondSubtitle() }
+                }
+                Item { width: 1; height: 8 }
+                Caption { text: qsTr("LEGENDAS POR IA") }
+                Row {
+                    spacing: 10
+                    Toggle { objectName: "aiSubsToggle"; enabled: aisubs.available; checked: settings.aiSubs; onToggled: (on) => settings.aiSubs = on }
+                    Text { anchors.verticalCenter: parent.verticalCenter; text: qsTr("Gerar do áudio"); color: "white"; font.pixelSize: 14 }
+                }
+                Row {
+                    spacing: 10
+                    Toggle { objectName: "aiTranslateToggle"; enabled: aisubs.available; checked: settings.aiSubsTranslate; onToggled: (on) => settings.aiSubsTranslate = on }
+                    Text { anchors.verticalCenter: parent.verticalCenter; text: qsTr("Traduzir para o inglês"); color: "white"; font.pixelSize: 14 }
+                }
+                Text {
+                    objectName: "aiSubsStatus"
+                    width: parent.width; wrapMode: Text.WordWrap; font.pixelSize: 12
+                    color: Qt.rgba(1, 1, 1, 0.6)
+                    text: !aisubs.available ? qsTr("Indisponível neste computador")
+                          : settings.aiSubs ? (aisubs.status + (aisubs.progress > 0 && aisubs.progress < 1 ? " " + Math.round(aisubs.progress * 100) + "%" : ""))
+                          : qsTr("Reconhece a fala do vídeo e escreve a legenda, no computador, sem enviar nada.")
+                }
+            }
+        }
+    }
+
+    Component {
+        id: toolsPanel
+        Column {
+            spacing: 10
+            Row {
+                spacing: 8
+                PanelTitle { text: qsTr("Ferramentas"); anchors.verticalCenter: parent.verticalCenter }
+                Item { width: 16; height: 1 }
+                Chip { objectName: "frameBackBtn"; text: "◀ " + qsTr("Quadro"); onClicked: player.frameBack() }
+                Chip { objectName: "frameStepBtn"; text: qsTr("Quadro") + " ▶"; onClicked: player.frameStep() }
+            }
+            Caption { text: qsTr("FAVORITOS") }
+            Flow {
+                width: parent.width; spacing: 6
+                Chip { objectName: "addBookmarkBtn"; text: qsTr("+ Favorito aqui (B)"); onClicked: tools.addBookmark() }
+                Repeater {
+                    model: tools.bookmarks
+                    Row {
+                        spacing: 2
+                        Chip { objectName: "bookmark_" + index; text: U.time(modelData); onClicked: tools.jumpBookmark(modelData) }
+                        Chip { objectName: "bookmarkDel_" + index; text: "×"; onClicked: tools.removeBookmark(modelData) }
+                    }
+                }
+            }
+            Caption { text: qsTr("PULAR ABERTURA E ENCERRAMENTO") }
+            Text {
+                width: parent.width; wrapMode: Text.WordWrap; font.pixelSize: 13; color: Qt.rgba(1, 1, 1, 0.7)
+                text: (tools.introEnd > 0 || tools.outroLength > 0)
+                      ? qsTr("Nesta pasta: abertura até %1, encerramento nos últimos %2.").arg(tools.introEnd > 0 ? U.time(tools.introEnd) : "—").arg(tools.outroLength > 0 ? U.time(tools.outroLength) : "—")
+                      : qsTr("Marque uma vez e vale para todos os vídeos desta pasta, como os episódios de uma série.")
+            }
+            Flow {
+                width: parent.width; spacing: 6
+                Chip { objectName: "markIntroBtn"; text: qsTr("A abertura termina aqui"); onClicked: tools.markIntroEnd() }
+                Chip { objectName: "markOutroBtn"; text: qsTr("O encerramento começa aqui"); onClicked: tools.markOutroStart() }
+                Chip { objectName: "clearSkipBtn"; visible: tools.introEnd > 0 || tools.outroLength > 0; text: qsTr("Limpar"); onClicked: tools.clearSkip() }
+            }
+            Caption { text: qsTr("SALVAR TRECHO") }
+            Text {
+                width: parent.width; wrapMode: Text.WordWrap; font.pixelSize: 13; color: Qt.rgba(1, 1, 1, 0.7)
+                text: player.loopA >= 0 && player.loopB > player.loopA ? qsTr("O trecho A-B marcado (%1).").arg(U.time(player.loopB - player.loopA))
+                      : qsTr("Os próximos 6 segundos, ou marque um trecho com A-B (L).")
+            }
+            Row {
+                spacing: 6
+                Chip { objectName: "saveClipBtn"; enabled: tools.exporting === ""; text: tools.exporting === "mp4" ? qsTr("Salvando…") : qsTr("Salvar vídeo (MP4)"); onClicked: tools.saveClip() }
+                Chip { objectName: "saveGifBtn"; enabled: tools.exporting === ""; text: tools.exporting === "gif" ? qsTr("Criando…") : qsTr("Salvar GIF"); onClicked: tools.saveGif() }
             }
         }
     }

@@ -70,6 +70,21 @@ class AppController(QObject):
     def about(self):
         return self._about
 
+    @Slot(str, result=float)
+    def refreshRate(self, screen_name):
+        """Refresh rate (Hz) of a screen, by the name QML's Screen.name gives (QML's Screen has no
+        refresh rate). The primary screen's when the name is unknown; 0 with no screen at all."""
+        screens = QGuiApplication.screens()
+        s = next((x for x in screens if x.name() == screen_name), None) or QGuiApplication.primaryScreen()
+        return float(s.refreshRate()) if s is not None else 0.0
+
+    rtxGpu = False   # set at start (__main__.build): an NVIDIA RTX graphics card is there
+
+    @Property(bool, constant=True)
+    def nvidiaRtx(self):
+        """RTX Video Super Resolution / HDR can be offered (an NVIDIA RTX GPU and Windows)."""
+        return bool(self.rtxGpu) and PLATFORM == "windows"
+
     @Property(str, constant=True)
     def platform(self):
         """windows | linux | mac: QML words things the way each system calls them."""

@@ -62,7 +62,10 @@ class Theme(QObject):
     def __init__(self, settings, parent=None):
         super().__init__(parent)
         self._s = settings
-        settings.changed.connect(lambda k: k in ("theme", "accent") and self.changed.emit())
+        # read by many bindings: kept ready instead of asking the settings (and making a QColor) each time
+        self._reduce = _reduce_motion()
+        self._cache()
+        settings.changed.connect(self._on_setting)
         fams = set(QFontDatabase.families())
         segoe = next((f for f in ("Segoe Fluent Icons", "Segoe MDL2 Assets") if f in fams), "")
         self._icon_set = "segoe" if segoe else "fluent"
@@ -73,11 +76,27 @@ class Theme(QObject):
         self._text_font = next((f for f in ("Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", "Inter",
                                              "SF Pro Text", "Noto Sans", "Cantarell", "Ubuntu") if f in fams), "Sans Serif")
 
+    def _cache(self):
+        name = self._s.value("theme")
+        self._dark = name != "light"
+        self._colors = {k: QColor(v) for k, v in PALETTES.get(name, PALETTES["dark"]).items()}
+        a = QColor(self._s.value("accent"))
+        soft = QColor(a)
+        soft.setAlphaF(0.16)
+        lum = 0.299 * a.redF() + 0.587 * a.greenF() + 0.114 * a.blueF()
+        self._accent, self._accent_soft = a, soft
+        self._on_accent = QColor("#141414" if lum > 0.72 else "#FFFFFF")
+
+    def _on_setting(self, key):
+        if key in ("theme", "accent"):
+            self._cache()
+            self.changed.emit()
+
     def _p(self):
         return PALETTES.get(self._s.value("theme"), PALETTES["dark"])
 
     def _tok(name, sig=changed):
-        return Property(QColor, lambda self: QColor(self._p()[name]), notify=sig)
+        return Property(QColor, lambda self: self._colors[name], notify=sig)
 
     bg = _tok("bg")
     bgAlt = _tok("bgAlt")
@@ -100,27 +119,23 @@ class Theme(QObject):
     @Property(bool, constant=True)
     def reduceMotion(self):
         """Windows "Mostrar animações" off (Acessibilidade › Efeitos visuais): skip big movements."""
-        return _reduce_motion()
+        return self._reduce
 
     @Property(bool, notify=changed)
     def dark(self):
-        return self._s.value("theme") != "light"
+        return self._dark
 
     @Property(QColor, notify=changed)
     def accent(self):
-        return QColor(self._s.value("accent"))
+        return self._accent
 
     @Property(QColor, notify=changed)
     def accentSoft(self):
-        c = QColor(self._s.value("accent"))
-        c.setAlphaF(0.16)
-        return c
+        return self._accent_soft
 
     @Property(QColor, notify=changed)
     def onAccent(self):
-        c = QColor(self._s.value("accent"))
-        lum = 0.299 * c.redF() + 0.587 * c.greenF() + 0.114 * c.blueF()
-        return QColor("#141414" if lum > 0.72 else "#FFFFFF")
+        return self._on_accent
 
     @Property(list, constant=True)
     def accents(self):

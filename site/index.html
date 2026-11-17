@@ -44,6 +44,7 @@
     <nav class="links" aria-label="Seções">
       <a href="#destaques">Destaques</a>
       <a href="#video">Vídeo</a>
+      <a href="#imagem">Imagem</a>
       <a href="#rede">Links e TV</a>
       <a href="#musica">Música</a>
       <a href="#recursos">Recursos</a>
@@ -127,11 +128,11 @@
           <p>Cole um link do YouTube, do Vimeo, da Twitch e de outros sites e assista no Refrata, na melhor qualidade disponível.</p>
           <span class="go">Links e TV</span>
         </a>
-        <a class="card hl" href="#pip">
+        <a class="card hl" href="#imagem">
           <span class="tag">Novo</span>
-          <h3>Picture-in-picture</h3>
-          <p>Com <kbd>Ctrl</kbd>+<kbd>P</kbd>, o vídeo vira uma janelinha no canto da tela, por cima de tudo, enquanto você trabalha.</p>
-          <span class="go">Ver o PiP</span>
+          <h3>HDR de verdade</h3>
+          <p>Numa tela HDR, o vídeo HDR aparece com o brilho real, cena por cena, e o movimento fica suave na taxa do seu monitor.</p>
+          <span class="go">Ver a imagem</span>
         </a>
         <a class="card hl" href="#rede">
           <span class="tag">TV</span>
@@ -139,11 +140,11 @@
           <p>Mande o vídeo para a TV da sala com um clique. O PC vira o controle remoto: pausar, pular e volume continuam no app.</p>
           <span class="go">Links e TV</span>
         </a>
-        <a class="card hl" href="#rede">
-          <span class="tag">Legendas</span>
-          <h3>Legendas online</h3>
-          <p>Busque no OpenSubtitles sem sair do player. Ele procura primeiro as legendas feitas para aquele arquivo exato.</p>
-          <span class="go">Links e TV</span>
+        <a class="card hl" href="#ferramentas">
+          <span class="tag">Novo</span>
+          <h3>Legendas por IA</h3>
+          <p>Sem legenda para aquele vídeo? O Refrata escreve a partir da fala, na sua placa de vídeo, sem mandar nada para a internet.</p>
+          <span class="go">Ver as ferramentas</span>
         </a>
         <a class="card hl" href="#musica">
           <span class="tag">Música</span>
@@ -165,13 +166,53 @@
           <li>Troque o áudio e a legenda num clique, ou arraste um .srt para a janela</li>
           <li>Acerte brilho e contraste, gire, dê zoom ou force a proporção enquanto assiste</li>
           <li>Repita um trecho com <kbd>L</kbd> e deixe a janela sempre no topo com <kbd>T</kbd></li>
-          <li>4K na resolução nativa, capítulos na barra de tempo e detalhes do arquivo com <kbd>I</kbd></li>
-          <li>Velocidade de 0,25× a 4×, avanço quadro a quadro e captura de tela</li>
+          <li>Até 8K na resolução nativa, capítulos na barra de tempo e detalhes do arquivo com <kbd>I</kbd></li>
+          <li>Velocidade de 0,25× a 4×, quadro a quadro para frente e para trás e captura de tela</li>
         </ul>
       </div>
       <figure class="split-shot">
         <img src="/img/video-adjust.webp" alt="Painel Imagem aberto sobre o vídeo, com brilho, contraste, saturação, gama, matiz e enquadramento" width="1440" height="900" loading="lazy">
       </figure>
+    </section>
+
+    <!-- ======================================================= picture quality -->
+    <section class="section" id="imagem">
+      <p class="eyebrow">Imagem</p>
+      <h2>A imagem que o filme foi feito para ter.<br><span class="dim">HDR real, movimento suave e o upscaler da NVIDIA.</span></h2>
+      <p class="lead section-lead">O Refrata lê como cada vídeo foi gravado e ajusta a imagem para a sua tela, quadro a
+        quadro, na placa de vídeo. Nada para configurar: tudo vem ligado no ponto certo.</p>
+      <div class="grid">
+        <article class="card">
+          <div class="knob"><svg viewBox="0 0 24 24"><path d="M12 3v2 M12 19v2 M3 12h2 M19 12h2 M12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8" /></svg></div>
+          <h3>HDR real em telas HDR</h3>
+          <p>Com o HDR do Windows ligado, o vídeo HDR aparece com o brilho de verdade, até o máximo da sua tela, e a interface continua no brilho de sempre.</p>
+        </article>
+        <article class="card">
+          <div class="knob"><svg viewBox="0 0 24 24"><path d="M3 18h18 M5 18V9 M10 18V5 M15 18v-7 M20 18V8" /></svg></div>
+          <h3>HDR10+ cena por cena</h3>
+          <p>HDR10, HDR10+ e HLG com as cores certas. Os metadados de cada cena são seguidos, e o brilho é medido a cada quadro: cena escura não fica apagada.</p>
+        </article>
+        <article class="card">
+          <div class="knob"><svg viewBox="0 0 24 24"><path d="M3 12h4 M9 12h3 M14 12h7 M17 8l4 4-4 4" /></svg></div>
+          <h3>Movimento suave</h3>
+          <p>Vídeo de 24 ou 30 quadros passa a 60, 120 ou na taxa do seu monitor, com quadros intermediários calculados na GPU. Sem limite de resolução.</p>
+        </article>
+        <article class="card">
+          <div class="knob"><svg viewBox="0 0 24 24"><path d="M4 7h7v7H4z M13 4h7v16h-7z M7 17v3 M4 20h6" /></svg></div>
+          <h3>RTX Video da NVIDIA</h3>
+          <p>Em placas RTX, o Super Resolution deixa vídeos de baixa resolução nítidos na tela inteira, e o RTX Video HDR transforma vídeo comum em HDR.</p>
+        </article>
+        <article class="card">
+          <div class="knob"><svg viewBox="0 0 24 24"><path d="M3 5h18v14H3z M7 9v6 M7 12h3 M10 9v6 M14 9v6 M14 12l3-3 M14 12l3 3" /></svg></div>
+          <h3>Até 8K nativo</h3>
+          <p>4K, 8K e 8K de cinema na resolução original, com a decodificação e a conversão de cor feitas pela placa de vídeo.</p>
+        </article>
+        <article class="card">
+          <div class="knob"><svg viewBox="0 0 24 24"><path d="M12 4l2 5 5 .5-4 3.5 1.5 5L12 15l-4.5 3 1.5-5-4-3.5 5-.5z" /></svg></div>
+          <h3>Realce de luz e de detalhe</h3>
+          <p>Dá mais vida a vídeos comuns: sombras e luzes mais abertas e nitidez que se adapta à imagem, sem estourar o contorno.</p>
+        </article>
+      </div>
     </section>
 
     <!-- ======================================================= picture-in-picture -->
@@ -262,6 +303,44 @@
       </div>
     </section>
 
+    <!-- ======================================================= tools -->
+    <section class="section" id="ferramentas">
+      <p class="eyebrow">Ferramentas</p>
+      <h2>Legendas que se escrevem sozinhas.<br><span class="dim">E o que mais quem assiste muito pede.</span></h2>
+      <div class="grid">
+        <article class="card">
+          <div class="knob"><svg viewBox="0 0 24 24"><path d="M9 4a3 3 0 0 1 6 0v6a3 3 0 0 1-6 0z M5 10a7 7 0 0 0 14 0 M12 17v3 M4 21h16" /></svg></div>
+          <h3>Legendas por IA</h3>
+          <p>O Refrata ouve o vídeo e escreve a legenda com o Whisper, na sua placa de vídeo, e pode traduzir para o inglês. Nada sai do computador.</p>
+        </article>
+        <article class="card">
+          <div class="knob"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z M7 7h10 M7 17h4 M13 17h4" /></svg></div>
+          <h3>Duas legendas juntas</h3>
+          <p>Uma em cima, outra embaixo: o original e a tradução ao mesmo tempo. Lê SRT, WebVTT e ASS.</p>
+        </article>
+        <article class="card">
+          <div class="knob"><svg viewBox="0 0 24 24"><path d="M5 5v14 M19 6l-9 6 9 6z" /></svg></div>
+          <h3>Um quadro para trás</h3>
+          <p>Além de avançar quadro a quadro com <kbd>E</kbd>, volte um quadro com <kbd>Shift</kbd>+<kbd>E</kbd> para achar o momento exato.</p>
+        </article>
+        <article class="card">
+          <div class="knob"><svg viewBox="0 0 24 24"><path d="M7 3h10v18l-5-4-5 4z" /></svg></div>
+          <h3>Favoritos no vídeo</h3>
+          <p>Aperte <kbd>B</kbd> para marcar uma cena. As marcas ficam na barra de tempo de cada arquivo, e um clique volta a elas.</p>
+        </article>
+        <article class="card">
+          <div class="knob"><svg viewBox="0 0 24 24"><path d="M4 6l7 6-7 6z M12 6l7 6-7 6z M21 5v14" /></svg></div>
+          <h3>Pular abertura e encerramento</h3>
+          <p>Marque uma vez onde a abertura termina e onde os créditos começam. Vale para todos os episódios da pasta.</p>
+        </article>
+        <article class="card">
+          <div class="knob"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z M8 5v14 M16 5v14 M4 9h4 M4 15h4 M16 9h4 M16 15h4" /></svg></div>
+          <h3>Trecho em MP4 ou GIF</h3>
+          <p>Salve o trecho marcado de A a B como vídeo, sem perder qualidade e mantendo o HDR, ou como GIF animado para mandar a alguém.</p>
+        </article>
+      </div>
+    </section>
+
     <!-- ======================================================= features -->
     <section class="section" id="recursos">
       <p class="eyebrow">Recursos</p>
@@ -288,9 +367,9 @@
           <p>Tocar a seguir, aleatório e repetir. Abre playlists M3U, PLS e XSPF, e repete um trecho A-B com uma tecla.</p>
         </article>
         <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M3 5h18v14H3z M7 9v6 M7 12h3 M10 9v6 M14 9v6 M14 12l3-3 M14 12l3 3" /></svg></div>
-          <h3>4K de verdade</h3>
-          <p>Vídeos 4K na resolução nativa, com a conversão de cor feita pela placa de vídeo. Gire, espelhe, dê zoom e desentrelace gravações de TV.</p>
+          <div class="knob"><svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z M16 9a4 4 0 0 1 0 6 M19 6a8 8 0 0 1 0 12" /></svg></div>
+          <h3>Som direto para o receiver</h3>
+          <p>Dolby e DTS, e também TrueHD, DTS-HD e Atmos, vão para o receiver ou a soundbar exatamente como estão no arquivo.</p>
         </article>
         <article class="card">
           <div class="knob"><svg viewBox="0 0 24 24"><path d="M3 15h18 M7 12v6 M12 12v6 M17 12v6 M5 7h6 M13 7h6" /></svg></div>

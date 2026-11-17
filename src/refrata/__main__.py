@@ -28,6 +28,14 @@ trace.mark("python ready")
 if __name__ == "__main__":
     from refrata.fastlaunch import try_hand_over
     FAST_ID = try_hand_over()   # exits here when the running Refrata took the file
+    # a cold start, then: the splash covers Qt and libVLC loading (refrata/launchsplash.py). Only now,
+    # so opening a video while Refrata runs never flashes it. From source only when asked (tests).
+    if getattr(sys, "frozen", False) or os.environ.get("REFRATA_SPLASH") == "1":
+        from refrata import launchsplash
+        if launchsplash.wanted(sys.argv):
+            _res = Path(getattr(sys, "_MEIPASS", "") or Path(__file__).resolve().parent)
+            launchsplash.show(str(_res / "resources" / "brand" / "splash.png"))
+        trace.mark("launch splash")
 else:
     FAST_ID = ""
 
@@ -281,6 +289,19 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
     ctx.setContextProperty("i18n", i18n)
     ctx.setContextProperty("winassoc", assoc)
     ctx.setContextProperty("keys", keys)
+    # HDR screen: decided before the window exists, its swapchain format is fixed at creation
+    from refrata.hdroutput import HdrOutput, wanted as hdr_wanted
+    hdrout = HdrOutput(hdr_wanted(settings), app)
+    ctx.setContextProperty("hdrout", hdrout)
+    # bookmarks, skip intro/outro, second subtitle, clips (refrata/tools.py); subtitles from the sound
+    from refrata.tools import PlayerTools
+    from refrata.aisubs import AiSubs
+    tools = PlayerTools(engine, settings, app)
+    tools.message.connect(engine.message)
+    aisubs = AiSubs(engine, tools, settings, app)
+    ctx.setContextProperty("tools", tools)
+    ctx.setContextProperty("aisubs", aisubs)
+    app.aboutToQuit.connect(aisubs.stop)
     subsearch = SubtitleSearch(engine, DATA_DIR, app)
     ctx.setContextProperty("subsearch", subsearch)
     i18n.attach(qml)
@@ -288,6 +309,17 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
     ctx.setContextProperty("startPage", page)
     ctx.setContextProperty("startPanel", panel)
     ctx.setContextProperty("assetsUrl", QUrl.fromLocalFile(str(RESOURCES) + "/").toString())
+    # QML types of the native module (RtxVideo: NVIDIA RTX Video, ui/RtxLayer.qml)
+    from refrata.engine import native_available
+    if native_available():
+        try:
+            import PySide6.QtQuick  # noqa: F401  (Qt6Quick.dll, which refrata_native links to)
+            import refrata_native
+            refrata_native.register_qml()
+        except Exception as exc:
+            print("native QML types:", exc)
+    from refrata.hdrdisplay import gpus
+    ctl.rtxGpu = any(g["vendor"] == 0x10DE and "RTX" in g["name"].upper() for g in gpus())
     trace.mark("build: QML context")
     qml.load(QUrl.fromLocalFile(str(ui_dir() / "Main.qml")))
     trace.mark("build: QML loaded (window created)")
@@ -295,6 +327,7 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
         raise RuntimeError("Main.qml failed to load:\n" + "\n".join(QT_MESSAGES))
     root = qml.rootObjects()[0]
     win = shiboken6.wrapInstance(shiboken6.getCppPointer(root)[0], QQuickWindow)
+    hdrout.attach(win)
 
     if instance is None and instance_name is not None:
         instance = InstanceServer(instance_name or None, app)
@@ -319,6 +352,11 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
     else:
         mediakeys = MediaKeys(engine, library, app)
     trace.mark("build: media keys, instance server")
+    # what is built so far lives as long as the app: out of the garbage collector's way, so its
+    # full passes (they run on whichever thread allocates, the UI thread too) stay short
+    import gc
+    gc.collect()
+    gc.freeze()
     return AppParts(app, qml, win, settings, theme, engine, library, ctl, updater, quicklook, tray, i18n, instance,
                     mediakeys, subsearch, assoc, keys)
 
@@ -368,11 +406,10 @@ def _ensure_streams(log_path: Path | None):
 
 
 def close_splash():
-    """Hide the bootloader's splash (tools/build.py); nothing to do when run from source."""
+    """Take the launch splash down (refrata/launchsplash.py); nothing to do when none is up."""
     try:
-        import pyi_splash  # noqa: PLC0415  (only exists inside the frozen app)
-        if pyi_splash.is_alive():
-            pyi_splash.close()
+        from refrata import launchsplash  # noqa: PLC0415
+        launchsplash.close()
     except Exception:
         pass
 

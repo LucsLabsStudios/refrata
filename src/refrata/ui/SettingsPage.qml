@@ -161,12 +161,89 @@ Flickable {
         }
 
         Card {
+            sectionTab: "playback"
+            objectName: "pictureCard"
+            title: qsTr("Imagem")
+            SettingRow {
+                title: qsTr("Movimento suave")
+                desc: qsTr("Cria quadros intermediários na GPU: filmes de 24 e 30 fps passam a rodar a 60, 120 ou na taxa do seu monitor (%1 Hz).").arg(Math.round(appctl.refreshRate(Screen.name) || 60))
+                Segmented {
+                    objectName: "smoothMotionSeg"
+                    options: [{ text: qsTr("Desligado"), value: "off" }, { text: "60 fps", value: "60" },
+                              { text: "120 fps", value: "120" }, { text: qsTr("Máximo"), value: "max" }]
+                    value: settings.smoothMotion
+                    onPicked: (v) => settings.smoothMotion = v
+                }
+            }
+            SettingRow {
+                title: qsTr("Realce de luz"); desc: qsTr("Clareia as áreas escuras e realça o contraste local: um visual de HDR em vídeos comuns.")
+                MiniSlider {
+                    objectName: "lightBoostSlider"
+                    width: 200; from: 0; to: 100; stepSize: 5
+                    value: settings.lightBoost
+                    onMoved: (v) => settings.lightBoost = Math.round(v)
+                }
+            }
+            SettingRow {
+                title: qsTr("Realce de detalhes"); desc: qsTr("Nitidez adaptativa: realça texturas sem criar halos nem aumentar o ruído.")
+                MiniSlider {
+                    objectName: "detailBoostSlider"
+                    width: 200; from: 0; to: 100; stepSize: 5
+                    value: settings.detailBoost
+                    onMoved: (v) => settings.detailBoost = Math.round(v)
+                }
+            }
+            SettingRow {
+                title: qsTr("HDR real em telas HDR")
+                desc: {
+                    var s = typeof hdrout !== "undefined" ? hdrout.screenInfo : ({})
+                    var nits = Math.round(s.max_nits || 0)
+                    if (typeof hdrout !== "undefined" && hdrout.screenHdr)
+                        return qsTr("Ativo: vídeos HDR10, HDR10+ e HLG aparecem com o brilho real da sua tela (até %1 nits). A interface fica como no resto do Windows.").arg(nits)
+                    if (s.hdr)
+                        return qsTr("O HDR do Windows está ligado nesta tela (até %1 nits). Vale ao reabrir o Refrata.").arg(nits)
+                    if (nits > 0)
+                        return qsTr("Sua tela aceita HDR (até %1 nits): ligue \"Usar HDR\" nas configurações de vídeo do Windows. Sem isso, o HDR é convertido para a tela comum com as cores certas.").arg(nits)
+                    return qsTr("Em telas comuns, vídeos HDR são convertidos com as cores e o brilho certos. Resoluções até 8K e acima.")
+                }
+                Toggle { objectName: "hdrOutputToggle"; checked: settings.hdrOutput !== "off"; onToggled: (on) => settings.hdrOutput = on ? "auto" : "off" }
+            }
+            SettingRow {
+                visible: appctl.nvidiaRtx
+                title: qsTr("RTX Video Super Resolution")
+                desc: qsTr("A placa NVIDIA RTX amplia vídeos de resolução menor para o tamanho da tela com IA: mais nitidez, menos serrilhado e blocos de compressão. Vale com o movimento suave desligado e com \"Super Resolution\" ligado no NVIDIA App (Aprimoramento de vídeo RTX).")
+                Toggle { objectName: "rtxVsrToggle"; checked: settings.rtxVsr; onToggled: (on) => settings.rtxVsr = on }
+            }
+            SettingRow {
+                visible: appctl.nvidiaRtx
+                title: qsTr("RTX Video HDR")
+                desc: qsTr("Numa tela HDR, a placa NVIDIA RTX converte vídeos comuns (SDR) em HDR com IA: mais brilho e cor nos realces. Precisa de \"RTX Video HDR\" ligado no NVIDIA App.")
+                Toggle { objectName: "rtxHdrToggle"; checked: settings.rtxHdr; onToggled: (on) => settings.rtxHdr = on }
+            }
+            SettingRow {
+                title: qsTr("Brilho por cena")
+                desc: qsTr("Em HDR10, mede o brilho de cada cena e ajusta o tone mapping a ela: cenas escuras não ficam apagadas. Filmes HDR10+ usam os dados do próprio filme.")
+                Toggle { objectName: "hdrDynamicToggle"; checked: settings.hdrDynamic; onToggled: (on) => settings.hdrDynamic = on }
+            }
+        }
+
+        Card {
             sectionTab: "sound"
             objectName: "soundSubsCard"
             title: qsTr("Som")
             SettingRow {
                 title: qsTr("Normalizar volume"); desc: qsTr("Equilibra diálogos baixos e explosões altas.")
                 Toggle { objectName: "settingsNormalize"; checked: player.normalize; onToggled: (on) => player.setNormalize(on) }
+            }
+            SettingRow {
+                title: qsTr("Áudio digital direto (passthrough)")
+                desc: qsTr("Envia o Dolby e o DTS do filme como estão para o receiver ou a soundbar (HDMI ou cabo óptico), que decodifica o som surround. HD inclui Dolby TrueHD, DTS-HD e Atmos, só por HDMI.")
+                Segmented {
+                    objectName: "passthroughSeg"
+                    options: [{ text: qsTr("Desligado"), value: "off" }, { text: "Dolby / DTS", value: "on" }, { text: "HD", value: "hd" }]
+                    value: player.passthrough
+                    onPicked: (v) => player.setPassthrough(v)
+                }
             }
             SettingRow {
                 title: qsTr("Saída de áudio"); desc: qsTr("Onde o som toca: alto-falantes, fone de ouvido, TV pelo HDMI.")
@@ -353,7 +430,7 @@ Flickable {
                 mute: qsTr("Silenciar"), next: qsTr("Próximo"), prev: qsTr("Anterior"),
                 nextChapter: qsTr("Próximo capítulo"), prevChapter: qsTr("Capítulo anterior"),
                 faster: qsTr("Mais rápido"), slower: qsTr("Mais devagar"), normalSpeed: qsTr("Velocidade normal"),
-                snapshot: qsTr("Capturar quadro"), frame: qsTr("Avançar um quadro"),
+                snapshot: qsTr("Capturar quadro"), frame: qsTr("Avançar um quadro"), frameBack: qsTr("Voltar um quadro"), bookmark: qsTr("Marcar favorito"),
                 loop: qsTr("Repetir um trecho (A-B)"), onTop: qsTr("Sempre no topo"),
                 info: qsTr("Informações da mídia"), rotate: qsTr("Girar o vídeo 90°"),
                 pip: qsTr("Picture-in-picture"), open: qsTr("Abrir arquivos"),

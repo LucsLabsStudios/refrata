@@ -1029,6 +1029,227 @@ def opening_log_says_where_the_time_went():
         check(O.process_created(0) is None and O.process_created(4 * 10 ** 9) is None, "an unknown process gives nothing")
 
 
+# ------------------------------------------------------------ colour description (refrata/colorinfo.py)
+def _box(kind: bytes, body: bytes) -> bytes:
+    import struct
+    return struct.pack(">I", 8 + len(body)) + kind + body
+
+
+def _mp4(entry_kids: bytes, entry=b"hvc1", handler=b"vide") -> bytes:
+    import struct
+    sample = _box(entry, bytes(78) + entry_kids)
+    stsd = _box(b"stsd", struct.pack(">II", 0, 1) + sample)
+    stbl = _box(b"stbl", stsd)
+    minf = _box(b"minf", stbl)
+    hdlr = _box(b"hdlr", bytes(8) + handler + bytes(12))
+    trak = _box(b"trak", _box(b"mdia", hdlr + minf))
+    return _box(b"ftyp", b"isom" + bytes(4)) + _box(b"moov", trak) + _box(b"mdat", bytes(64))
+
+
+def _ebml(eid: int, body: bytes) -> bytes:
+    idb = eid.to_bytes((eid.bit_length() + 7) // 8, "big")
+    return idb + bytes([0x01]) + len(body).to_bytes(7, "big") + body   # 8-byte size vint
+
+
+def _write_tmp(name, data) -> str:
+    p = TMP / name
+    p.write_bytes(data)
+    return str(p)
+
+
+@test
+def colorinfo_mp4_hdr10():
+    import struct
+    from refrata import colorinfo
+    kids = (_box(b"colr", b"nclx" + struct.pack(">HHH", 9, 16, 9) + b"\x00")
+            + _box(b"mdcv", bytes(16) + struct.pack(">II", 10000000, 50))
+            + _box(b"clli", struct.pack(">HH", 1200, 400)))
+    i = colorinfo.probe(_write_tmp("hdr.mp4", _mp4(kids)))
+    check(i is not None, "an MP4 with a video track is read")
+    check((i["primaries"], i["transfer"], i["matrix"]) == ("bt2020", "pq", "bt2020"), "nclx codes", str(i))
+    check(i["full_range"] is False and i["max_cll"] == 1200 and i["master_max"] == 1000.0, "range, MaxCLL, mastering peak", str(i))
+    check(colorinfo.hdr_kind(i) == "pq" and colorinfo.peak_nits(i) == 1200.0, "HDR10 with its MaxCLL as the peak")
+    hlg = colorinfo.probe(_write_tmp("hlg.mov", _mp4(_box(b"colr", b"nclc" + struct.pack(">HHH", 9, 18, 9)), b"avc1")))
+    check(colorinfo.hdr_kind(hlg) == "hlg" and colorinfo.peak_nits(hlg) == 1000.0, "QuickTime nclc HLG, default peak", str(hlg))
+    sdr = colorinfo.probe(_write_tmp("sdr.mp4", _mp4(_box(b"colr", b"nclx" + struct.pack(">HHH", 1, 1, 1) + b"\x80"))))
+    check(colorinfo.hdr_kind(sdr) == "" and sdr["full_range"] is True and sdr["matrix"] == "bt709", "BT.709 full range", str(sdr))
+    vp9 = colorinfo.probe(_write_tmp("vp9.mp4", _mp4(_box(b"vpcC", bytes(4) + bytes([2, 10, (10 << 4) | 2, 9, 16, 9]) + bytes(2)), b"vp09")))
+    check(vp9["bit_depth"] == 10 and colorinfo.hdr_kind(vp9) == "pq", "VP9 vpcC", str(vp9))
+    audio = colorinfo.probe(_write_tmp("audio.m4a", _mp4(b"", b"mp4a", b"soun")))
+    check(audio is None, "no video track: nothing to say")
+
+
+@test
+def colorinfo_mkv_colour():
+    import struct
+    from refrata import colorinfo
+    mastering = _ebml(0x55D0, _ebml(0x55D9, struct.pack(">f", 4000.0)) + _ebml(0x55DA, struct.pack(">f", 0.005)))
+    colour = _ebml(0x55B0, _ebml(0x55B1, b"\x09") + _ebml(0x55B9, b"\x01") + _ebml(0x55BA, b"\x10")
+                   + _ebml(0x55BB, b"\x09") + _ebml(0x55BC, struct.pack(">H", 0)) + mastering)
+    track = _ebml(0xAE, _ebml(0x83, b"\x01") + _ebml(0x86, b"V_MPEGH/ISO/HEVC") + _ebml(0xE0, colour))
+    data = _ebml(0x1A45DFA3, _ebml(0x4282, b"matroska")) + _ebml(0x18538067, _ebml(0x1654AE6B, track))
+    i = colorinfo.probe(_write_tmp("hdr.mkv", data))
+    check(i is not None and colorinfo.hdr_kind(i) == "pq" and i["full_range"] is False, "Matroska Colour element", str(i))
+    check(i["master_max"] == 4000.0 and colorinfo.peak_nits(i) == 4000.0, "no MaxCLL: the mastering peak", str(i))
+
+
+@test
+def colorinfo_never_raises():
+    """Truncated, garbage and hostile files only give "unknown"."""
+    import random
+    import struct
+    from refrata import colorinfo
+    rnd = random.Random(7)
+    good = _mp4(_box(b"colr", b"nclx" + struct.pack(">HHH", 9, 16, 9) + b"\x00"))
+    samples = [good[:n] for n in range(0, len(good), 7)]
+    samples += [bytes(rnd.getrandbits(8) for _ in range(rnd.randint(0, 3000))) for _ in range(60)]
+    samples += [b"\x1a\x45\xdf\xa3" + bytes(rnd.getrandbits(8) for _ in range(500)) for _ in range(30)]
+    samples += [b"\x47" + bytes(rnd.getrandbits(8) for _ in range(188 * 8)) for _ in range(20)]
+    samples += [struct.pack(">I", 0xFFFFFFF0) + b"moov" + bytes(32), struct.pack(">I", 1) + b"moov" + struct.pack(">Q", 2 ** 63)]
+    for n, data in enumerate(samples):
+        colorinfo.probe(_write_tmp(f"junk{n}.mp4", data))   # must not raise
+    check(colorinfo.probe(str(TMP / "does-not-exist.mkv")) is None and colorinfo.probe("https://x/y.mp4") is None,
+          "missing files and URLs are unknown")
+
+
+@test
+def colorinfo_hevc_sps_vui():
+    """The SPS of an x265 10-bit HDR10 stream (Main 10, PQ): bit depth and colour from the VUI."""
+    from refrata import colorinfo
+    sps = bytes.fromhex("420101022000000300900000030000030078a003c0801107cad965654a4c2f016a12201208000003000800000300c040")
+    info = colorinfo._empty()
+    ok = colorinfo.parse_hevc_sps(sps, info)
+    check(ok and info["bit_depth"] == 10, "SPS read, 10 bits", str(info))
+    check((info["primaries"], info["transfer"], info["matrix"]) == ("bt2020", "pq", "bt2020"), "VUI colour description", str(info))
+
+
+class _BitWriter:
+    def __init__(self):
+        self.bits = []
+
+    def u(self, n, v):
+        self.bits += [(v >> (n - 1 - i)) & 1 for i in range(n)]
+
+    def bytes(self):
+        b = self.bits + [0] * (-len(self.bits) % 8)
+        return bytes(int("".join(map(str, b[i:i + 8])), 2) for i in range(0, len(b), 8))
+
+
+def _hdr10plus_t35(target=400, maxscl=(2030, 1930, 1830), avg=300, pct=((50, 1000), (99, 2000)),
+                   knee=(100, 200), anchors=(100, 500, 900)) -> bytes:
+    """An ST 2094-40 message as x265 writes it in the T.35 SEI (one window)."""
+    w = _BitWriter()
+    w.u(2, 1)                     # num_windows
+    w.u(27, target)
+    w.u(1, 0)                     # targeted_system_display_actual_peak_luminance_flag
+    for m in maxscl:
+        w.u(17, m)
+    w.u(17, avg)
+    w.u(4, len(pct))
+    for p, v in pct:
+        w.u(7, p)
+        w.u(17, v)
+    w.u(10, 0)                    # fraction_bright_pixels
+    w.u(1, 0)                     # mastering_display_actual_peak_luminance_flag
+    w.u(1, 1)                     # tone_mapping_flag
+    w.u(12, knee[0])
+    w.u(12, knee[1])
+    w.u(4, len(anchors))
+    for a in anchors:
+        w.u(10, a)
+    w.u(1, 0)                     # color_saturation_mapping_flag
+    return bytes([0xB5, 0x00, 0x3C, 0x00, 0x01, 4, 1]) + w.bytes()
+
+
+@test
+def hdr10plus_reads_the_scene_metadata():
+    from refrata import hdr10plus as H
+    m = H.parse_t35(_hdr10plus_t35())
+    check(m is not None, "an HDR10+ message is recognised")
+    check(abs(m["peak"] - 203) < 1e-6 and abs(m["p99"] - 200) < 1e-6 and abs(m["avg"] - 30) < 1e-6,
+          "maxscl, the 99% percentile and the average, in nits", str(m))
+    check(m["target"] == 400 and m["knee"] == (100 / 4095, 200 / 4095)
+          and [round(a * 1023) for a in m["anchors"]] == [100, 500, 900], "the curve and its target display", str(m))
+    # another provider, another application, a truncated message: not HDR10+
+    good = _hdr10plus_t35()
+    check(H.parse_t35(good[:1] + b"\x00\x3B" + good[3:]) is None, "other provider")
+    check(H.parse_t35(good[:5] + b"\x05" + good[6:]) is None, "other application")
+    check(H.parse_t35(good[:12]) is None, "truncated")
+    # inside a HEVC access unit: AUD, then a prefix SEI with the T.35 payload, then a slice
+    payload = good
+    sei = bytes([39 << 1, 1, 4, len(payload)]) + payload + b"\x80"
+    au = b"".join(len(n).to_bytes(4, "big") + n for n in (bytes([35 << 1, 1, 0x50]), sei, bytes([1 << 1, 1, 0xAF, 0x00])))
+    check(H._from_sample(au, 4) == m, "found in a length-prefixed access unit")
+    check(H._from_sample(au[:20], 4) is None, "a cut access unit is not trusted")
+
+
+@test
+def hdr10plus_timeline_and_hostile_files():
+    import random
+    from refrata import hdr10plus as H
+    tl = H._Timeline()
+    a, b = {"peak": 1.0}, {"peak": 2.0}
+    for ms, m in ((0, a), (83, a), (42, a), (1000, b), (1042, b), (958, a), (2000, a)):
+        tl.add(ms, m)
+    check(tl.times == [0, 1000, 2000] and tl.items == [a, b, a], "frames fold into scenes", f"{tl.times}")
+    check(tl.at(-5) is a and tl.at(999) is a and tl.at(1500) is b and tl.at(9e9) is a, "lookup by time")
+    rnd = random.Random(7)
+    for i in range(40):
+        data = bytes(rnd.getrandbits(8) for _ in range(rnd.randint(0, 3000)))
+        if i % 3 == 0:
+            data = b"\x00\x00\x00\x18ftypisom" + data
+        elif i % 3 == 1:
+            data = b"\x1a\x45\xdf\xa3" + data
+        r = H.Reader(_write_tmp(f"h10p_{i}.bin", data))
+        r.join(5)
+        check(r.done and not r.found(), f"garbage {i}: no HDR10+, no exception")
+        H.parse_t35(b"\xB5\x00\x3C\x00\x01\x04\x01" + data[:40])
+
+
+@test
+def hdr_screens_are_read_without_failing():
+    from refrata import hdrdisplay as D, hdroutput as O
+    s = D.screens()
+    check(isinstance(s, dict) and all({"hdr", "sdr_white", "max_nits"} <= set(v) for v in s.values()), "per-screen info", str(s))
+    unknown = D.screen("no such screen")
+    check(unknown["hdr"] is False and unknown["sdr_white"] == 80.0, "an unknown screen is SDR")
+
+    class _S:
+        def __init__(self, v):
+            self.v = v
+
+        def value(self, k, d=None):
+            return self.v
+    check(O.wanted(_S("off")) is False, "the setting turns HDR output off")
+    check(O.wanted(_S("auto")) == any(v["hdr"] for v in s.values()), "auto: only with Windows HDR on somewhere")
+
+
+@test
+def subtitles_read_by_the_app():
+    """refrata/subparse.py: SRT, WebVTT and ASS into (start, end, text); tags dropped; garbage tolerated."""
+    from refrata import subparse as S
+    srt = "1\r\n00:00:01,500 --> 00:00:03,000\r\n<i>Olá</i>\r\nmundo\r\n\r\n2\r\n00:01:02,000 --> 00:01:04,250\r\nDois\r\n".encode("utf-8-sig")
+    check(S.parse(srt, "a.srt") == [(1500, 3000, "Olá\nmundo"), (62000, 64250, "Dois")], "SRT", str(S.parse(srt, "a.srt")))
+    vtt = b"WEBVTT\n\n00:05.000 --> 00:06.500 align:start\nHello <b>there</b>\n"
+    check(S.parse(vtt, "a.vtt") == [(5000, 6500, "Hello there")], "WebVTT short times", str(S.parse(vtt, "a.vtt")))
+    ass = ("[Script Info]\nTitle: x\n\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+           "Dialogue: 0,0:00:02.00,0:00:04.50,Default,,0,0,0,,{\\i1}Linha um\\Ncom vírgula, sim\n").encode("utf-8")
+    check(S.parse(ass, "a.ass") == [(2000, 4500, "Linha um\ncom vírgula, sim")], "ASS", str(S.parse(ass, "a.ass")))
+    check(S.parse("1\n00:00:01,000 --> 00:00:02,000\nCaf\xe9\n".encode("cp1252"), "x.srt")[0][2] == "Café", "cp1252 fallback")
+    import random
+    rnd = random.Random(3)
+    for _ in range(50):
+        S.parse(bytes(rnd.getrandbits(8) for _ in range(rnd.randint(0, 2000))), "x.srt")
+    check(S.to_srt([(1500, 3000, "a")]) == "1\n00:00:01,500 --> 00:00:03,000\na\n\n", "SRT out")
+
+
+@test
+def clips_and_tools_helpers():
+    from refrata import clips, tools
+    check(clips._sout_path(r"C:\a b\it's.mp4") == r"C:\\a b\\it\'s.mp4", "sout path escaped")
+    check(tools._fmt(65_000) == "1:05" and tools._fmt(3_725_000) == "1:02:05", "times")
+
+
 def main():
     only = sys.argv[sys.argv.index("-k") + 1] if "-k" in sys.argv else ""
     t0 = time.time()

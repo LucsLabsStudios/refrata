@@ -40,12 +40,20 @@ Window {
     // Alt+F4 on the small window: same as ✕
     onClosing: (close) => { close.accepted = false; pip.closeRequested() }
 
-    VideoOutput {
+    VideoPipeline {
         id: out
         objectName: "pipVideo"
+        outputName: "pipVideoOutput"
         anchors.fill: parent
         fillMode: VideoOutput.PreserveAspectFit
         visible: !player.isAudio
+        // HDR tone mapping and the boosts; smooth motion stays with the main picture
+        hdr: player.videoHdr === "pq" ? 1 : player.videoHdr === "hlg" ? 2 : 0
+        srcPeak: player.videoPeak
+        scene: player.hdrScene
+        measure: settings.hdrDynamic
+        light: settings.lightBoost / 100
+        detail: settings.detailBoost / 100
     }
 
     // music, or a link still opening: the cover / the title instead of a black box

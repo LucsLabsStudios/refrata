@@ -69,10 +69,13 @@ published with its `.sha256` checksum and `.sig` signature.
 
 | Area | What you get |
 |---|---|
-| **Video** | Native-resolution 4K with GPU color conversion, hardware decoding, brightness/contrast/saturation/gamma/hue, fit/fill/stretch, rotate, mirror, forced aspect, zoom, deinterlacing, timeline scene preview |
-| **Audio** | Volume up to 150%, 10-band equalizer with preamp and 18 presets, volume normalization, output device selection (speakers, headphones, HDMI) |
-| **Subtitles** | Track switching, external files (button or drag and drop), delay, OpenSubtitles search by file hash, size/color/background, encoding selection |
-| **Playback** | Queue with reorder and play next, shuffle and repeat, speed 0.25×–4×, A-B repeat, frame stepping, chapters, resume where you left off, sleep timer, snapshots |
+| **Video** | Native resolution up to 8K with GPU color conversion, hardware decoding, brightness/contrast/saturation/gamma/hue, light and detail boost, fit/fill/stretch, rotate, mirror, forced aspect, zoom, deinterlacing, timeline scene preview |
+| **HDR** | HDR10, HDR10+ and HLG with correct color (BT.2390 tone curve, BT.2020 gamut mapping); HDR10+ metadata followed scene by scene and HDR10 brightness measured per frame on the GPU; true HDR output on Windows HDR screens (scRGB), with the interface at the desktop's SDR brightness |
+| **Smooth motion** | GPU frame interpolation to 60 or 120 fps or the monitor's refresh rate: quarter-pixel motion search, per-pixel vector choice that keeps logos and subtitles still, scene-cut and occlusion fallback, no resolution limit |
+| **NVIDIA RTX** | RTX Video Super Resolution and RTX Video HDR through the GPU's video processor (RTX cards) |
+| **Audio** | Volume up to 150%, 10-band equalizer with preamp and 18 presets, volume normalization, output device selection (speakers, headphones, HDMI), passthrough of Dolby and DTS (and TrueHD, DTS-HD, Atmos in HD mode) to a receiver |
+| **Subtitles** | Track switching, external files (button or drag and drop), delay, OpenSubtitles search by file hash, size/color/background, encoding selection, a second subtitle at the top of the picture (SRT, WebVTT, ASS), subtitles from speech with Whisper on the GPU, optionally translated into English, all offline |
+| **Playback** | Queue with reorder and play next, shuffle and repeat, speed 0.25×–4×, A-B repeat, frame stepping forwards and backwards, chapters, bookmarks on the timeline, skip intro and credits per folder, resume where you left off, sleep timer, snapshots, save the A-B part as MP4 (stream copy, HDR kept) or GIF |
 | **Library** | Scans your video and music folders, thumbnails, durations and tags, search and sort |
 | **Network** | YouTube, Vimeo and other sites through yt-dlp, HTTP/HLS/RTSP/RTMP/SMB streams, Chromecast casting |
 | **Windows** | Space-bar preview in Explorer and on the desktop, quick player, tray mode and start with Windows, picture-in-picture, always on top, keyboard media keys and the Windows media overlay |
@@ -89,7 +92,8 @@ published with its `.sha256` checksum and `.sig` signature.
 | `←` `→` | Back / forward 10 s | `↑` `↓` | Volume |
 | `M` | Mute | `N` / `P` | Next / previous |
 | `Shift+N` / `Shift+P` | Next / previous chapter | `[` `]` `=` | Slower / faster / normal speed |
-| `S` | Snapshot | `E` | Next frame |
+| `S` | Snapshot | `E` / `Shift+E` | Next / previous frame |
+| `B` | Bookmark this moment | | |
 | `L` | A-B repeat | `T` | Always on top |
 | `I` | Media information | `R` | Rotate |
 | `Ctrl+P` | Picture-in-picture | `Ctrl+O` | Open files |
@@ -134,7 +138,7 @@ refrata/
 ├── tests/                Unit, end-to-end, robustness, launch and packaging tests
 ├── tools/                Build, release, signing, localization and brand tooling
 ├── packaging/windows/    Inno Setup installer and MSIX (Microsoft Store) package
-├── native/               Optional Rust frame pipeline (PyO3, experimental)
+├── native/               Rust and C++ module: frame delivery to Qt, RTX Video, HDR10+, whisper.cpp
 ├── site/                 refrata.vercel.app
 └── docs/                 Guides and design notes
 ```

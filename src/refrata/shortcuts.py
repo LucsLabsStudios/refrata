@@ -32,6 +32,8 @@ DEFAULTS = {
     "normalSpeed": "=",
     "snapshot": "S",
     "frame": "E",
+    "frameBack": "Shift+E",
+    "bookmark": "B",
     "loop": "L",
     "onTop": "T",
     "info": "I",

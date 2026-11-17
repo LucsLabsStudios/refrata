@@ -20,7 +20,7 @@ from PySide6.QtCore import (Property, QAbstractListModel, QModelIndex, QObject, 
 from PySide6.QtGui import QImage
 from PySide6.QtMultimedia import QVideoFrame, QVideoFrameFormat, QVideoSink
 
-from . import opening, websites
+from . import colorinfo, hdr10plus, opening, websites
 from .media import is_audio_path, nice_title
 from .playlists import is_playlist, read_playlist
 from .i18n import N_, tr
@@ -265,12 +265,23 @@ class DirectRenderer:
     display: the frame is unmapped and passed on (on_frame may drop it if the UI is busy).
     """
 
-    MAX_W, MAX_H = 3840, 2160
+    # 8K (7680×4320) and DCI 8K pass at their own size; beyond that (16K panoramas, 12K masters) the
+    # picture is scaled to fit the largest texture every GPU of the D3D11 / Vulkan / Metal tier
+    # takes (16384) and ~70 million pixels (a 4:2:0 frame of 100 MB at 10 bits)
+    MAX_SIDE = 16384
+    MAX_PIXELS = 8192 * 8640
+    # libVLC's fourccs for samples wider than 8 bits (4:2:0, 4:2:2, 4:4:4; 9 to 16 bits; both
+    # endiannesses; semi-planar); these reach Qt as P010 (16 bits per sample, 10+ significant)
+    DEEP = {b"I09L", b"I09B", b"I0AL", b"I0AB", b"I0CL", b"I0CB", b"I0FL", b"I0FB", b"I29L", b"I29B",
+            b"I2AL", b"I2AB", b"I2CL", b"I2CB", b"I2FL", b"I2FB", b"I49L", b"I49B", b"I4AL", b"I4AB",
+            b"I4CL", b"I4CB", b"I4FL", b"I4FB", b"P010", b"P016", b"v210", b"Y210", b"Y410", b"XV30"}
 
     def __init__(self, player: vlc.MediaPlayer, on_frame):
         self._player = player
         self._on_frame = on_frame
         self.width = self.height = 0
+        self.color: dict | None = None   # the file's colour description (refrata/colorinfo.py)
+        self.deep = False                # frames are P010
         self._fmt: QVideoFrameFormat | None = None
         self._planes = 2
         self.chroma = ""          # what libVLC writes: "I420" or "NV12"
@@ -295,18 +306,30 @@ class DirectRenderer:
                 w, h = vw, vh
             if sn > 0 and sd > 0 and sn != sd:
                 w = int(round(w * sn / sd))
-            if w > self.MAX_W or h > self.MAX_H:
-                k = min(self.MAX_W / w, self.MAX_H / h)
+            k = min(1.0, self.MAX_SIDE / max(w, h, 1), (self.MAX_PIXELS / max(w * h, 1)) ** 0.5)
+            if k < 1.0:
                 w, h = int(w * k), int(h * k)
             w, h = max(2, w & ~1), max(2, h & ~1)
             src = bytes(chroma[0:4])
-            three = src in (b"I420", b"J420")   # J420: the same planes, full-range levels
-            fmt = QVideoFrameFormat(QSize(w, h), QVideoFrameFormat.PixelFormat.Format_YUV420P if three
-                                    else QVideoFrameFormat.PixelFormat.Format_NV12)
-            # HD and up is BT.709, SD is BT.601 (what the encoders write when the stream says nothing)
-            fmt.setColorSpace(QVideoFrameFormat.ColorSpace.ColorSpace_BT709 if h >= 720
-                              else QVideoFrameFormat.ColorSpace.ColorSpace_BT601)
-            fmt.setColorRange(QVideoFrameFormat.ColorRange.ColorRange_Full if src == b"J420"
+            color = self.color or {}
+            # more than 8 bits (10-bit HEVC, AV1, VP9; all HDR): P010, so nothing is lost before the
+            # GPU. Hardware decoders hand over an opaque surface, so the file's own bit depth decides
+            deep = src in self.DEEP or color.get("bit_depth", 0) > 8 or color.get("transfer") in ("pq", "hlg")
+            three = not deep and src in (b"I420", b"J420")   # J420: the same planes, full-range levels
+            out = b"P010" if deep else src if three else b"NV12"
+            PF = QVideoFrameFormat.PixelFormat
+            fmt = QVideoFrameFormat(QSize(w, h), PF.Format_P010 if deep else PF.Format_YUV420P if three
+                                    else PF.Format_NV12)
+            # the matrix the file states; else HD and up is BT.709 and SD BT.601 (what the encoders
+            # write when the stream says nothing). HDR's transfer curve is left to the video
+            # pipeline (ui/VideoPipeline.qml): Qt's own PQ/HLG shaders break on real footage
+            CS = QVideoFrameFormat.ColorSpace
+            matrix = color.get("matrix") or ("bt2020" if color.get("transfer") in ("pq", "hlg") else "")
+            fmt.setColorSpace({"bt2020": CS.ColorSpace_BT2020, "bt709": CS.ColorSpace_BT709,
+                               "bt601": CS.ColorSpace_BT601}.get(matrix, CS.ColorSpace_BT709 if h >= 720
+                                                                 else CS.ColorSpace_BT601))
+            full = color.get("full_range")
+            fmt.setColorRange(QVideoFrameFormat.ColorRange.ColorRange_Full if (src == b"J420" if full is None else full)
                               else QVideoFrameFormat.ColorRange.ColorRange_Video)
             # libVLC writes with the pitches it is given: use the ones Qt allocates
             probe = QVideoFrame(fmt)
@@ -315,14 +338,15 @@ class DirectRenderer:
             n = 3 if three else 2
             bpl = [probe.bytesPerLine(i) for i in range(n)]
             probe.unmap()
-            ctypes.memmove(chroma, src if three else b"NV12", 4)
+            ctypes.memmove(chroma, out, 4)
             width[0], height[0] = w, h
             for i in range(n):
                 pitches[i] = bpl[i]
                 lines[i] = h if i == 0 else h // 2
             with self._lock:
                 self.width, self.height, self._fmt, self._planes = w, h, fmt, n
-                self.chroma = (src if three else b"NV12").decode()
+                self.chroma = out.decode()
+                self.deep = deep
                 self._pending.clear()
             return 1
         except Exception as exc:
@@ -375,39 +399,39 @@ class DirectRenderer:
 
 
 class NativeRenderer(DirectRenderer):
-    """DirectRenderer's frames, with the per-picture work in Rust (native/, module refrata_native).
+    """The frame path in Rust and C++ (native/, module refrata_native): no Python per picture.
 
-    libVLC called lock / unlock / display in Python for every picture, from its decoder thread:
-    each call waited for the GIL, so a busy interpreter could hold up decoding. Here those three
-    callbacks are Rust functions working on a pool of frames this class prepares. The UI thread
-    hears about finished pictures through a socket (QSocketNotifier), shows them and refills the
-    pool. The format callback (once per file) stays in Python.
+    libVLC's lock / unlock / display are Rust functions that hand out reused, aligned memory; each
+    displayed picture becomes a QVideoFrame over that memory in C++ and reaches the QVideoSinks on
+    the UI thread in C++ (with smooth motion, the two sinks in turn and VideoPipeline.frameArrived).
+    A busy interpreter (library scan, yt-dlp, HDR10+ reading) cannot hold up a frame: with the
+    Python path a busy thread took 4K60 down to ~39 frames a second, 106 dropped in 5 s.
+
+    Python keeps the once-per-file work: the format callback (the same choice of layout, size and
+    colour as DirectRenderer), and hears of the first picture of each item through a socket.
     """
 
-    POOL = 6               # mapped frames libVLC can decode into
-    RECLAIM_MS = 3000      # a picture unlocked this long ago and never shown was dropped as late
-
-    def __init__(self, player: vlc.MediaPlayer, on_frame):
-        import itertools
+    def __init__(self, player: vlc.MediaPlayer, on_first):
         import socket
         from PySide6.QtCore import QSocketNotifier
-        from refrata_native import FramePool
+        from refrata_native import VideoOut
         self._player = player
-        self._on_frame = on_frame
+        self._on_frame = None
         self.width = self.height = 0
+        self.color = None
+        self.deep = False
         self._fmt: QVideoFrameFormat | None = None
         self._planes = 2
         self.chroma = ""
         self._lock = threading.Lock()
-        self._frames: dict[int, QVideoFrame] = {}   # id -> mapped frame the pool knows
-        self._pending: dict = {}                       # (DirectRenderer's setup clears it)
-        self._ids = itertools.count(1)
+        self._pending: dict = {}                     # (DirectRenderer's setup clears it)
         self._rd, self._wr = socket.socketpair()
         self._rd.setblocking(False)
-        self._pool = FramePool(self._wr.fileno())
+        self.out = VideoOut(self._wr.fileno())
+        self._on_first = on_first
         self._notifier = QSocketNotifier(self._rd.fileno(), QSocketNotifier.Type.Read)
         self._notifier.activated.connect(self._on_ready)
-        lock, unlock, display, opaque = self._pool.callbacks()
+        lock, unlock, display, opaque = self.out.callbacks()
         # keep the ctypes wrappers alive as long as the player can call them
         self._lockcb, self._unlock, self._display = LOCK_CB(lock), UNLOCK_CB(unlock), DISPLAY_CB(display)
         self._setup = SETUP_CB(self._cb_native_setup)
@@ -415,36 +439,35 @@ class NativeRenderer(DirectRenderer):
         _set_cbs(player._as_parameter_, self._lockcb, self._unlock, self._display, ctypes.c_void_p(opaque))
         _set_format_cbs(player._as_parameter_, self._setup, self._cleanup)
 
-    def _new_frame(self):
-        """A mapped frame of the current format, given to the pool (call with self._lock held)."""
-        if self._fmt is None:
-            return
-        frame = QVideoFrame(self._fmt)
-        if not frame.map(QVideoFrame.MapMode.WriteOnly):
-            return
-        fid = next(self._ids)
-        planes = [ctypes.addressof(ctypes.c_char.from_buffer(frame.bits(i))) for i in range(self._planes)]
-        self._frames[fid] = frame
-        self._pool.give(fid, planes)
+    @staticmethod
+    def _codes(fmt: QVideoFrameFormat):
+        PF, CS = QVideoFrameFormat.PixelFormat, QVideoFrameFormat.ColorSpace
+        pf = {PF.Format_P010: 2, PF.Format_YUV420P: 1}.get(fmt.pixelFormat(), 0)
+        cs = {CS.ColorSpace_BT2020: 2, CS.ColorSpace_BT709: 1}.get(fmt.colorSpace(), 0)
+        return pf, cs, fmt.colorRange() == QVideoFrameFormat.ColorRange.ColorRange_Full
 
     def _cb_native_setup(self, opaque, chroma, width, height, pitches, lines):
         ok = DirectRenderer._cb_setup(self, opaque, chroma, width, height, pitches, lines)
         if not ok:
             return ok
         try:
-            sizes = [int(pitches[i]) * int(lines[i]) for i in range(self._planes)]
             with self._lock:
-                for fid in self._pool.configure(sizes):   # frames of the old format
-                    self._frames.pop(fid, None)
-                for _ in range(self.POOL):
-                    self._new_frame()
+                n, fmt = self._planes, self._fmt
+            pf, cs, full = self._codes(fmt)
+            self.out.configure([int(pitches[i]) for i in range(n)], [int(lines[i]) for i in range(n)],
+                               fmt.frameWidth(), fmt.frameHeight(), pf, cs, full)
             return 1
         except Exception as exc:
             print("native video setup error:", exc)
             return 0
 
     def set_visible(self, w, h):
-        DirectRenderer.set_visible(self, w, h)   # new frames get the viewport; the pool refills with them
+        DirectRenderer.set_visible(self, w, h)
+        with self._lock:
+            fmt = self._fmt
+        if fmt is not None:
+            pf, cs, full = self._codes(fmt)
+            self.out.set_viewport(fmt.frameWidth(), fmt.frameHeight(), pf, cs, full, w, h)
 
     def _on_ready(self):
         try:
@@ -454,36 +477,59 @@ class NativeRenderer(DirectRenderer):
             pass
         except OSError:
             return
-        with self._lock:
-            done = [(fid, self._frames.pop(fid, None)) for fid in self._pool.take()]
-            lost = self._pool.reclaim(self.RECLAIM_MS)
-            for fid in lost:
-                self._frames.pop(fid, None)
-            for _ in range(len(done) + len(lost)):
-                self._new_frame()
-        for _fid, frame in done:
-            if frame is None:
-                continue
-            frame.unmap()
-            try:
-                self._on_frame(frame)
-            except Exception as exc:
-                print("frame error:", exc)
+        try:
+            self._on_first()
+        except Exception as exc:
+            print("first frame:", exc)
+
+    # what Engine asks of it
+    def last_frame(self) -> QVideoFrame | None:
+        p = self.out.last_frame()
+        if not p:
+            return None
+        try:
+            import shiboken6
+            return QVideoFrame(shiboken6.wrapInstance(p, QVideoFrame))
+        finally:
+            self.out.free_frame(p)
 
     def stats(self):
-        return self._pool.stats()
+        return self.out.stats()
 
-
-def make_renderer(player, on_frame):
-    """Python's frame path, or the Rust one with REFRATA_NATIVE=1 (experimental: the UI thread still
-    needs Python for every frame, so it does not beat the Python path yet; it becomes useful once
-    frames go from Rust straight to Qt, see docs/roadmap-performance-and-platforms.md)."""
-    if os.environ.get("REFRATA_NATIVE") == "1":
+    def close(self):
         try:
-            import refrata_native  # noqa: F401
-            return NativeRenderer(player, on_frame)
-        except ImportError:
+            self._notifier.setEnabled(False)
+        except RuntimeError:
             pass
+        self.out.close()
+
+
+def native_available() -> bool:
+    """The Rust/C++ frame path is there (and not turned off with REFRATA_NATIVE=0)."""
+    if os.environ.get("REFRATA_NATIVE") == "0":
+        return False
+    try:
+        import PySide6.QtMultimedia  # noqa: F401  (its Qt DLLs, which refrata_native links to)
+        import refrata_native
+        return hasattr(refrata_native, "VideoOut")
+    except Exception:
+        return False
+
+
+def make_renderer(player, on_frame, on_first):
+    """The native frame path when the module is there (the packaged app ships it), else Python's."""
+    if native_available():
+        try:
+            r = NativeRenderer(player, on_first)
+            # Frames no longer pass through Python, but every picture on screen still waits for the
+            # UI thread (Qt Quick syncs there), and the UI thread waits for the GIL whenever it runs
+            # a little Python while another thread computes. Handed over every 0.2 ms instead of
+            # 1 ms, 4K60 with a busy Python thread went from 12 dropped frames in 5 s to none
+            # (tests/robust.py perf_4k60_frame_pacing). The Python path keeps 1 ms: its decoder
+            # calls need the GIL themselves.
+            if not os.environ.get("REFRATA_SWITCH_INTERVAL"):
+                sys.setswitchinterval(0.0002)
+            return r
         except Exception as exc:
             print("native frame path unavailable:", exc)
     return DirectRenderer(player, on_frame)
@@ -494,6 +540,7 @@ class Engine(QObject):
 
     stateChanged = Signal()
     timeChanged = Signal()
+    lengthChanged = Signal()   # length and seekable: not on every time tick (bindings re-read them)
     loopChanged = Signal()
     mediaChanged = Signal()
     resolvingChanged = Signal()
@@ -506,6 +553,10 @@ class Engine(QObject):
     eqChanged = Signal()
     adjustChanged = Signal()
     videoSizeChanged = Signal()
+    videoInfoChanged = Signal()
+    hdrSceneChanged = Signal()
+    nativeRouterChanged = Signal()
+    pairFrame = Signal(int)   # smooth motion: the newest frame went to pair sink 0 or 1 (setPairSinks)
     message = Signal(str)
     _frameReady = Signal(object, int)
     _endReached = Signal(int)   # the media generation that ended
@@ -522,6 +573,29 @@ class Engine(QObject):
         self._pending_busy = False
         self._dropped = 0
         self._sinks: list[QVideoSink] = []
+        self._pair: list[QVideoSink] | None = None   # smooth motion's two sinks, filled in turn
+        self._pair_slot = 0
+        self._pair_item = None        # the VideoPipeline they belong to (native path: frameArrived)
+        self._back_target = None      # frameBack: the time of the frame asked for last
+        self._playing_since = 0.0     # when the current item's sound started (isAudio)
+        self._audio_suspect = False   # the current item turned out to be sound only (isAudio)
+        from collections import deque
+        self._recent_slots = deque(maxlen=32)
+        # native path: libVLC's visible size is asked again until it knows it (Python path: per frame)
+        self._visible_tries = 0
+        self._visible_timer = QTimer(self)
+        self._visible_timer.setInterval(100)
+        self._visible_timer.timeout.connect(self._retry_visible)
+        # native path: the HDR10+ scene is followed by playback time, 25 times a second
+        self._scene_timer = QTimer(self)
+        self._scene_timer.setInterval(40)
+        self._scene_timer.timeout.connect(self._tick_hdr_scene)
+        self._pipe_delay_us = 0       # the video pipeline shows pictures this late: sound waits too
+        self._user_audio_delay = 0    # ms, Faixas › Atraso do áudio
+        self._color: dict | None = None   # the current file's colour description (colorinfo.probe)
+        self._hdrp: hdr10plus.Reader | None = None   # HDR10+ timeline of the current file
+        self._scene = None                # the HDR10+ scene metadata now on screen
+        self._video_fps = 0.0
         self._last_frame: QVideoFrame | None = None
         self._frames_seen = 0
         self._media_gen = 0   # bumped on every item change; frames carry the value they were decoded under
@@ -647,6 +721,11 @@ class Engine(QObject):
         enc = s.value("subEncoding", "")
         if enc:
             args.append(f"--subsdec-encoding={enc}")
+        pt = s.value("passthrough", "off")
+        if pt in ("on", "hd"):
+            # the receiver or soundbar decodes Dolby / DTS itself (HDMI or S/PDIF): libVLC sends the
+            # encoded stream as is; "hd" also TrueHD, DTS-HD and E-AC-3 (HDMI only)
+            args += ["--spdif", f"--mmdevice-passthrough={2 if pt == 'hd' else 1}"]
         return args
 
     def _make_player(self):
@@ -662,7 +741,17 @@ class Engine(QObject):
             print("libVLC refused", self._vlc_args)
             self._vlc = vlc.Instance(["--quiet", "--verbose=-1", "--no-video-title-show", "--no-osd"])
         self._mp: vlc.MediaPlayer = self._vlc.media_player_new()
-        self._renderer = make_renderer(self._mp, self._on_vlc_frame)
+        old_r = getattr(self, "_renderer", None)
+        self._renderer = make_renderer(self._mp, self._on_vlc_frame, self._on_native_first)
+        self._renderer.color = self._color
+        if old_r is not None and hasattr(old_r, "close"):
+            old_r.close()            # its player is released already (or about to be, below)
+        if self._native():
+            self._seen_base = self._drop_base = 0
+            self._sync_gens()
+            self._sync_sinks()
+        # before the old router is gone (deleteLater): items move to the new one at once
+        self.nativeRouterChanged.emit()
         em = self._mp.event_manager()
         # stamped with the item it belongs to: an end that lands just as the next item starts (a
         # video finishing as the person presses Next) must not end the new one too
@@ -890,6 +979,15 @@ class Engine(QObject):
     def setNormalize(self, on):
         self._set_option("normalize", bool(on))
 
+    @Property(str, notify=optionsChanged)
+    def passthrough(self):
+        return self._settings.value("passthrough", "off")
+
+    @Slot(str)
+    def setPassthrough(self, mode):
+        if mode in ("off", "on", "hd"):
+            self._set_option("passthrough", mode)
+
     @Property("QVariantMap", notify=optionsChanged)
     def subtitleStyle(self):
         s = self._settings
@@ -1064,6 +1162,179 @@ class Engine(QObject):
         vp = frame.surfaceFormat().viewport()
         return vp.size() if vp.isValid() and not vp.isEmpty() else frame.size()
 
+    def _check_visible(self, fw: int, fh: int):
+        """Padded picture? libVLC knows the visible size once the vout runs (UI thread call)."""
+        try:
+            # the file's video track has the visible size; the video output's answer can be
+            # 0×0 (reused from the previous file) or the padded size for a moment at first
+            vw = vh = 0
+            m = self._mp.get_media()
+            if m:
+                try:
+                    vt = [t for t in media_tracks(m) if t["type"] == "video" and t.get("height")]
+                finally:
+                    m.release()
+                if vt:
+                    vw, vh = vt[0]["width"], vt[0]["height"]
+            if vw <= 0 and self._frames_seen > 50:
+                vw, vh = self._mp.video_get_size(0)   # streams that never describe their tracks
+            if 0 < vw <= fw and 0 < vh <= fh and (vw, vh) != (fw, fh) and fh - vh <= 64 and fw - vw <= 64:
+                self._renderer.set_visible(vw & ~1, vh & ~1)
+                self.videoSizeChanged.emit()
+            if vw > 0:
+                self._visible_checked = True   # libVLC knows the size now: done for this file
+        except Exception as exc:
+            print("visible size:", exc)
+
+    def _first_picture(self):
+        """The first picture of an item is on screen: what only then can be known or done."""
+        opening.mark("first picture")
+        if self._first_video_frame:
+            self._first_video_frame = False
+            from . import trace
+            trace.mark("first video frame")
+        self._video_fps = 0.0
+        m = self._mp.get_media()
+        if m:
+            try:
+                vt = [t for t in media_tracks(m) if t["type"] == "video" and t.get("fps")]
+                self._video_fps = float(vt[0]["fps"]) if vt else 0.0
+            finally:
+                m.release()
+        self._apply_audio_delay()   # libVLC starts each item with no delay
+        self.videoInfoChanged.emit()
+
+    # ------------------------------------------------------------ native frame path
+    # (NativeRenderer: pictures go from libVLC to the sinks in Rust and C++; Python hears of the
+    # first one of each item, and reads the counters below from it)
+    def _native(self):
+        r = getattr(self, "_renderer", None)
+        return r if isinstance(r, NativeRenderer) else None
+
+    _seen_py = 0
+    _seen_base = 0
+    _last_py = None
+    _drop_py = 0
+    _drop_base = 0
+    _gen_media = 0
+    _gen_player = 0
+    _len_v = 0
+
+    @property
+    def _length(self):
+        return self._len_v
+
+    @_length.setter
+    def _length(self, v):
+        if v != self._len_v:
+            self._len_v = v
+            self.lengthChanged.emit()
+
+    @property
+    def _frames_seen(self):
+        r = self._native()
+        return r.out.shown() - self._seen_base if r else self._seen_py
+
+    @_frames_seen.setter
+    def _frames_seen(self, v):
+        r = self._native()
+        if r:
+            self._seen_base = r.out.shown() - v
+        else:
+            self._seen_py = v
+
+    @property
+    def _last_frame(self):
+        r = self._native()
+        return r.last_frame() if r else self._last_py
+
+    @_last_frame.setter
+    def _last_frame(self, f):
+        r = self._native()
+        if r:
+            if f is None:
+                r.out.reset()          # a new item: forget the picture, report its first one
+        else:
+            self._last_py = f
+
+    @property
+    def _dropped(self):
+        r = self._native()
+        return r.stats()[2] - self._drop_base if r else self._drop_py
+
+    @_dropped.setter
+    def _dropped(self, v):
+        r = self._native()
+        if r:
+            self._drop_base = r.stats()[2] - v
+        else:
+            self._drop_py = v
+
+    @property
+    def _media_gen(self):
+        return self._gen_media
+
+    @_media_gen.setter
+    def _media_gen(self, v):
+        self._gen_media = v
+        self._sync_gens()
+
+    @property
+    def _player_gen(self):
+        return self._gen_player
+
+    @_player_gen.setter
+    def _player_gen(self, v):
+        self._gen_player = v
+        self._sync_gens()
+
+    def _sync_gens(self):
+        r = self._native()
+        if r:
+            r.out.set_gens(self._gen_player, self._gen_media)
+
+    def _sync_sinks(self):
+        """Tell the native path where pictures go (after any change of sinks or pair)."""
+        r = self._native()
+        if not r:
+            return
+        import shiboken6
+        ptr = lambda o: shiboken6.getCppPointer(o)[0]   # noqa: E731
+        pair = self._pair
+        alive = []
+        for s in self._sinks:
+            if shiboken6.isValid(s):
+                alive.append(s)
+        self._sinks = alive
+        r.out.set_sinks([ptr(s) for s in alive if pair is None or s not in pair])
+        if pair is not None and all(shiboken6.isValid(s) for s in pair):
+            item = self._pair_item if self._pair_item is not None and shiboken6.isValid(self._pair_item) else None
+            r.out.set_pair(ptr(pair[0]), ptr(pair[1]), ptr(item) if item is not None else 0)
+        else:
+            r.out.set_pair(0, 0, 0)
+
+    def _on_native_first(self):
+        if self._mp is None:
+            return
+        self._first_picture()
+        r = self._native()
+        self._visible_checked = False
+        if r:
+            self._check_visible(r.width, r.height)
+        self._visible_tries = 0
+        if not self._visible_checked:
+            self._visible_timer.start()
+        self.videoSizeChanged.emit()
+        self.mediaChanged.emit()
+
+    def _retry_visible(self):
+        r = self._native()
+        self._visible_tries += 1
+        if r is None or self._visible_checked or self._visible_tries > 30:
+            self._visible_timer.stop()
+            return
+        self._check_visible(r.width, r.height)
+
     def _show_frame(self, frame: QVideoFrame):
         if self._visible_checked:
             vis = self._visible_rect(frame)
@@ -1071,43 +1342,31 @@ class Engine(QObject):
                 return   # decoded before the visible size was known: would show the padding rows
         first = self._frames_seen == 0
         self._frames_seen += 1
-        if first:
-            opening.mark("first picture")
-        if first and self._first_video_frame:
-            self._first_video_frame = False
-            from . import trace
-            trace.mark("first video frame")
         if not self._visible_checked:
-            # padded picture? libVLC knows the visible size once the vout runs (UI thread call)
-            try:
-                # the file's video track has the visible size; the video output's answer can be
-                # 0×0 (reused from the previous file) or the padded size for a moment at first
-                vw = vh = 0
-                m = self._mp.get_media()
-                if m:
-                    try:
-                        vt = [t for t in media_tracks(m) if t["type"] == "video" and t.get("height")]
-                    finally:
-                        m.release()
-                    if vt:
-                        vw, vh = vt[0]["width"], vt[0]["height"]
-                if vw <= 0 and self._frames_seen > 50:
-                    vw, vh = self._mp.video_get_size(0)   # streams that never describe their tracks
-                fs = frame.size()
-                if 0 < vw <= fs.width() and 0 < vh <= fs.height() and (vw, vh) != (fs.width(), fs.height()) \
-                        and fs.height() - vh <= 64 and fs.width() - vw <= 64:
-                    self._renderer.set_visible(vw & ~1, vh & ~1)
-                if vw > 0:
-                    self._visible_checked = True   # libVLC knows the size now: done for this file
-            except Exception as exc:
-                print("visible size:", exc)
+            self._check_visible(frame.size().width(), frame.size().height())
         size_changed = self._last_frame is None or self._visible_rect(self._last_frame) != self._visible_rect(frame)
         self._last_frame = frame
+        pair = self._pair
         for sink in list(self._sinks):
+            if pair is not None and sink in pair:
+                continue
             try:
                 sink.setVideoFrame(frame)
             except RuntimeError:
                 self._sinks.remove(sink)
+        if pair is not None:
+            slot = self._pair_slot
+            try:
+                pair[slot].setVideoFrame(frame)
+                self._pair_slot = slot ^ 1
+                self._recent_slots.append(slot)
+                self.pairFrame.emit(slot)
+            except RuntimeError:
+                self._pair = None
+        if self._hdrp is not None:
+            self._follow_hdr_scene()
+        if first:
+            self._first_picture()
         if first or size_changed:
             self.videoSizeChanged.emit()
             self.mediaChanged.emit()
@@ -1116,13 +1375,140 @@ class Engine(QObject):
     def addSink(self, sink):
         if isinstance(sink, QVideoSink) and sink not in self._sinks:
             self._sinks.append(sink)
-            if self._last_frame is not None:
+            if self._native():
+                self._sync_sinks()        # the native path shows it the picture on screen
+            elif self._last_frame is not None:
                 sink.setVideoFrame(self._last_frame)
 
     @Slot(QObject)
     def removeSink(self, sink):
         if sink in self._sinks:
             self._sinks.remove(sink)
+        if self._pair is not None and sink in self._pair:
+            self._pair = None
+        self._sync_sinks()
+
+    @Slot(QObject, QObject)
+    def setPairSinks(self, a, b):
+        """Smooth motion (ui/VideoPipeline.qml): frames go to a and b in turn, each announced by
+        pairFrame(slot), so the pipeline always holds the two newest. None, None: back to normal."""
+        if isinstance(a, QVideoSink) and isinstance(b, QVideoSink) and a is not b:
+            self._pair = [a, b]
+            self._pair_slot = 0
+            if self._native():
+                # the native path calls the pipeline's frameArrived(slot) itself: the item is the
+                # VideoPipeline holding the VideoOutput that owns the sink
+                self._pair_item = None
+                try:
+                    vo = a.parent()
+                    item = vo.parentItem() if vo is not None and hasattr(vo, "parentItem") else None
+                    if item is not None and item.metaObject().indexOfMethod("frameArrived(QVariant)") >= 0:
+                        self._pair_item = item
+                except RuntimeError:
+                    pass
+                self._sync_sinks()
+                return
+            if self._last_frame is not None:
+                for s in self._pair:
+                    s.setVideoFrame(self._last_frame)
+                self._pair_slot = 1
+                self.pairFrame.emit(0)
+        else:
+            had = self._pair
+            self._pair = None
+            self._pair_item = None
+            if self._native():
+                self._sync_sinks()
+            elif had and self._last_frame is not None and had[0] in self._sinks:
+                had[0].setVideoFrame(self._last_frame)
+
+    def pairSlots(self) -> list:
+        """The last pair slots pictures went to (tests: with smooth motion they alternate)."""
+        r = self._native()
+        return r.out.recent_slots() if r else list(self._recent_slots)
+
+    @Slot(float)
+    def setPipelineDelay(self, ms):
+        """The video pipeline shows each picture `ms` late (smooth motion needs the next frame before
+        it can draw the ones in between): the sound is held back by as much, so lips stay in sync."""
+        us = max(0, min(int(ms * 1000), 500_000))
+        if abs(us - self._pipe_delay_us) >= 2000 or (us == 0) != (self._pipe_delay_us == 0):
+            self._pipe_delay_us = us
+            self._apply_audio_delay()
+
+    def _apply_audio_delay(self):
+        try:
+            self._mp.audio_set_delay(self._user_audio_delay * 1000 + self._pipe_delay_us)
+        except Exception:
+            pass
+
+    def _follow_hdr_scene(self):
+        """HDR10+: the scene metadata for the frame just shown (by playback time)."""
+        r = self._hdrp
+        if r.done and not r.found():
+            self._hdrp = None
+            return
+        try:
+            ms = self._mp.get_time()
+        except Exception:
+            return
+        m = r.at(max(0, ms)) if ms >= 0 else None
+        if m is not self._scene:
+            self._scene = m
+            self.hdrSceneChanged.emit()
+
+    def _tick_hdr_scene(self):
+        if self._hdrp is None:
+            self._scene_timer.stop()
+        else:
+            self._follow_hdr_scene()
+
+    def _stop_hdr10plus(self):
+        if self._hdrp is not None:
+            self._hdrp.stop()
+            self._hdrp = None
+        if self._scene is not None:
+            self._scene = None
+            self.hdrSceneChanged.emit()
+
+    @Property(float, notify=nativeRouterChanged)
+    def nativeRouter(self):
+        """The native frame path's router (RtxVideo.router in QML); 0 without the native path."""
+        r = self._native()
+        return float(r.out.router()) if r else 0.0
+
+    @Property("QVariantMap", notify=hdrSceneChanged)
+    def hdrScene(self):
+        """HDR10+ metadata of the scene on screen: peak, p99, avg (nits), target (the curve's
+        display, nits), knee [x, y], anchors [0..1]; {} without HDR10+."""
+        m = self._scene
+        if not m:
+            return {}
+        return {"peak": m["peak"], "p99": m["p99"], "avg": m["avg"], "target": m["target"],
+                "knee": list(m["knee"]) if m["knee"] else [], "anchors": list(m["anchors"])}
+
+    @Property(bool, notify=hdrSceneChanged)
+    def hdr10Plus(self):
+        """The file on screen has HDR10+ dynamic metadata."""
+        return self._scene is not None
+
+    @Property(str, notify=videoInfoChanged)
+    def videoHdr(self):
+        """'pq' (HDR10, HDR10+, Dolby Vision 8.1), 'hlg', or '' for SDR."""
+        return colorinfo.hdr_kind(self._color)
+
+    @Property(float, notify=videoInfoChanged)
+    def videoPeak(self):
+        return colorinfo.peak_nits(self._color)
+
+    @Property(float, notify=videoInfoChanged)
+    def videoFps(self):
+        return self._video_fps
+
+    @Property(bool, notify=videoInfoChanged)
+    def videoDeep(self):
+        """More than 8 bits per sample reach the screen's pipeline (P010)."""
+        return bool(getattr(self._renderer, "deep", False))
 
     @Property(int, notify=videoSizeChanged)
     def videoWidth(self):
@@ -1347,6 +1733,7 @@ class Engine(QObject):
         self._meta = {"title": websites.site_name(e["path"]) or e["title"], "artist": "", "album": "", "artwork": ""}
         self._last_frame = None
         self._frames_seen = 0
+        self._playing_since, self._audio_suspect = 0.0, False
         self._media_gen += 1
         self._time, self._length = 0, 0
         for sink in self._sinks:
@@ -1478,10 +1865,23 @@ class Engine(QObject):
             self.chaptersChanged.emit()
         self._last_frame = None
         self._frames_seen = 0
+        self._playing_since, self._audio_suspect = 0.0, False
         self._media_gen += 1
         self._visible_checked = False
         self._time, self._length = 0, 0
-        for sink in self._sinks:
+        # HDR or not, its peak, its matrix: read from the file (a few KB) before the decoder starts
+        self._color = None if e["audio"] or e["isUrl"] or e.get("page") else colorinfo.probe(e["path"])
+        self._renderer.color = self._color
+        # HDR10+: its per-scene metadata, read in the background while the file plays
+        self._stop_hdr10plus()
+        if colorinfo.hdr_kind(self._color) == "pq":
+            self._hdrp = hdr10plus.Reader(e["path"])
+            if self._native():
+                self._scene_timer.start()   # no per-frame Python here: follow it by the clock
+        self._video_fps = 0.0
+        self._user_audio_delay = 0          # a sync correction belongs to the file it was made for
+        self.videoInfoChanged.emit()
+        for sink in self._sinks + (self._pair or []):
             try:
                 sink.setVideoFrame(QVideoFrame())
             except RuntimeError:
@@ -1806,7 +2206,27 @@ class Engine(QObject):
 
     @Slot()
     def frameStep(self):
+        self._back_target = None
         self._mp.next_frame()
+
+    @Slot()
+    def frameBack(self):
+        """One frame back. libVLC 3 can only step forward, so: pause, then an exact seek to the
+        previous frame's time (libVLC decodes from the keyframe before it up to that frame).
+        Repeated presses count from the frame asked for last, not from the clock, which lags."""
+        if self._length <= 0 or self._mp is None:
+            return
+        if self._state == "playing":
+            self.pause()
+        fps = self._video_fps if self._video_fps > 1 else 25.0
+        step = 1000.0 / fps
+        now = self._mp.get_time()
+        base = self._back_target if self._back_target is not None and abs(self._back_target - now) < 1500 else now
+        target = max(0.0, base - step)
+        self._back_target = target
+        self._mp.set_time(int(round(target)))
+        self._time = int(round(target))
+        self.timeChanged.emit()
 
     def _note(self, what: str):
         """The last steps of play/pause and of the state, with who asked (a test that fails says why)."""
@@ -1929,6 +2349,10 @@ class Engine(QObject):
                 self._item_start = 0
             if new_state == "playing" and self._mp.get_time() > 0:
                 opening.mark("sound")   # libVLC's clock runs once its audio output plays
+                if not self._playing_since:
+                    self._playing_since = time.monotonic()
+            if new_state == "playing":
+                self._check_audio_only()
             if t != self._time or ln != self._length:
                 self._time, self._length = t, ln
                 self.timeChanged.emit()
@@ -2027,11 +2451,11 @@ class Engine(QObject):
     def time(self):
         return self._time
 
-    @Property(int, notify=timeChanged)
+    @Property(int, notify=lengthChanged)
     def length(self):
         return self._length
 
-    @Property(bool, notify=timeChanged)
+    @Property(bool, notify=lengthChanged)
     def seekable(self):
         return self._length > 0
 
@@ -2064,8 +2488,27 @@ class Engine(QObject):
         e = self._queue[self._index]
         if e["audio"]:
             return True
-        # unknown streams: no frame after a while while playing -> audio
-        return self._frames_seen == 0 and self._time > 1500
+        # a stream of unknown kind that has played for 2 s with no picture, and libVLC found no
+        # video track in it: sound only. (It used to be "no frame and the clock past 1.5 s": a video
+        # opened in the middle, resumed or handed over, is past that before its first picture, and
+        # the music stage came up over it for a moment.)
+        if self._frames_seen > 0 or not self._audio_suspect:
+            return False
+        return True
+
+    def _check_audio_only(self):
+        """From the poll: decide once per item whether a picture-less stream is sound only."""
+        if self._audio_suspect or self._frames_seen > 0 or self._state != "playing" or not self._playing_since:
+            return
+        if time.monotonic() - self._playing_since < 2.0:
+            return
+        try:
+            no_video = self._mp.video_get_track_count() <= 0
+        except Exception:
+            no_video = False
+        if no_video:
+            self._audio_suspect = True
+            self.mediaChanged.emit()
 
     @Property(list, notify=queueChanged)
     def queue(self):
@@ -2217,11 +2660,12 @@ class Engine(QObject):
 
     @Property(int, notify=tracksChanged)
     def audioDelay(self):
-        return int(self._mp.audio_get_delay() / 1000)
+        return self._user_audio_delay
 
     @Slot(int)
     def setAudioDelay(self, ms):
-        self._mp.audio_set_delay(int(ms) * 1000)
+        self._user_audio_delay = int(ms)
+        self._apply_audio_delay()
         self.tracksChanged.emit()
 
     # volume -------------------------------------------------------------
@@ -2415,6 +2859,16 @@ class Engine(QObject):
             self.message.emit(tr("Nada para capturar"))
             return
         img = self._last_frame.toImage()
+        hdr = colorinfo.hdr_kind(self._color)
+        if hdr:
+            # the frame still holds PQ / HLG codes (the screen's tone mapping is a shader): an sRGB
+            # PNG needs them converted, or the capture comes out grey and washed out
+            from PySide6.QtGui import QColorSpace
+            TF = QColorSpace.TransferFunction
+            img = img.convertToFormat(QImage.Format.Format_RGBA64)
+            img.setColorSpace(QColorSpace(QColorSpace.Primaries.Bt2020, TF.St2084 if hdr == "pq" else TF.Hlg))
+            img = img.convertedToColorSpace(QColorSpace(QColorSpace.NamedColorSpace.SRgb)) \
+                     .convertToFormat(QImage.Format.Format_RGB32)
         folder = Path(self._settings.value("snapshotDir"))
         folder.mkdir(parents=True, exist_ok=True)
         stem = Path(self.currentPath).stem if not self.currentPath.count("://") else "stream"
@@ -2435,6 +2889,8 @@ class Engine(QObject):
         if getattr(self, "_shut", False):
             return
         self._shut = True
+        if self._hdrp is not None:
+            self._hdrp.stop()
         self._poll.stop()
         self._sinks.clear()
         self._settle_switch()

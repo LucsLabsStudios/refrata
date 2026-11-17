@@ -14,6 +14,43 @@ Window {
     color: theme.bg
     title: player.title ? player.title + "  —  Refrata" : "Refrata"
 
+    // HDR screen (hdroutput.py): a scRGB swapchain, read by Qt when it creates it (at first show)
+    readonly property bool hdrWanted: typeof hdrout !== "undefined" && hdrout.requested
+    readonly property bool hdrActive: hdrWanted && hdrout.active
+    property string _qt_sg_hdr_format: hdrWanted ? "scrgb" : ""
+    // ...then everything draws into one 16-bit layer that turns into light: the interface at the
+    // desktop's SDR brightness, HDR video above it (shaders/hdrlayer.frag). The layer is on an item
+    // of its own that the window's other children move into: a layer on the window's contentItem
+    // itself draws nothing (its effect has no parent item to appear in: a grey window)
+    Item {
+        id: hdrRoot
+        objectName: "hdrRoot"
+        anchors.fill: parent
+        z: -1
+        layer.enabled: win.hdrActive
+        layer.format: ShaderEffectSource.RGBA16F
+        layer.effect: ShaderEffect {
+            objectName: "hdrEffect"
+            property real scale: win.hdrActive ? hdrout.sdrWhite / 80 : 1
+            property color bg: theme.bg
+            fragmentShader: "shaders/hdrlayer.frag.qsb"
+        }
+    }
+    function adoptIntoHdrRoot() {
+        // in their order (the stacking stays the same)
+        var kids = []
+        for (var i = 0; i < win.contentItem.children.length; i++)
+            // not the layer's own effect item: it sits next to hdrRoot, drawing it
+            if (win.contentItem.children[i] !== hdrRoot && win.contentItem.children[i].objectName !== "hdrEffect")
+                kids.push(win.contentItem.children[i])
+        for (var j = 0; j < kids.length; j++) kids[j].parent = hdrRoot
+    }
+    onHdrActiveChanged: if (hdrActive) adoptIntoHdrRoot()
+    Connections {
+        target: win.hdrActive ? win.contentItem : null
+        function onChildrenChanged() { Qt.callLater(win.adoptIntoHdrRoot) }   // items made later
+    }
+
     property int page: 0
     property bool alwaysOnTop: false
     flags: Qt.Window | (alwaysOnTop ? Qt.WindowStaysOnTopHint : 0)
@@ -42,7 +79,10 @@ Window {
     // was left half-evaluated on a busy machine (Settings' About card lost its version text)
     property int warmStep: -1
     Timer { interval: 1500; running: true; onTriggered: { win.pagesWarm = true; win.warmStep = 0 } }
-    Timer { interval: 150; repeat: true; running: win.warmStep >= 0 && win.warmStep < 8; onTriggered: win.warmStep++ }
+    // not while a video plays: building a page holds the UI thread for tens of ms, and every picture
+    // on screen waits for that thread (2 dropped 4K60 frames when a file opened from Explorer
+    // started playing as the pages were being built); they go on once it is paused or closed
+    Timer { interval: 150; repeat: true; running: win.warmStep >= 0 && win.warmStep < 8 && !(win.playerOpen && player.playing && !player.isAudio); onTriggered: win.warmStep++ }
     function showAbout() {
         win.page = 5   // builds the settings page at once if it was not yet
         if (settingsSlot.item) settingsSlot.item.showAbout()
@@ -144,6 +184,12 @@ Window {
         onAccepted: { settings.addFolder(selectedFolder.toString()); toast.show(qsTr("Pasta adicionada à biblioteca")) }
     }
     FileDialog {
+        id: secondSubDialog
+        title: qsTr("Segunda legenda")
+        nameFilters: [qsTr("Legendas") + " (*.srt *.ass *.ssa *.vtt)", qsTr("Todos os arquivos") + " (*)"]
+        onAccepted: tools.loadSecondSubtitle(selectedFile.toString())
+    }
+    FileDialog {
         id: subDialog
         title: qsTr("Carregar legenda")
         nameFilters: [qsTr("Legendas") + " (*.srt *.ass *.ssa *.vtt *.sub *.idx *.smi)", qsTr("Todos os arquivos") + " (*)"]
@@ -170,6 +216,8 @@ Window {
     Shortcut { sequence: keys.map.loop; onActivated: { player.cycleLoop(); pv.poke() } }
     Shortcut { sequence: keys.map.onTop; onActivated: win.alwaysOnTop = !win.alwaysOnTop }
     Shortcut { sequence: keys.map.frame; onActivated: player.frameStep() }
+    Shortcut { sequence: keys.map.frameBack; onActivated: player.frameBack() }
+    Shortcut { sequence: keys.map.bookmark; onActivated: if (win.playerOpen) tools.addBookmark() }
     Shortcut { sequence: keys.map.info; onActivated: if (win.playerOpen) pv.togglePanel("info") }
     Shortcut { sequence: keys.map.rotate; onActivated: if (win.playerOpen && !player.isAudio) { pv.rotate(90); toast.show(qsTr("Girado %1°").arg(pv.videoRotation)) } }
     Shortcut { sequence: keys.map.nextChapter; onActivated: if (player.chapters.length) { player.nextChapter(); pv.poke() } }
@@ -360,6 +408,7 @@ Window {
         onToggleFullscreen: win.toggleFullscreen()
         onPipRequested: win.togglePip()
         onLoadSubtitle: subDialog.open()
+        onLoadSecondSubtitle: secondSubDialog.open()
         alwaysOnTop: win.alwaysOnTop
         onToggleOnTop: win.alwaysOnTop = !win.alwaysOnTop
     }

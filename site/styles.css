@@ -71,7 +71,9 @@ b { color: var(--text); font-weight: 600; }
 }
 .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font-family: var(--display); font-weight: 600; font-size: 19px; letter-spacing: -0.01em; }
 .brand img { border-radius: 9px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5); }
-.links { display: flex; gap: 28px; margin-left: 24px; }
+.links { display: flex; gap: 28px; margin-left: 24px; white-space: nowrap; }
+/* seven sections: below this width the links no longer fit beside the language switch and buttons */
+@media (max-width: 1240px) { .links { display: none; } }
 .links a {
   position: relative;
   text-decoration: none; color: var(--dim); font-size: 14px; font-weight: 500;

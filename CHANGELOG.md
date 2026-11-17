@@ -7,6 +7,58 @@ All notable changes to Refrata are listed here, newest first. Each version links
 The project follows [Semantic Versioning](https://semver.org/). Patch releases (`1.4.x`) can also
 ship updated components only (libVLC, yt-dlp, python-vlc) after passing the full test suite.
 
+## [1.5.0] - 2026-11-17
+### Added
+- Smooth motion (Settings › Playback › Picture): in-between frames computed on the GPU, so 24 and
+  30 fps video plays at 60, 120 or the monitor's own refresh rate (144, 165, 240 Hz...). Motion is
+  searched coarse to fine with bilateral block matching down to a quarter of a pixel, cleaned by a
+  vector median; each pixel then takes the best of the smooth field, its neighbouring blocks'
+  vectors and no motion at all, so object edges stay clean and static logos, subtitles and black
+  bars stay still. Occluded areas and scene cuts (judged by how many blocks found no match) fall
+  back to the real frame instead of smearing. The sound is delayed by one source frame to stay in
+  sync. No resolution limit.
+- HDR10, HDR10+ and HLG play with correct colours and brightness: the colour description is read
+  from the file (MP4 `colr`/`mdcv`/`clli`, Matroska `Colour`, HEVC VUI and SEI, MPEG-TS), 10-bit
+  frames reach the GPU as P010, and a shader applies the BT.2390 tone curve, BT.2020 to BT.709
+  gamut mapping and dithering. Snapshots of HDR video are converted too.
+- Per-scene tone mapping: HDR10+ (SMPTE ST 2094-40) metadata is read from MP4 and Matroska files
+  and followed scene by scene, including the film's own tone curve when it was made for a display
+  like yours; plain HDR10 is measured on the GPU frame by frame, so dark scenes are no longer
+  dimmed for highlights that never come.
+- True HDR on HDR screens: with Windows HDR on, the window uses a scRGB swapchain and HDR video
+  shows at its real brightness, up to the screen's peak; the interface keeps the desktop's SDR
+  brightness.
+- Light boost and detail boost: a local "HDR look" for SDR video and adaptive sharpening.
+- NVIDIA RTX Video Super Resolution and RTX Video HDR (Settings › Picture, RTX GPUs): the picture
+  goes through the GPU's video processor with NVIDIA's AI upscaler, straight to its size on screen;
+  RTX Video HDR turns SDR video into HDR10 on an HDR screen. Needs the matching switch on in the
+  NVIDIA App.
+- Subtitles made from the sound (Tracks › More subtitles): speech recognition with OpenAI's
+  Whisper models (whisper.cpp built into the app, on the GPU through Vulkan), optionally translated
+  into English. Nothing leaves the computer; the model is downloaded once and checked by SHA-256.
+- A second subtitle at the top of the picture, together with the usual one (two languages at once):
+  SRT, WebVTT and ASS.
+- Tools panel: one frame back (Shift+E), bookmarks per file shown on the timeline (B), skip the
+  opening and ending of every video of a folder (series), and save the A-B part (or the next 6 s)
+  as MP4 (streams copied: no quality lost, HDR kept) or as an animated GIF.
+- Audio passthrough (Settings › Sound): Dolby and DTS (and in HD mode TrueHD, DTS-HD, Atmos) sent
+  to the receiver or soundbar as they are.
+### Performance
+- Frames go from libVLC to the screen without Python: a Rust and C++ module (refrata_native) with
+  reused, aligned memory, delivered to Qt in C++. 4K60 with another Python thread busy: from 39 to
+  60 frames a second, from 106 dropped frames in 5 s to none.
+- The UI thread no longer calls into Python per frame (progress clock, time and length bindings,
+  theme colours): 6783 to about 2000 calls in 3 s of 4K60; pages built in the background wait
+  while a video plays; HDR10+ is read in Rust.
+- Opening a video while Refrata runs no longer shows the splash screen; it shows only on a cold
+  start (a native window instead of the bootloader's).
+### Changed
+- Video above 4K plays at its own size: 8K (7680×4320) and DCI 8K are no longer scaled down.
+### Fixed
+- A video opened in the middle (resumed, or handed over from the quick player) no longer flashes
+  the music player over it before its first picture. A link of unknown kind takes the music look
+  only once libVLC finds no video track in it, about 2 s after its sound starts.
+
 ## [1.4.16] - 2026-11-15
 ### Fixed
 - Settings: a second click on a picker (audio output, subtitle encoding) now closes its list
@@ -157,6 +209,7 @@ ship updated components only (libVLC, yt-dlp, python-vlc) after passing the full
 ### Added
 - First public, open-source release, with in-app updates verified by SHA-256.
 
+[1.5.0]: https://github.com/LucsLabsStudios/refrata/releases/tag/v1.5.0
 [1.4.16]: https://github.com/LucsLabsStudios/refrata/releases/tag/v1.4.16
 [1.4.15]: https://github.com/LucsLabsStudios/refrata/releases/tag/v1.4.15
 [1.4.14]: https://github.com/LucsLabsStudios/refrata/releases/tag/v1.4.14

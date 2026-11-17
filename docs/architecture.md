@@ -47,8 +47,10 @@ the same position.
 
 A double-click on a file while Refrata runs must answer at once. `fastlaunch.py` runs before Qt
 and libVLC are imported and hands the file to the running instance in about 0.2 s; only when no
-instance answers does the full startup continue. The packaged app also shows a bootloader splash
-before Python loads, and starts loading the file while the window is still being built.
+instance answers does the full startup continue. Only then, on a real cold start, the packaged app
+shows its splash (`launchsplash.py`, a native layered window on its own thread), so handing a file
+to the running Refrata never flashes it; it also starts loading the file while the window is still
+being built.
 
 ## Data
 

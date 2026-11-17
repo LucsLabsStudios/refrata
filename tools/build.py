@@ -101,7 +101,7 @@ VERSION_INFO = """VSVersionInfo(
 """
 
 EXCLUDES = [
-    "tkinter", "unittest", "pydoc_data", "PySide6.QtWebEngineCore", "PySide6.QtWebEngineWidgets",
+    "tkinter", "unittest", "pydoc_data", "numpy",  # Pillow (GIF clips) works without it "PySide6.QtWebEngineCore", "PySide6.QtWebEngineWidgets",
     "PySide6.QtWebEngineQuick", "PySide6.QtWebChannel", "PySide6.QtWebSockets", "PySide6.Qt3DCore",
     "PySide6.Qt3DRender", "PySide6.Qt3DInput", "PySide6.Qt3DLogic", "PySide6.Qt3DAnimation", "PySide6.Qt3DExtras",
     "PySide6.QtCharts", "PySide6.QtDataVisualization", "PySide6.QtGraphs", "PySide6.QtPdf", "PySide6.QtPdfWidgets",
@@ -179,19 +179,17 @@ a = Analysis(
           + copy_metadata('yt-dlp'),   # refrata/ytdlp.py compares the bundled version with PyPI's
     hiddenimports=['tests', 'tests.e2e', 'tests.fixtures', 'tests.windialogs', 'tests.robust', 'tests.formats',
                    'PySide6.QtTest', 'PySide6.QtNetwork', 'PySide6.QtMultimedia', 'PySide6.QtQuickControls2',
-                   'PySide6.QtWidgets', 'PySide6.QtAxContainer', 'refrata._keys', 'yt_dlp']
+                   'PySide6.QtWidgets', 'PySide6.QtAxContainer', 'refrata._keys', 'yt_dlp', 'refrata_native']
                   + collect_submodules('winrt'),
     excludes={EXCLUDES!r},
     noarchive=False,
 )
 pyz = PYZ(a.pure)
-# shown by the bootloader the moment Refrata.exe starts, before Python and Qt load (__main__.py
-# closes it once the window draws): a click on the icon answers at once, even on a slow PC
-splash = Splash({r(SRC / 'resources' / 'brand' / 'splash.png')}, binaries=a.binaries, datas=a.datas,
-                text_pos=None, always_on_top=False, minify_script=True)
-exe = EXE(pyz, a.scripts, splash, [], exclude_binaries=True, name='Refrata', console=False,
+# no bootloader splash: it showed on every launch, also the ones that only hand a file to the
+# running Refrata. The app shows its own, on cold starts only (refrata/launchsplash.py)
+exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name='Refrata', console=False,
           icon={r(SRC / 'resources' / 'icon.ico')}, version={r(vfile)}, manifest={r(mfile)}, upx=False)
-coll = COLLECT(exe, a.binaries, a.datas, splash.binaries, name='Refrata', upx=False)
+coll = COLLECT(exe, a.binaries, a.datas, name='Refrata', upx=False)
 """, encoding="utf8")
     return spec
 
@@ -255,12 +253,52 @@ def prune_qt(app_dir: Path):
     log(f"pruned unused Qt libraries ({freed / 1e6:.0f} MB)")
 
 
+def native_module():
+    """refrata_native (native/: Rust + a little C++ against Qt): the frame path from libVLC to the
+    screen without Python, and the HDR10+ reader. Built and installed into this Python so
+    PyInstaller bundles it; the release must have it (without it the app falls back to the slower
+    Python path, which a busy interpreter can make drop frames)."""
+    qt = os.environ.get("QT_DIR") or r"C:\Tools\Qt\6.8.1\msvc2022_64"
+    if not (Path(qt) / "include" / "QtMultimedia" / "qvideosink.h").exists():
+        raise SystemExit(f"Qt SDK not found at {qt} (set QT_DIR; python -m aqt install-qt windows desktop "
+                         "6.8.1 win64_msvc2022_64 -m qtmultimedia --outputdir C:\\Tools\\Qt)")
+    wheels = BUILD / "wheels"
+    shutil.rmtree(wheels, ignore_errors=True)
+    env = dict(os.environ, QT_DIR=qt)
+    # whisper.cpp (speech recognition, refrata/aisubs.py) inside the module, through whisper-rs:
+    #  - its GPU backend is Vulkan: the Vulkan SDK at build time (winget KhronosGroup.VulkanSDK)
+    #  - bindgen needs libclang (pip install libclang)
+    #  - whisper-rs-sys forwards CMAKE_* / GGML_*: the cmake crate drops MSVC's optimisation from the
+    #    release flags (/O2 back: 7.8 s -> 1.9 s for 13 s of speech on the CPU), AVX2 + FMA as the
+    #    baseline instead of the build machine's own CPU
+    #  - MSBuild's 260-character path limit: Vulkan's nested shader project needs a short target dir
+    vk = os.environ.get("VULKAN_SDK") or max((str(p) for p in Path("C:/VulkanSDK").glob("*")), default="")
+    if not vk or not (Path(vk) / "Bin" / "glslc.exe").exists():
+        raise SystemExit("Vulkan SDK not found (winget install KhronosGroup.VulkanSDK)")
+    import clang
+    env.update(VULKAN_SDK=vk, PATH=str(Path(vk) / "Bin") + os.pathsep + env.get("PATH", ""),
+               LIBCLANG_PATH=str(Path(clang.__file__).parent / "native"),
+               CARGO_TARGET_DIR=env.get("CARGO_TARGET_DIR", "C:/r"),
+               CMAKE_C_FLAGS_RELEASE="-nologo -MD -O2 -Ob2 -DNDEBUG",
+               CMAKE_CXX_FLAGS_RELEASE="-nologo -MD -O2 -Ob2 -DNDEBUG -EHsc",
+               GGML_NATIVE="OFF", GGML_AVX="ON", GGML_AVX2="ON", GGML_FMA="ON", GGML_F16C="ON")
+    subprocess.run([sys.executable, "-m", "maturin", "build", "--release", "-o", str(wheels)],
+                   check=True, cwd=str(ROOT / "native"), env=env)
+    whl = sorted(wheels.glob("refrata_native-*.whl"))[-1]
+    subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", "--force-reinstall", "--no-deps", str(whl)],
+                   check=True)
+    log(f"native module: {whl.name}")
+
+
 def pyinstaller():
+    native_module()
     spec = write_spec()
     shutil.rmtree(DIST / "Refrata", ignore_errors=True)
     subprocess.run([sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--log-level", "WARN",
                     "--distpath", str(DIST), "--workpath", str(BUILD / "pyi"), str(spec)], check=True, cwd=str(ROOT))
     app = DIST / "Refrata"
+    if not list((app / "_internal").rglob("refrata_native*.pyd")):
+        raise SystemExit("refrata_native is missing from the app folder")
     prune_qml(app)
     prune_qt(app)
     lic = app / "LICENSES"

@@ -12,3 +12,5 @@ winrt-Windows.Media==4!10.0.28000.2957; sys_platform == "win32"
 winrt-Windows.Media.Playback==4!10.0.28000.2957; sys_platform == "win32"
 winrt-Windows.Storage==4!10.0.28000.2957; sys_platform == "win32"
 winrt-Windows.Storage.Streams==4!10.0.28000.2957; sys_platform == "win32"
+# animated GIF clips (refrata/clips.py)
+Pillow==12.2.0

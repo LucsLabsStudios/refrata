@@ -1020,6 +1020,1103 @@ def feature_picture_geometry_and_deinterlace():
           "the next file starts with straight picture")
 
 
+# ------------------------------------------------------------ video pipeline (ui/VideoPipeline.qml)
+def _pipe_fixture(key):
+    """A pipeline fixture (tests/fixtures.py make_pipeline), or None when ffmpeg was missing."""
+    p = H.fx.get(key)
+    if not p:
+        H.notes.append(f"{key}: not generated (ffmpeg not on PATH), scenario reduced")
+    return p
+
+
+def _screen_video(grid=12, x0=0.2, x1=0.8, y0=0.25, y1=0.75):
+    """Colours on screen at a grid over the middle of the shown picture (window pixels), as
+    (fx, fy, (r, g, b)) with fx, fy the position within the picture (0..1)."""
+    # the video item alone, rendered as the scene draws it (shaders included): a grab of the whole
+    # window in this harness also draws layers that are not on screen
+    pipe = H.parts.find("videoPipeline")
+    cr = H.parts.find("videoOutput").property("contentRect")
+    res = pipe.grabToImage()
+    got = []
+    res.ready.connect(lambda: got.append(1))
+    wait(lambda: got, 5, "the video item grabbed")
+    img = res.image()
+    if os.environ.get("REFRATA_E2E_TMP"):
+        img.save(os.path.join(os.environ["REFRATA_E2E_TMP"], "screen_video.png"))
+    k = img.width() / max(1.0, pipe.width())
+    out = []
+    for j in range(grid):
+        for i in range(grid):
+            fx, fy = x0 + (x1 - x0) * i / (grid - 1), y0 + (y1 - y0) * j / (grid - 1)
+            c = img.pixelColor(int((cr.x() + fx * cr.width()) * k), int((cr.y() + fy * cr.height()) * k))
+            out.append((fx, fy, (c.red(), c.green(), c.blue())))
+    return out
+
+
+def _diff_to(ref, samples):
+    """Median and 75th percentile of the per-channel distance between samples and the same spots
+    of ref (QImage). Percentiles, not the mean: a few samples land on the edge between two bars."""
+    d = []
+    for fx, fy, rgb in samples:
+        c = ref.pixelColor(int(fx * (ref.width() - 1)), int(fy * (ref.height() - 1)))
+        d.append(sum(abs(a - b) for a, b in zip(rgb, (c.red(), c.green(), c.blue()))) / 3)
+    d.sort()
+    return d[len(d) // 2], d[len(d) * 3 // 4]
+
+
+def _paused_at(ms):
+    e = eng()
+    e.pause()
+    wait(lambda: e.state == "paused", 5, "paused")
+    e.seek(ms)
+    wait(lambda: abs(e.time - ms) < 400, 5, f"at {ms} ms")
+    n0 = e._frames_seen
+    wait(lambda: e._frames_seen > n0, 5, "the frame at the new point")
+    pump(0.6)
+
+
+@scenario(timeout=90)
+def feature_hdr10_tone_mapping():
+    """HDR10 reaches the screen tone mapped: an SDR test pattern stored as PQ (white at 203 nits)
+    must come back as the same SDR picture, not the washed-out grey of PQ codes read as SDR."""
+    from PySide6.QtGui import QImage
+    path = _pipe_fixture("pipe_hdr10")
+    if not path:
+        return
+    e = eng()
+    e.openFiles([path])
+    playing_media(video=True)
+    check(e.videoHdr == "pq", "the file is known to be HDR10", repr(e.videoHdr))
+    check(e.videoDeep and e._renderer.chroma == "P010", "10-bit frames reach the GPU", e._renderer.chroma)
+    check(abs(e.videoPeak - 203) < 1, "MaxCLL read from the file", str(e.videoPeak))
+    win().setProperty("playerOpen", True)
+    _paused_at(2000)
+    pipe = H.parts.find("videoPipeline")
+    check(pipe.property("active") and pipe.property("hdr") == 1, "the HDR pipeline is on")
+    check(H.parts.find("videoPresent") is not None, "the tone-mapping pass is in the scene")
+    ref = QImage(H.fx["pipe_hdr_ref"])
+    med, mean = _diff_to(ref, _screen_video())
+    # the same spots without tone mapping (Qt's plain YUV->RGB of the PQ codes)
+    raw = e._last_frame.toImage()
+    naive = [(fx, fy, (lambda c: (c.red(), c.green(), c.blue()))(raw.pixelColor(int(fx * (raw.width() - 1)), int(fy * (raw.height() - 1)))))
+             for fx, fy, _ in _screen_video()]
+    nmed, nmean = _diff_to(ref, naive)
+    H.notes.append(f"HDR10 vs SDR original: median {med:.1f}, p75 {mean:.1f} (untouched PQ: {nmed:.1f}, {nmean:.1f})")
+    check(med < 8 and mean < 12, "HDR10 shows with the original's colours and brightness", f"median {med:.1f} p75 {mean:.1f}")
+    check(nmed > med * 3, "and clearly better than PQ shown as SDR", f"{nmed:.1f} vs {med:.1f}")
+    # a snapshot is converted to sRGB too
+    e.snapshot()
+    wait(lambda: e.lastSnapshot and os.path.exists(e.lastSnapshot), 5, "snapshot saved")
+    snap = QImage(e.lastSnapshot)
+    smed, sp75 = _diff_to(ref, [(fx, fy, (lambda c: (c.red(), c.green(), c.blue()))(
+        snap.pixelColor(int(fx * (snap.width() - 1)), int(fy * (snap.height() - 1))))) for fx, fy, _ in _screen_video()])
+    H.notes.append(f"HDR10 snapshot vs SDR original: median {smed:.1f}, p75 {sp75:.1f}")
+    check(smed < 20, "an HDR snapshot is not washed out", f"median {smed:.1f}")
+
+
+@scenario(timeout=90)
+def feature_hlg_and_8k():
+    from PySide6.QtGui import QImage
+    e = eng()
+    hlg = _pipe_fixture("pipe_hlg")
+    if hlg:
+        e.openFiles([hlg])
+        playing_media(video=True)
+        check(e.videoHdr == "hlg", "the file is known to be HLG (from the HEVC VUI)", repr(e.videoHdr))
+        win().setProperty("playerOpen", True)
+        _paused_at(2000)
+        check(H.parts.find("videoPipeline").property("hdr") == 2, "the HLG curve is used")
+        med, mean = _diff_to(QImage(H.fx["pipe_hdr_ref"]), _screen_video())
+        H.notes.append(f"HLG vs SDR original: median {med:.1f}, p75 {mean:.1f}")
+        check(med < 30, "HLG shows close to the original", f"median {med:.1f} p75 {mean:.1f}")
+        e.play()
+    uhd = _pipe_fixture("pipe_uhd8k")
+    if uhd:
+        e.openFiles([uhd])
+        playing_media(timeout=30, video=True)
+        check((e.videoWidth, e.videoHeight) == (7680, 4320), "8K plays at its own size (no 4K cap)",
+              f"{e.videoWidth}x{e.videoHeight}")
+        check(H.parts.find("videoPipeline").property("active") is False, "SDR with nothing on: the plain path")
+        n0 = e._frames_seen
+        wait(lambda: e._frames_seen > n0 + 10 or e.state != "playing", 15, "8K frames keep coming")
+
+
+@scenario(timeout=120, data={"smoothMotion": "max"})
+def feature_smooth_motion():
+    """24 fps in, the display's own rate out: in-between pictures every refresh, the two sinks
+    filled in turn, the sound held back by one source frame, and all of it undone when switched off."""
+    from PySide6.QtCore import QObject, Slot
+    e = eng()
+    path = _pipe_fixture("pipe_motion24") or str(H.fx["video"])
+    e.openFiles([path])
+    playing_media(video=True)
+    win().setProperty("playerOpen", True)
+    pump(0.8)
+    pipe = H.parts.find("videoPipeline")
+    check(pipe.property("pairing"), "the pipeline takes frames in pairs")
+    check(H.parts.find("videoOutputB").property("visible"), "the second sink is in use")
+    check(e._pair is not None, "the engine fills the pair")
+    hz = pipe.property("displayHz")
+    real = win().screen().refreshRate()
+    check(abs(hz - real) < 1, "the pipeline knows the screen's refresh rate", f"{hz:.0f} vs {real:.0f} Hz")
+    fps = e.videoFps
+    check(fps > 0, "the stream's frame rate is known", str(fps))
+    wait(lambda: pipe.property("interpolating"), 5, f"interpolating ({fps:.0f} fps on a {hz:.0f} Hz display)")
+
+    class Counter(QObject):
+        n = 0
+
+        @Slot()
+        def hit(self):
+            self.n += 1
+    swaps = Counter()
+    win().frameSwapped.connect(swaps.hit)
+    phases = []
+    t_end = time.time() + 2.0
+    n0 = e._frames_seen
+    while time.time() < t_end:
+        pump(0.004)
+        phases.append(pipe.property("phase"))
+    win().frameSwapped.disconnect(swaps.hit)
+    shown = swaps.n / 2.0
+    decoded = (e._frames_seen - n0) / 2.0
+    between = sum(1 for p in phases if 0.08 < p < 0.92)
+    H.notes.append(f"smooth motion: {decoded:.0f} source fps -> {shown:.0f} pictures/s on a {hz:.0f} Hz display")
+    check(between > len(phases) * 0.3, "most of the time an in-between picture is showing", f"{between}/{len(phases)}")
+    check(shown > decoded * 1.6, "more pictures reach the screen than the file has", f"{shown:.0f} vs {decoded:.0f}")
+    slots = e.pairSlots()[-20:]
+    check(len(slots) == 20 and len(set(slots)) == 2 and all(a != b for a, b in zip(slots, slots[1:])),
+          "frames alternate between the two sinks", str(slots))
+    delay = e._mp.audio_get_delay() / 1000
+    check(abs(delay - 1000 / fps) < 6, "the sound waits one source frame", f"{delay:.1f} ms")
+    e.setAudioDelay(-100)
+    check(e.audioDelay == -100 and abs(e._mp.audio_get_delay() / 1000 - (1000 / fps - 100)) < 6,
+          "a sync correction adds to the pipeline's delay")
+    e.setAudioDelay(0)
+    e.pause()
+    wait(lambda: e.state == "paused", 5, "paused")
+    pump(0.3)
+    check(pipe.property("phase") == 1, "paused: the real newest frame shows")
+    e.play()
+    wait(lambda: e.state == "playing", 5, "playing again")
+    H.parts.settings.smoothMotion = "off"
+    pump(0.5)
+    check(not pipe.property("pairing") and e._pair is None, "off: back to one sink")
+    check(abs(e._mp.audio_get_delay()) < 1000, "off: the sound is not held back any more", str(e._mp.audio_get_delay()))
+    n0 = e._frames_seen
+    wait(lambda: e._frames_seen > n0 + 5, 5, "frames keep coming")
+
+
+@scenario(timeout=60, data={"lightBoost": 60, "detailBoost": 60})
+def feature_light_and_detail_boost():
+    e = eng()
+    e.openFiles([str(H.fx["video"])])
+    playing_media(video=True)
+    win().setProperty("playerOpen", True)
+    pump(0.8)
+    pipe = H.parts.find("videoPipeline")
+    check(pipe.property("active"), "the boosts turn the pipeline on")
+    rgb = [c for _, _, c in _screen_video(6)]
+    check(max(max(abs(a - b) for a, b in zip(rgb[0], c)) for c in rgb) > 20, "the boosted picture shows", str(rgb[:3]))
+    H.parts.settings.lightBoost = 0
+    H.parts.settings.detailBoost = 0
+    pump(0.4)
+    check(not pipe.property("active"), "both at zero: the plain path again")
+
+
+@scenario(timeout=90)
+def feature_hdr_dynamic_peak():
+    """HDR10 whose metadata promises 4000-nit highlights that never come: measured on the GPU, the
+    scene is tone mapped for what it really holds (203 nits) and matches the graded picture; with
+    the measurement off, the static curve dims it."""
+    from PySide6.QtGui import QImage
+    path = _pipe_fixture("pipe_hdrlie")
+    if not path:
+        return
+    e = eng()
+    e.openFiles([path])
+    playing_media(video=True)
+    check(abs(e.videoPeak - 4000) < 1, "the file claims MaxCLL 4000", str(e.videoPeak))
+    win().setProperty("playerOpen", True)
+    _paused_at(2000)
+    check(H.parts.find("videoPeak") is not None, "the peak measurement passes are in the scene")
+    ref = QImage(H.fx["pipe_hdr_ref"])
+    pump(0.5)
+    dmed, dp75 = _diff_to(ref, _screen_video())
+    H.parts.settings.hdrDynamic = False
+    pump(0.5)
+    e.frameStep()
+    pump(0.6)
+    smed, sp75 = _diff_to(ref, _screen_video())
+    H.notes.append(f"measured peak vs SDR original: median {dmed:.1f}, p75 {dp75:.1f}; "
+                   f"MaxCLL only: {smed:.1f}, {sp75:.1f}")
+    check(dmed < 8 and dp75 < 12, "measured: the scene shows as graded", f"median {dmed:.1f} p75 {dp75:.1f}")
+    check(sp75 > dp75 + 3, "and better than trusting the static MaxCLL", f"{sp75:.1f} vs {dp75:.1f}")
+    H.parts.settings.hdrDynamic = True
+
+
+@scenario(timeout=120)
+def feature_hdr10plus_scenes():
+    """HDR10+ (ST 2094-40): the per-scene metadata is read from the file and follows playback; the
+    first scene (203 nits, while the static metadata says 1000) looks as graded."""
+    from PySide6.QtGui import QImage
+    path = _pipe_fixture("pipe_hdr10plus")
+    if not path:
+        return
+    e = eng()
+    e.openFiles([path])
+    playing_media(video=True)
+    wait(lambda: e.hdr10Plus, 10, "HDR10+ found in the file")
+    win().setProperty("playerOpen", True)
+    _paused_at(1500)
+    wait(lambda: abs(e.hdrScene.get("peak", 0) - 203) < 1, 5, "scene 1: 203 nits")
+    s = e.hdrScene
+    check(s["target"] == 400 and len(s["anchors"]) == 9 and len(s["knee"]) == 2,
+          "its tone curve and target display read too", str(s))
+    pipe = H.parts.find("videoPipeline")
+    check(abs(pipe.property("scene").toVariant()["peak"] - 203) < 1, "the pipeline tone maps by the scene")
+    check(not pipe.property("curveOn"), "a curve made for 400 nits is not used for an SDR screen")
+    med, p75 = _diff_to(QImage(H.fx["pipe_hdr_ref"]), _screen_video())
+    H.notes.append(f"HDR10+ scene 1 vs SDR original: median {med:.1f}, p75 {p75:.1f}")
+    check(med < 8 and p75 < 12, "the scene shows as graded", f"median {med:.1f} p75 {p75:.1f}")
+    _paused_at(4500)
+    wait(lambda: abs(e.hdrScene.get("peak", 0) - 800) < 1, 5, "scene 2: 800 nits")
+    e.openFiles([str(H.fx["video"])])
+    playing_media(video=True)
+    check(not e.hdr10Plus and e.hdrScene == {}, "an SDR file next: no HDR10+ left over")
+
+
+@scenario(timeout=90)
+def feature_hdr_output_math():
+    """The picture written for an HDR screen (scRGB layer): with the screen's white and peak at
+    203 nits it is the SDR picture; with a 1000-nit screen the highlights go above SDR white. The
+    window's HDR layer is the identity at scale 1 (an SDR swapchain would show it unchanged)."""
+    from PySide6.QtGui import QImage
+    from PySide6.QtCore import QUrl
+    from PySide6.QtQuick import QQuickView
+    hdrout =H.parts.qml.rootContext().contextProperty("hdrout")
+    check(hdrout is not None and win().property("_qt_sg_hdr_format") == ("scrgb" if hdrout.property("requested") else ""),
+          "the main window asks for scRGB only when an HDR screen is there",
+          f"{win().property('_qt_sg_hdr_format')!r} requested={hdrout.property('requested')}")
+    path = _pipe_fixture("pipe_hdr10")
+    if path:
+        e = eng()
+        e.openFiles([path])
+        playing_media(video=True)
+        win().setProperty("playerOpen", True)
+        _paused_at(2000)
+        pipe = H.parts.find("videoPipeline")
+        ref = QImage(H.fx["pipe_hdr_ref"])
+        pipe.setProperty("hdrOut", True)
+        pipe.setProperty("outWhite", 203)
+        pipe.setProperty("outPeak", 203)
+        pump(0.5)
+        med, p75 = _diff_to(ref, _screen_video())
+        H.notes.append(f"HDR screen at 203 nits vs SDR original: median {med:.1f}, p75 {p75:.1f}")
+        check(med < 8 and p75 < 12, "HDR output at SDR levels is the SDR picture", f"median {med:.1f} p75 {p75:.1f}")
+        lum = lambda s: sum(0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2] for _, _, c in s) / len(s)
+        before = lum(_screen_video())
+        pipe.setProperty("outWhite", 100)
+        pipe.setProperty("outPeak", 1000)
+        pump(0.5)
+        after = lum(_screen_video())
+        check(after > before + 10, "on a brighter screen the same scene is brighter against its white",
+              f"{before:.0f} -> {after:.0f}")
+        pipe.setProperty("hdrOut", False)
+    # the layer shader on its own: scale 1 over an opaque window colour = no change
+    view = QQuickView()
+    qml = Path(os.environ["REFRATA_E2E_TMP"]) / "hdrlayer_probe.qml"
+    shader = (Path(__file__).resolve().parents[1] / "src" / "refrata" / "ui" / "shaders" / "hdrlayer.frag.qsb").as_uri()
+    qml.write_text("import QtQuick\nItem { width: 256; height: 64\n"
+                   " property bool on: false\n"
+                   " Item { anchors.fill: parent\n"
+                   "  layer.enabled: parent.on; layer.format: ShaderEffectSource.RGBA16F\n"
+                   "  layer.effect: ShaderEffect { property real scale: 1; property color bg: '#202020'\n"
+                   f"   fragmentShader: '{shader}' }}\n"
+                   "  Rectangle { anchors.fill: parent; color: '#202020' }\n"
+                   "  Rectangle { width: 256; height: 32; gradient: Gradient { orientation: Gradient.Horizontal\n"
+                   "   GradientStop { position: 0; color: 'black' } GradientStop { position: 1; color: 'white' } } }\n"
+                   "  Rectangle { y: 32; width: 128; height: 32; color: '#3366cc'; opacity: 0.5 } } }\n")
+    view.setSource(QUrl.fromLocalFile(str(qml)))
+    view.show()
+    pump(0.4)
+    plain = view.grabWindow()
+    view.rootObject().setProperty("on", True)
+    pump(0.4)
+    layered = view.grabWindow()
+    def lin(v):   # what the layer must write: the sRGB value as light (scRGB, 1.0 = SDR white)
+        c = v / 255
+        return 255 * (c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4)
+    worst = 0.0
+    for x in range(0, 256, 8):
+        for y in range(4, 64, 8):
+            p, q = plain.pixelColor(x, y), layered.pixelColor(x, y)
+            worst = max(worst, abs(lin(p.red()) - q.red()), abs(lin(p.green()) - q.green()),
+                        abs(lin(p.blue()) - q.blue()))
+    view.close()
+    view.deleteLater()
+    check(worst <= 3, "the HDR layer turns the interface into its light, nothing else", f"worst {worst:.1f}")
+
+
+def _pacing(seconds=5.0):
+    """Frame pacing while playing: pictures reaching the UI per second, the longest gap and the
+    99th percentile between them, pictures the UI dropped (busy) and libVLC lost, screen swaps."""
+    from PySide6.QtCore import QObject, Slot
+    import vlc
+    e = eng()
+
+    class Counter(QObject):
+        n = 0
+
+        @Slot()
+        def hit(self):
+            self.n += 1
+    swaps = Counter()
+    win().frameSwapped.connect(swaps.hit)
+
+    def lost():
+        m = e._mp.get_media()
+        try:
+            st = vlc.MediaStats()
+            return int(st.lost_pictures) if m and m.get_stats(st) else 0
+        finally:
+            if m:
+                m.release()
+    n0, d0, l0 = e._frames_seen, e._dropped, lost()
+    native = e._native()
+    t0 = time.perf_counter()
+    if native:
+        # the event loop alone, no Python in between: a measuring loop in Python on the UI thread
+        # would itself wait for the GIL; the native path stamps each picture as it reaches a sink
+        from PySide6.QtCore import QEventLoop, QTimer
+        win().frameSwapped.disconnect(swaps.hit)
+        loop = QEventLoop()
+        QTimer.singleShot(int(seconds * 1000), loop.quit)
+        loop.exec()
+        took = time.perf_counter() - t0
+        us = [t for t in native.out.recent_times() if t >= native.out.recent_times()[-1] - seconds * 1e6]
+        stamps = [t / 1e6 for t in us]
+        swaps.n = None
+    else:
+        stamps, last = [], n0
+        while time.perf_counter() - t0 < seconds:
+            pump(0.001)
+            if e._frames_seen != last:
+                stamps.append(time.perf_counter())
+                last = e._frames_seen
+        took = time.perf_counter() - t0
+        win().frameSwapped.disconnect(swaps.hit)
+    gaps = sorted((b - a) * 1000 for a, b in zip(stamps, stamps[1:])) or [0]
+    return {"fps": (e._frames_seen - n0) / took, "worst_ms": gaps[-1], "p99_ms": gaps[int(len(gaps) * 0.99) - 1],
+            "ui_dropped": e._dropped - d0, "vlc_lost": lost() - l0,
+            "swaps": swaps.n / took if swaps.n is not None else None, "native": bool(native)}
+
+
+def _fmt(r):
+    sw = f", {r['swaps']:.0f} swaps/s" if r.get("swaps") is not None else ""
+    return (f"{r['fps']:.1f} fps, p99 {r['p99_ms']:.0f} ms, worst {r['worst_ms']:.0f} ms, "
+            f"UI dropped {r['ui_dropped']}, libVLC lost {r['vlc_lost']}{sw}"
+            + (" (native path)" if r.get("native") else " (Python path)"))
+
+
+@scenario(timeout=120, solo=True)
+def perf_ui_thread_python_calls():
+    """Diagnostic: which Python runs on the UI thread while a video plays (every call there can
+    wait for the GIL, and the screen waits for the UI thread)."""
+    import collections
+    from PySide6.QtCore import QEventLoop, QTimer
+    e = eng()
+    path = _pipe_fixture("pipe_uhd60") or str(H.fx["video"])
+    e.openFiles([path])
+    playing_media(timeout=30, video=True)
+    win().setProperty("playerOpen", True)
+    pump(1.5)
+    calls = collections.Counter()
+
+    def prof(frame, event, arg):
+        if event == "call":
+            co = frame.f_code
+            name = f"{os.path.basename(co.co_filename)}:{co.co_name}"
+            if co.co_filename.endswith(("settings.py", "theme.py", "i18n.py", "shortcuts.py")):
+                loc = frame.f_locals
+                name += f"({loc.get('key', loc.get('name', loc.get('text', loc.get('source', loc.get('action', '')))))!r:.60})"
+            calls[name] += 1
+        elif event == "c_call":
+            calls[f"C:{getattr(arg, '__qualname__', arg)}"] += 1
+    loop = QEventLoop()
+    QTimer.singleShot(3000, loop.quit)
+    sys.setprofile(prof)
+    loop.exec()
+    sys.setprofile(None)
+    total = sum(calls.values())
+    H.notes.append(f"Python calls on the UI thread in 3 s of 4K60: {total}")
+    for name, n in calls.most_common(25):
+        H.notes.append(f"  {n:6d}  {name}")
+
+
+@scenario(timeout=300, solo=True)
+def perf_4k60_frame_pacing():
+    """4K60 must play every frame on time: SDR, HDR10+ (tone mapping, peak and the HDR10+ reader
+    at work), smooth motion on a high-refresh screen, and while another Python thread is busy (a
+    library scan, the yt-dlp update, thumbnails)."""
+    import threading
+    e = eng()
+    sdr, hdr = _pipe_fixture("pipe_uhd60"), _pipe_fixture("pipe_uhd60hdr")
+    if not sdr:
+        return
+    win().setProperty("playerOpen", True)
+    results = {}
+
+    def run(name, path, settle=1.5):
+        e.openFiles([path])
+        playing_media(timeout=30, video=True)
+        pump(settle)
+        results[name] = r = _pacing()
+        H.notes.append(f"{name}: {_fmt(r)}")
+    run("4K60 SDR", sdr)
+    if hdr:
+        run("4K60 HDR10+", hdr, settle=0.3)    # the HDR10+ reader is still reading the file
+    H.parts.settings.smoothMotion = "max"
+    run("4K60 SDR, smooth motion", sdr)
+    H.parts.settings.smoothMotion = "off"
+    stop = threading.Event()
+
+    def busy():          # pure Python work, as a library scan does
+        x = 0
+        while not stop.is_set():
+            for i in range(10000):
+                x += i * i
+    t = threading.Thread(target=busy, daemon=True)
+    t.start()
+    try:
+        run("4K60 SDR, busy Python thread", sdr)
+    finally:
+        stop.set()
+        t.join(2)
+    if e._native():
+        # the bar: every frame of the file reaches the screen, on time, in every case
+        dropped = sum(r["ui_dropped"] for r in results.values())
+        lost = sum(r["vlc_lost"] for r in results.values())
+        check(lost == 0, "libVLC loses no picture", str(lost))
+        check(all(r["fps"] >= 59.0 for r in results.values()), "60 pictures a second in every case",
+              str({k: round(r["fps"], 1) for k, r in results.items()}))
+        check(dropped <= 2, "no dropped frames (at most 2 of 1200, with a busy Python thread)", str(dropped))
+        check(all(r["worst_ms"] < 40 for r in results.values()), "no visible stall (every gap under 40 ms)",
+              str({k: round(r["worst_ms"]) for k, r in results.items()}))
+
+
+def _watch_mode(seconds, what):
+    """Sample, every few ms, what shows while a video opens: the audio look (the music stage, its
+    dock in place of the video controls) must never come up for it. Returns the moments it did.
+    (The mini player is not checked: it lives on the library page, behind the open player.)"""
+    e = eng()
+    stage = H.parts.find("musicStage")
+    pv = H.parts.find("playerView")
+    bad = []
+    t0 = time.perf_counter()
+    while time.perf_counter() - t0 < seconds:
+        pump(0.005)
+        ms = int((time.perf_counter() - t0) * 1000)
+        if e.isAudio:
+            bad.append(f"{what}: isAudio at {ms} ms (frames {e._frames_seen}, time {e.time})")
+        elif stage.property("visible") and not pv.property("warm") and win().property("playerOpen"):
+            bad.append(f"{what}: music stage over the video at {ms} ms")
+    return bad
+
+
+def _has(name):
+    try:
+        H.parts.find(name)
+        return True
+    except LookupError:
+        return False
+
+
+@scenario(timeout=120)
+def feature_video_never_opens_in_the_audio_look():
+    """Opening a video, also one resumed in the middle (its clock is past 1.5 s before its first
+    picture) or right after music: the player never takes the audio look (music stage, mini player)
+    on the way. Seen while tests ran: the audio player came up over a video that was opening."""
+    e = eng()
+    s = H.parts.settings
+    video = str(H.fx["video"])
+    bad = []
+    # a resumed video: 15 s into it
+    win().setProperty("playerOpen", False)
+    pump(0.3)
+    e.openFilesAt([video], 0, 15000)       # as a resumed file or the quick player's hand-over
+    win().setProperty("playerOpen", True)
+    bad += _watch_mode(4.0, "resumed video")
+    check(e._frames_seen > 0 and abs(e.time - 15000) < 4000, "it resumed and plays", f"time {e.time}")
+    # music, then a video
+    e.openFiles([str(H.fx["tone_c"])])
+    win().setProperty("playerOpen", False)
+    playing_media()
+    pump(1.0)
+    check(e.isAudio, "the music is in the audio look")
+    e.openFiles([video])
+    win().setProperty("playerOpen", True)
+    bad += _watch_mode(4.0, "video after music")
+    # a video while another plays, from the queue
+    e.openFiles([video, str(H.fx["video2"])])
+    playing_media(video=True)
+    e.next()
+    bad += _watch_mode(3.0, "next video")
+    check(not bad, "no audio look on the way to a video", "; ".join(bad[:6]))
+
+
+@scenario(timeout=150)
+def stress_music_and_video_switching_look():
+    """Music and videos opened one after another, fast as a script does and slow as a person does:
+    after every switch the player has the look of what plays (music stage for a song, the video for
+    a video), and a video never shows the music stage on its way in."""
+    e = eng()
+    stage = H.parts.find("musicStage")
+    songs =[str(H.fx[k]) for k in ("tone_a", "tone_b", "tone_c")]
+    videos = [str(H.fx[k]) for k in ("video", "video2")]
+    rnd = random.Random(7)
+    win().setProperty("playerOpen", True)
+    wrong = []
+    for i in range(24):
+        song = rnd.random() < 0.5
+        path = rnd.choice(songs if song else videos)
+        if not song and rnd.random() < 0.4:     # a resumed video (the tones are shorter than that)
+            e.openFilesAt([path], 0, rnd.choice((5000, 15000)))
+        else:
+            e.openFiles([path])
+        if i % 3:                       # a script's pace: the next before this one settles
+            pump(rnd.uniform(0.01, 0.12))
+            continue
+        if song:
+            wait(lambda: e.state == "playing", 8, f"song {i} plays")
+            pump(0.3)
+            if not (e.isAudio and stage.property("visible")):
+                wrong.append(f"#{i} song without the music stage")
+        else:
+            wrong += _watch_mode(1.5, f"#{i} video")
+            if e._frames_seen == 0:
+                wrong.append(f"#{i} video with no picture after 1.5 s")
+    # and it ends right
+    e.openFiles([videos[0]])
+    wrong += _watch_mode(2.0, "last video")
+    check(e._frames_seen > 0 and not stage.property("visible"), "ends on the video, in the video look")
+    check(not wrong, "every switch shows the right look", "; ".join(wrong[:6]))
+
+
+@scenario(timeout=120)
+def feature_unknown_stream_takes_the_right_look():
+    """A link with no extension (a radio, a share link): the app cannot tell sound from video by
+    its name. Sound only takes the audio look within ~3 s; a video never takes it, not even while
+    it buffers, and the decision is made again for the next link."""
+    import functools, http.server, shutil, socketserver, tempfile
+    root = Path(tempfile.mkdtemp(prefix="refrata_links_"))
+    shutil.copy(H.fx["tone_c"], root / "radio")
+    shutil.copy(H.fx["video"], root / "share")
+
+    class Quiet(http.server.SimpleHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+    srv = socketserver.ThreadingTCPServer(("127.0.0.1", 0), functools.partial(Quiet, directory=str(root)))
+    srv.daemon_threads = True
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{srv.server_address[1]}"
+    e = eng()
+    try:
+        win().setProperty("playerOpen", True)
+        e.openUrl(f"{base}/share")
+        bad = _watch_mode(4.0, "video link")
+        check(e._frames_seen > 0, "the video link shows its picture")
+        check(not bad, "a video link never takes the audio look", "; ".join(bad[:4]))
+        t0 = time.perf_counter()
+        e.openUrl(f"{base}/radio")
+        wait(lambda: e.isAudio, 8, "a sound-only link takes the audio look")
+        took = time.perf_counter() - t0
+        check(took < 4.5, "and soon (sound plays first, the look follows in ~2 s)", f"{took:.1f} s")
+        pump(0.6)
+        check(H.parts.find("musicStage").property("visible"), "the music stage shows for it")
+        # the decision is per link: a video after the radio starts clean
+        e.openUrl(f"{base}/share")
+        bad = _watch_mode(3.0, "video after radio")
+        check(not bad, "the next video link does not inherit the audio look", "; ".join(bad[:4]))
+    finally:
+        srv.shutdown()
+        e.stop()
+        pump(0.3)
+        shutil.rmtree(root, ignore_errors=True)
+
+
+def _tools():
+    return H.parts.qml.rootContext().contextProperty("tools")
+
+
+@scenario(timeout=120)
+def feature_bookmarks_frame_back_and_skip():
+    """Bookmarks per file (on the timeline too), one frame back, and the opening / ending of a folder
+    skipped on every file of it."""
+    e, t = eng(), _tools()
+    path = _pipe_fixture("pipe_motion24") or str(H.fx["video"])
+    e.openFiles([path])
+    playing_media(video=True)
+    win().setProperty("playerOpen", True)
+    _paused_at(5000)
+    t.addBookmark()
+    t.addBookmark()                                   # the same spot again: refused
+    _paused_at(9000)
+    t.addBookmark()
+    marks = t.property("bookmarks")
+    check(len(marks) == 2 and abs(marks[0] - 5000) < 400 and abs(marks[1] - 9000) < 400, "two bookmarks kept", str(marks))
+    pump(0.4)
+    check(H.parts.find("bookmarkMark_1") is not None, "bookmarks show on the timeline")
+    t.jumpBookmark(marks[0])
+    wait(lambda: abs(e.time - marks[0]) < 400, 5, "jumped to the first bookmark")
+    t.removeBookmark(marks[0])
+    check(t.property("bookmarks") == [marks[1]], "a bookmark removed", str(t.property("bookmarks")))
+    # one frame back, twice: the picture changes each time and the time goes back ~1/24 s each
+    _paused_at(6000)
+    t0, n0 = e._mp.get_time(), e._frames_seen
+    e.frameBack()
+    wait(lambda: e._frames_seen > n0, 5, "a frame back shows a new picture")
+    n1 = e._frames_seen
+    e.frameBack()
+    wait(lambda: e._frames_seen > n1, 5, "and again")
+    pump(0.3)
+    back = t0 - e._mp.get_time()
+    check(e.state == "paused" and 50 < back < 160, "two frames back from where it was", f"{back} ms, {e.state}")
+    # the opening of this folder ends at 3 s: a file of it starts there
+    _paused_at(3000)
+    t.markIntroEnd()
+    check(abs(t.property("introEnd") - 3000) < 400, "opening end marked", str(t.property("introEnd")))
+    e.openFiles([path, str(H.fx["video"])])
+    playing_media(video=True)
+    wait(lambda: e.time >= 2600, 6, "the opening was skipped")
+    # the ending: the last 5 s; playing into it goes to the next file
+    ln = e.length
+    e.seek(ln - 5000)
+    _paused_at(ln - 5000)
+    t.markOutroStart()
+    check(abs(t.property("outroLength") - 5000) < 500, "ending marked", str(t.property("outroLength")))
+    t.clearSkip()
+    check(t.property("introEnd") == 0 and t.property("outroLength") == 0, "skip marks cleared")
+    _paused_at(ln - 7000)
+    t.markOutroStart()
+    e.play()
+    wait(lambda: e.currentIndex == 1, 12, "the ending was skipped to the next file")
+    t.clearSkip()
+
+
+@scenario(timeout=150)
+def feature_player_tools_edge_cases():
+    """The tools at their edges: one frame back on the very first frame, bookmarks that belong to
+    their own file, a second subtitle in ASS / Windows-1252 / WebVTT, a broken one refused without
+    losing the one shown, a subtitle that does not follow to the next file, an export with no A-B."""
+    e, t = eng(), _tools()
+    tmp = os.environ["REFRATA_E2E_TMP"]
+    a, b = str(H.fx["video"]), str(H.fx["video2"])
+    e.openFiles([a, b])
+    playing_media(video=True)
+    win().setProperty("playerOpen", True)
+    # frame back on the first frame: stays there, paused, with a picture; no negative time
+    _paused_at(0)
+    n0 = e._frames_seen
+    for _ in range(3):
+        e.frameBack()
+        pump(0.3)
+    check(e.state == "paused" and 0 <= e._mp.get_time() < 120 and e.time >= 0, "frame back at the start stays at the start",
+          f"{e._mp.get_time()} ms, {e.state}")
+    check(e._frames_seen >= n0, "still a picture")
+    # bookmarks are per file
+    for k in list(t.property("bookmarks")):
+        t.removeBookmark(k)
+    _paused_at(6000)
+    t.addBookmark()
+    check(len(t.property("bookmarks")) == 1, "a bookmark on the first file")
+    e.next()
+    playing_media(video=True)
+    wait(lambda: e.currentPath == b, 5, "the second file")
+    pump(0.3)
+    check(t.property("bookmarks") == [], "the second file has none of the first's bookmarks", str(t.property("bookmarks")))
+    e.previous()
+    wait(lambda: e.currentPath == a, 5, "back to the first")
+    pump(0.3)
+    check(len(t.property("bookmarks")) == 1, "the first file's bookmark is still there", str(t.property("bookmarks")))
+    t.removeBookmark(t.property("bookmarks")[0])
+    # second subtitles in other formats
+    ass = os.path.join(tmp, "second.ass")
+    with open(ass, "w", encoding="cp1252") as f:
+        f.write("[Script Info]\nScriptType: v4.00+\n\n[Events]\n"
+                "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+                "Dialogue: 0,0:00:01.00,0:00:04.00,Default,,0,0,0,,{\\i1}Ação{\\i0} é já\\Nsegunda linha\n")
+    check(t.loadSecondSubtitle(ass), "an ASS file in Windows-1252 reads")
+    cues = t.property("cues")
+    check(len(cues) == 1 and cues[0][2] == "Ação é já\nsegunda linha" and cues[0][0] == 1000 and cues[0][1] == 4000,
+          "its text without the style tags, accents intact, two lines", repr(cues))
+    vtt = os.path.join(tmp, "second.vtt")
+    with open(vtt, "w", encoding="utf8") as f:
+        f.write("WEBVTT\n\nintro\n00:00:02.500 --> 00:00:03.250 align:start\n<b>Olá</b> 世界\n")
+    check(t.loadSecondSubtitle(vtt), "a WebVTT file reads")
+    cues = t.property("cues")
+    check(len(cues) == 1 and cues[0][2] == "Olá 世界" and cues[0][0] == 2500 and cues[0][1] == 3250, "its cue", repr(cues))
+    junk = os.path.join(tmp, "junk.srt")
+    with open(junk, "wb") as f:
+        f.write(os.urandom(4096))
+    check(not t.loadSecondSubtitle(junk), "a broken file is refused")
+    check(t.property("cuesName") == "second.vtt", "and the subtitle shown stays", t.property("cuesName"))
+    check(not t.loadSecondSubtitle(os.path.join(tmp, "missing.srt")), "a missing file is refused")
+    e.next()
+    wait(lambda: e.currentPath == b, 5, "the next file")
+    pump(0.3)
+    check(t.property("cues") == [], "the second subtitle does not follow to another file")
+    # an export with no A-B: the stretch around the current time (or nothing), never a crash
+    playing_media(video=True)
+    _paused_at(3000)
+    t.saveGif()
+    wait(lambda: t.property("exporting") == "", 60, "the export without A-B ends")
+    t.saveClip()
+    t.saveClip()                                     # a second press while one runs: ignored
+    wait(lambda: t.property("exporting") == "", 60, "the clip ends")
+    check(e.state == "paused" and e.currentPath == b, "playback untouched by the exports", f"{e.state} {e.currentPath}")
+
+
+@scenario(timeout=150)
+def feature_save_clip_and_gif():
+    """The A-B stretch saved as MP4 (streams copied, sound in sync) and as an animated GIF."""
+    import glob
+    e, t = eng(), _tools()
+    path = _pipe_fixture("pipe_motion24") or str(H.fx["video"])
+    out = os.path.join(os.environ["REFRATA_E2E_TMP"], "snaps")
+    e.openFiles([path])
+    playing_media(video=True)
+    win().setProperty("playerOpen", True)
+    _paused_at(4000)
+    e.cycleLoop()
+    _paused_at(7000)
+    e.cycleLoop()
+    check(e.loopA >= 0 and e.loopB > e.loopA, "A-B marked", f"{e.loopA}-{e.loopB}")
+    t.saveClip()
+    wait(lambda: t.property("exporting") == "", 60, "the clip is saved")
+    mp4 = glob.glob(os.path.join(out, "*.mp4"))
+    check(mp4 and os.path.getsize(mp4[0]) > 10_000, "an MP4 in the snapshot folder", str(mp4))
+    t.saveGif()
+    check(t.property("exporting") == "gif", "the GIF is being made")
+    wait(lambda: t.property("exporting") == "", 60, "the GIF is saved")
+    gif = glob.glob(os.path.join(out, "*.gif"))
+    check(gif and open(gif[0], "rb").read(6) in (b"GIF89a", b"GIF87a"), "a GIF in the snapshot folder", str(gif))
+    from PySide6.QtGui import QImageReader
+    r = QImageReader(gif[0])
+    check(r.imageCount() >= 30, "the GIF has the frames of the 3 s stretch", str(r.imageCount()))
+    if shutil.which("ffprobe"):
+        p = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "stream=codec_type,start_time", "-of", "csv=p=0", mp4[0]],
+                           capture_output=True, text=True).stdout.split()
+        starts = [float(x.split(",")[1]) for x in p if "," in x and x.split(",")[1] not in ("N/A", "")]
+        check(starts and max(starts) - min(starts) < 0.2, "sound and picture start together", str(p))
+    e.cycleLoop()
+
+
+@scenario(timeout=240)
+def feature_second_subtitle_and_subtitles_from_speech():
+    """A second subtitle (top of the picture) next to libVLC's, and subtitles written from the
+    speech of the video by whisper.cpp on the GPU."""
+    e, t = eng(), _tools()
+    srt = os.path.join(os.environ["REFRATA_E2E_TMP"], "second.srt")
+    with open(srt, "w", encoding="utf8") as f:
+        f.write("1\n00:00:01,000 --> 00:00:04,000\nSegunda <i>legenda</i>\n\n2\n00:00:05,000 --> 00:00:08,000\nOutra linha\n")
+    path = _pipe_fixture("pipe_speech") or str(H.fx["video"])
+    e.openFiles([path])
+    playing_media(video=True)
+    win().setProperty("playerOpen", True)
+    check(t.loadSecondSubtitle(srt), "the second subtitle reads")
+    check(t.property("cuesName") == "second.srt" and len(t.property("cues")) == 2, "its two cues", str(t.property("cues")))
+    _paused_at(2000)
+    pump(0.5)
+    txt = H.parts.find("subOverlayText")
+    check(txt.property("visible") and txt.property("text") == "Segunda legenda", "the cue shows at its time",
+          repr(txt.property("text")))
+    check(txt.property("y") < H.parts.find("subOverlay").property("height") / 2, "at the top of the picture")
+    t.clearSecondSubtitle()
+    check(t.property("cues") == [], "removed")
+    aisubs = H.parts.qml.rootContext().contextProperty("aisubs")
+    if not _pipe_fixture("pipe_speech") or not aisubs.property("available"):
+        H.notes.append("subtitles from speech: no speech fixture or no GPU/Vulkan here, skipped")
+        return
+    _paused_at(0)
+    H.parts.settings.aiSubs = True
+    wait(lambda: any("subtitles" in c[2].lower() for c in t.property("cues")), 200,
+         "the speech written as subtitles (model download on the first run)")
+    cues = t.property("cues")
+    H.notes.append("from speech: " + " | ".join(c[2] for c in cues))
+    check(t.property("cuesName") == "ai", "they are the AI subtitles")
+    words = " ".join(c[2].lower() for c in cues)
+    check(all(w in words for w in ("refrata", "quick brown fox", "thank you")), "what was said", words)
+    first = next(c for c in cues if "subtitles" in c[2].lower())
+    _paused_at(int((first[0] + first[1]) / 2))
+    pump(0.4)
+    check("subtitles" in txt.property("text").lower(), "shown at its time", repr(txt.property("text")))
+    check(txt.property("y") > H.parts.find("subOverlay").property("height") / 2, "at the bottom of the picture")
+    H.parts.settings.aiSubs = False
+    wait(lambda: t.property("cues") == [], 5, "off: gone")
+
+
+@scenario(timeout=180)
+def feature_subtitles_from_speech_while_switching():
+    """Subtitles from speech while the user jumps around and changes file: a new transcription
+    starts while the previous one still runs on the GPU. The interface never stops (two at once used
+    to deadlock on the GIL: the app froze for good), and only the newest one's subtitles show."""
+    from refrata import aisubs as A
+    aisubs = H.parts.qml.rootContext().contextProperty("aisubs")
+    speech = _pipe_fixture("pipe_speech")
+    if not speech or not aisubs.property("available") or not any(A.model_ready(n) for n in A.MODELS):
+        H.notes.append("subtitles from speech: no speech fixture, GPU/Vulkan or model here, skipped")
+        return
+    # 1. the engine itself: two transcriptions at once, the UI thread pumping all along
+    import wave
+    from refrata_native import Transcriber
+    name = next(n for n in ("base", "turbo") if A.model_ready(n))
+    asr = Transcriber(str(A.model_path(name)))
+    wav = os.path.join(os.environ["REFRATA_E2E_TMP"], "speech16k.wav")
+    stop = threading.Event()
+    A.extract_audio(speech, 0, wav, stop)
+    with wave.open(wav) as w:
+        pcm = w.readframes(w.getnframes())
+    out = []
+    ts = [threading.Thread(target=lambda: out.append(asr.transcribe(pcm, 0, "auto", False, 4)), daemon=True) for _ in range(3)]
+    worst, last = 0.0, time.perf_counter()
+    for t in ts:
+        t.start()
+    t0 = time.perf_counter()
+    while any(t.is_alive() for t in ts) and time.perf_counter() - t0 < 120:
+        pump(0.01)
+        now = time.perf_counter()
+        worst, last = max(worst, now - last), now
+    check(len(out) == 3, "three transcriptions at once all finish", f"{len(out)} of 3 in {time.perf_counter() - t0:.0f} s")
+    check(worst < 0.5, "the interface never waits for them", f"longest stop {worst * 1000:.0f} ms")
+    check(all("fox" in " ".join(s[2] for s in o[0]).lower() for o in out), "each heard the speech")
+    # 2. the app: seeks and file changes while it transcribes
+    e, t = eng(), _tools()
+    e.openFiles([speech, str(H.fx["video"])])
+    playing_media(video=True)
+    win().setProperty("playerOpen", True)
+    H.parts.settings.aiSubs = True
+    wait(lambda: t.property("cuesName") == "ai" and t.property("cues"), 120, "the first subtitles from speech")
+    worst, last = 0.0, time.perf_counter()
+    for i in range(8):
+        if i % 4 == 3:
+            e.next() if e.currentIndex == 0 else e.previous()
+        else:
+            e.seek(random.Random(i).randint(0, max(1000, e.length - 2000)))
+        t1 = time.perf_counter()
+        while time.perf_counter() - t1 < 1.2:
+            pump(0.01)
+            now = time.perf_counter()
+            worst, last = max(worst, now - last), now
+    check(worst < 0.5, "jumping and switching while it transcribes never stops the interface", f"{worst * 1000:.0f} ms")
+    alive = [th for th in threading.enumerate() if th.name == "aisubs" and th.is_alive()]
+    check(len(alive) <= 2, "old transcriptions wind down", str(len(alive)))
+    H.parts.settings.aiSubs = False
+    wait(lambda: not t.property("cues"), 5, "off: gone")
+
+
+def _print_window(hwnd):
+    """The window as the desktop compositor has it (PrintWindow, PW_RENDERFULLCONTENT), as a QImage."""
+    import ctypes
+    from ctypes import wintypes as wt
+    from PySide6.QtGui import QImage
+    u, g = ctypes.windll.user32, ctypes.windll.gdi32
+    r = wt.RECT()
+    u.GetWindowRect(wt.HWND(hwnd), ctypes.byref(r))
+    w, h = r.right - r.left, r.bottom - r.top
+    sdc = u.GetDC(None)
+    dc = g.CreateCompatibleDC(sdc)
+    bmp = g.CreateCompatibleBitmap(sdc, w, h)
+    old = g.SelectObject(dc, bmp)
+    u.PrintWindow(wt.HWND(hwnd), dc, 2)
+    buf = ctypes.create_string_buffer(w * h * 4)
+
+    class BMI(ctypes.Structure):
+        _fields_ = [("biSize", wt.DWORD), ("biWidth", wt.LONG), ("biHeight", wt.LONG), ("biPlanes", wt.WORD),
+                    ("biBitCount", wt.WORD), ("biCompression", wt.DWORD), ("biSizeImage", wt.DWORD),
+                    ("biXPelsPerMeter", wt.LONG), ("biYPelsPerMeter", wt.LONG), ("biClrUsed", wt.DWORD),
+                    ("biClrImportant", wt.DWORD), ("pad", wt.DWORD * 4)]
+    bmi = BMI(40, w, -h, 1, 32, 0)
+    g.GetDIBits(dc, bmp, 0, h, buf, ctypes.byref(bmi), 0)
+    g.SelectObject(dc, old)
+    g.DeleteObject(bmp)
+    g.DeleteDC(dc)
+    u.ReleaseDC(None, sdc)
+    return QImage(bytes(buf), w, h, w * 4, QImage.Format.Format_RGB32).copy()
+
+
+@scenario(timeout=90, data={"hdrOutput": "auto"})
+def feature_hdr_output_on_an_hdr_screen():
+    """With Windows HDR on: a scRGB swapchain, the whole window in the light-converting layer (not a
+    grey window), the interface at the desktop's SDR white, HDR video above it."""
+    hdrout = H.parts.qml.rootContext().contextProperty("hdrout")
+    if not hdrout.property("requested"):
+        H.notes.append("no screen with Windows HDR on here: the real HDR output is not tested")
+        return
+    wait(lambda: hdrout.property("active"), 5, "the window renders to a scRGB swapchain")
+    root = H.parts.find("hdrRoot")
+    pump(0.5)
+    check(len(root.childItems()) > 3 and sorted(c.objectName() for c in win().contentItem().childItems()) == ["hdrEffect", "hdrRoot"],
+          "the whole window is inside the HDR layer", str([c.objectName() for c in win().contentItem().childItems()]))
+    info = hdrout.property("screenInfo")
+    check(info.get("hdr") and hdrout.property("screenHdr"), "the window's screen is known to be in HDR", str(info))
+    check(abs(hdrout.property("sdrWhite") - info["sdr_white"]) < 0.5, "the interface uses the desktop's SDR white",
+          f"{hdrout.property('sdrWhite')} vs {info['sdr_white']}")
+    # what the compositor shows of the window (Qt's own grab cannot read a float swapchain)
+    shot = _print_window(int(win().winId()))
+    shot.save(os.path.join(os.environ["REFRATA_E2E_TMP"], "hdr_window.png"))
+    lum = sorted(round(0.2126 * c.redF() + 0.7152 * c.greenF() + 0.0722 * c.blueF(), 3)
+                 for c in (shot.pixelColor(int(shot.width() * x / 17), int(shot.height() * y / 17)) for x in range(1, 17) for y in range(1, 17)))
+    H.notes.append(f"HDR window as composited: light from {lum[0]} to {lum[-1]}, median {lum[len(lum) // 2]}")
+    check(lum[-1] - lum[0] > 0.3, "the window shows its content (not one flat grey)", f"{lum[0]}..{lum[-1]}")
+    check(lum[len(lum) // 2] < 0.3, "the dark theme stays dark", str(lum[len(lum) // 2]))
+    path = _pipe_fixture("pipe_hdr10")
+    if path:
+        e = eng()
+        e.openFiles([path])
+        playing_media(video=True)
+        win().setProperty("playerOpen", True)
+        pump(0.8)
+        pipe = H.parts.find("videoPipeline")
+        check(pipe.property("hdrOut") and pipe.property("outWhite") > 79, "HDR video goes out as HDR",
+              f"hdrOut={pipe.property('hdrOut')} white={pipe.property('outWhite')} peak={pipe.property('outPeak')}")
+
+
+def _window_light(step):
+    """The composited window's light, sampled on a 16x16 grid: (min, median, max)."""
+    shot = _print_window(int(win().winId()))
+    lum = sorted(0.2126 * c.redF() + 0.7152 * c.greenF() + 0.0722 * c.blueF()
+                 for c in (shot.pixelColor(int(shot.width() * x / 17), int(shot.height() * y / 17))
+                           for x in range(1, 17) for y in range(1, 17)))
+    return lum[0], lum[len(lum) // 2], lum[-1]
+
+
+@scenario(timeout=150, data={"hdrOutput": "auto"}, solo=True)
+def feature_hdr_window_never_goes_grey():
+    """With Windows HDR on, everything the window can show stays inside the HDR layer and shows its
+    content: every page, a list popup, the media menu, a toast, a video, full screen and back, a
+    resize. (The grey window seen while tests ran: content outside the layer, or the layer empty.)"""
+    from PySide6.QtCore import QMetaObject, Q_ARG
+    hdrout = H.parts.qml.rootContext().contextProperty("hdrout")
+    if not hdrout.property("requested"):
+        H.notes.append("no screen with Windows HDR on here: the HDR window is not tested")
+        return
+    wait(lambda: hdrout.property("active"), 5, "the window renders to a scRGB swapchain")
+    w = win()
+    root = H.parts.find("hdrRoot")
+    grey = []
+
+    def inside(item):
+        while item is not None:
+            if item == root:
+                return True
+            item = item.parentItem()
+        return False
+
+    def step(name, settle=0.5):
+        pump(settle)
+        kids = sorted(c.objectName() for c in w.contentItem().childItems())
+        if kids != ["hdrEffect", "hdrRoot"]:
+            grey.append(f"{name}: outside the HDR layer: {kids}")
+        lo, mid, hi = _window_light(name)
+        if hi - lo < 0.15:
+            grey.append(f"{name}: one flat colour ({lo:.2f}..{hi:.2f})")
+        elif mid > 0.5:
+            grey.append(f"{name}: washed out (median {mid:.2f})")
+    for page in (0, 1, 2, 3, 5):
+        w.setProperty("page", page)
+        step(f"page {page}")
+    # a Qt Quick Controls popup lives in the window's overlay, made on first use
+    dd = H.parts.find("settingsDevices")
+    w.setProperty("page", 5)
+    pump(0.4)
+    if dd.property("visible"):
+        QMetaObject.invokeMethod(dd, "open")
+        wait(lambda: dd.property("opened"), 3, "the list popup opens")
+        step("list popup")
+        check(inside(H.parts.find("settingsDev_0")), "the popup's rows draw inside the HDR layer")
+    w.setProperty("page", 0)                     # leaving the page closes the list
+    wait(lambda: not dd.property("opened"), 3, "the list closes with its page")
+    QMetaObject.invokeMethod(H.parts.find("mediaMenu"), "openAt", Q_ARG("QVariant", str(H.fx["video"])),
+                             Q_ARG("QVariant", 200), Q_ARG("QVariant", 200))
+    step("media menu")
+    QMetaObject.invokeMethod(H.parts.find("mediaMenu"), "close")
+    QMetaObject.invokeMethod(H.parts.find("toast"), "show", Q_ARG("QVariant", "HDR"))
+    step("toast", 0.3)
+    e = eng()
+    e.openFiles([str(H.fx["video"])])
+    playing_media(video=True)
+    w.setProperty("playerOpen", True)
+    step("video", 0.8)
+    QMetaObject.invokeMethod(w, "toggleFullscreen")
+    step("full screen", 1.0)
+    QMetaObject.invokeMethod(w, "toggleFullscreen")
+    step("back from full screen", 1.0)
+    w.resize(w.minimumWidth(), w.minimumHeight())
+    step("smallest window", 0.8)
+    w.resize(1400, 860)
+    step("large window", 0.8)
+    check(not grey, "the HDR window shows its content everywhere", "; ".join(grey[:6]))
+
+
+def _sharpness(img, x0=0.3, x1=0.7, y0=0.3, y1=0.7):
+    """Mean absolute Laplacian of the luma over the middle of an image: more detail, higher."""
+    w, h = img.width(), img.height()
+    total = n = 0
+    for y in range(int(h * y0), int(h * y1), 2):
+        for x in range(int(w * x0), int(w * x1), 2):
+            c = lambda xx, yy: (lambda p: 0.299 * p.red() + 0.587 * p.green() + 0.114 * p.blue())(img.pixelColor(xx, yy))  # noqa: E731
+            total += abs(4 * c(x, y) - c(x - 1, y) - c(x + 1, y) - c(x, y - 1) - c(x, y + 1))
+            n += 1
+    return total / max(1, n)
+
+
+@scenario(timeout=120, data={"rtxVsr": True}, solo=True)
+def feature_rtx_video_super_resolution():
+    """NVIDIA RTX Video Super Resolution: a 640x360 video upscaled to the window by the GPU's video
+    processor with NVIDIA's AI upscaler on; measurably sharper than the same upscale without it."""
+    ctl = H.parts.ctl
+    if not ctl.property("nvidiaRtx"):
+        H.notes.append("no NVIDIA RTX GPU here: RTX Video not tested")
+        return
+    e = eng()
+    e.openFiles([str(H.fx["video"])])
+    playing_media(video=True)
+    win().setProperty("playerOpen", True)
+    pump(1.0)
+    pipe = H.parts.find("videoPipeline")
+    check(pipe.property("rtxOn"), "the RTX video item draws the picture", f"wanted={pipe.property('rtxWanted')}")
+    rtx = H.parts.find("rtxVideo")
+    wait(lambda: rtx.property("frames") > 10, 5, "the GPU's video processor makes the pictures")
+    check(rtx.property("status") == "vsr", "NVIDIA took the Super Resolution request", rtx.property("status"))
+    out = rtx.property("outputSize")
+    check(out.width() > 1000, "processed straight to the size on screen", f"{out.width()}x{out.height()}")
+    _paused_at(4000)
+
+    def grab():
+        res = pipe.grabToImage()
+        got = []
+        res.ready.connect(lambda: got.append(1))
+        wait(lambda: got, 5, "grabbed")
+        return res.image()
+    on = _sharpness(grab())
+    rtx.setProperty("superResolution", False)
+    pump(0.5)
+    e.frameStep()
+    pump(0.6)
+    off = _sharpness(grab())
+    H.notes.append(f"RTX VSR sharpness: on {on:.2f}, off {off:.2f} (640x360 to {out.width()}x{out.height()})")
+    # (the driver applies it only with "RTX Video Enhancement > Super Resolution" on in the NVIDIA
+    # App / Control Panel: if this fails on a machine, look there first)
+    # whether the driver actually runs its upscaler is the driver's call ("Auto" quality backs off
+    # under GPU load; a window not in front may be skipped): measured 2.2x to 2.7x sharper when it
+    # does, so it is recorded, not required
+    H.notes.append("RTX VSR applied by the driver: " + ("yes" if on > off * 1.15 else "not this time"))
+    H.parts.settings.rtxVsr = False
+    pump(0.4)
+    check(not pipe.property("rtxOn") and H.parts.find("videoOutput").property("visible"), "off: the plain output again")
+
+
 @scenario(timeout=60)
 def feature_media_info_and_panels():
     e = eng()
@@ -1035,7 +2132,7 @@ def feature_media_info_and_panels():
     win().setProperty("playerOpen", True)
     pump(0.6)
     pv = H.parts.find("playerView")
-    for panel in ("tracks", "speed", "eq", "adjust", "sleep", "info"):
+    for panel in ("tracks", "speed", "eq", "adjust", "sleep", "tools", "info"):
         pv.setProperty("panel", panel)
         pv.setProperty("controlsVisible", True)
         pump(0.45)
@@ -3544,7 +4641,7 @@ def _fixtures(cache: Path):
         # the small and empty ones first, and a scenario then tested a file that was not there
         gone = [p for p in _fixture_paths(ready) if not os.path.exists(_long(p))]
         if not gone:
-            return ready
+            return _with_pipeline(cache, marker, ready)
         print(f"fixture cache incomplete ({len(gone)} missing, e.g. {gone[0]}): generating again")
         marker.unlink()
     code = (
@@ -3566,7 +4663,21 @@ def _fixtures(cache: Path):
     ) % (str(ROOT), str(ROOT), str(cache), str(marker))
     cache.mkdir(parents=True, exist_ok=True)
     subprocess.run([sys.executable, "-c", code], check=True, cwd=str(ROOT))
-    return json.loads(marker.read_text(encoding="utf8"))
+    return _with_pipeline(cache, marker, json.loads(marker.read_text(encoding="utf8")))
+
+
+def _with_pipeline(cache: Path, marker: Path, ready: dict) -> dict:
+    """The video pipeline's media (HDR10, HLG, 8K...), made with ffmpeg when it is on PATH."""
+    # speech recognition models: downloaded (and checked) once, shared by every scenario
+    os.environ.setdefault("REFRATA_MODEL_DIR", str(cache / "models"))
+    # again whenever one is missing (a newer suite added one): files already made are kept
+    want = ("pipe_hdr10", "pipe_hlg", "pipe_hdr_ref", "pipe_uhd8k", "pipe_motion24", "pipe_hdrlie", "pipe_hdr10plus",
+            "pipe_uhd60", "pipe_uhd60hdr") + (("pipe_speech",) if sys.platform == "win32" else ())
+    if not all(k in ready["fx"] and Path(ready["fx"][k]).exists() for k in want) and shutil.which("ffmpeg"):
+        from tests.fixtures import make_pipeline
+        ready["fx"].update({k: str(v) for k, v in make_pipeline(cache / "fx" / "pipeline").items()})
+        marker.write_text(json.dumps(ready), encoding="utf8")
+    return ready
 
 
 _SETUP_LOCK = threading.Lock()
@@ -3577,7 +4688,9 @@ def run_one(sc: Scenario, fixtures: dict, exe: str | None, work: Path, extra_env
     shutil.rmtree(base, ignore_errors=True)
     data = base / "data"
     data.mkdir(parents=True)
-    settings = {"folders": [fixtures["fx"]["media_root"]], "snapshotDir": str(base / "snaps"), "volume": 30}
+    # the picture checks expect an SDR screen; the HDR output has its own scenario (hdrOutput auto)
+    settings = {"folders": [fixtures["fx"]["media_root"]], "snapshotDir": str(base / "snaps"), "volume": 30,
+                "hdrOutput": "off"}
     # REFRATA_E2E_TMP: no real autostart entry, file types or update check (refrata/tray.py, assoc.py)
     env = dict(os.environ, REFRATA_DATA=str(data), REFRATA_E2E_TMP=str(base), REFRATA_NO_HOOK="1", REFRATA_LANG="pt",
                REFRATA_NO_MEDIAKEYS="0" if "mediakeys" in sc.name else "1",
@@ -3590,6 +4703,7 @@ def run_one(sc: Scenario, fixtures: dict, exe: str | None, work: Path, extra_env
     with _SETUP_LOCK:                 # setups share the fixture cache (the big library is built once)
         extra = sc.setup(data) if sc.setup else None
     if not (data / "settings.json").exists():
+        settings.update(sc.data or {})
         settings.update(extra or {})
         (data / "settings.json").write_text(json.dumps({"settings": settings, "history": []}), encoding="utf8")
     cmd = [exe] if exe else ([sys.executable, "-m", "coverage", "run", "--rcfile", str(ROOT / "tools" / "coveragerc"), str(ENTRY)]

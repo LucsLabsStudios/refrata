@@ -39,6 +39,19 @@ DEFAULTS = {
     "background": False,      # close to the tray
     "language": "auto",       # auto (Windows language) or a code from refrata/i18n.py
     "shortcuts": {},          # action -> key, only the ones changed in Ajustes (refrata/shortcuts.py)
+    "smoothMotion": "off",    # in-between frames (ui/VideoPipeline.qml): off | 60 | 120 | max (display rate)
+    "lightBoost": 0,          # 0..100: local brightening of dark areas, an "HDR look" on SDR video
+    "detailBoost": 0,         # 0..100: adaptive sharpening
+    "hdrOutput": "auto",      # auto: real HDR on a screen with Windows HDR on (refrata/hdroutput.py) | off
+    "hdrDynamic": True,       # HDR10: tone map each scene by its measured brightness (shaders/peak.frag)
+    "bookmarks": {},          # path -> [ms, ...]: marked points (refrata/tools.py)
+    "skipMarks": {},          # folder -> {"intro": ms, "outro": ms}: openings/endings to skip (tools.py)
+    "passthrough": "off",     # off | on (AC3/DTS) | hd (+TrueHD, DTS-HD, E-AC-3): to the receiver as is
+    "rtxVsr": False,          # NVIDIA RTX Video Super Resolution (refrata_native, vsr)
+    "rtxHdr": False,          # NVIDIA RTX Video HDR: SDR video shown as HDR on an HDR screen
+    "aiSubs": False,          # subtitles made from the sound by speech recognition (refrata/aisubs.py)
+    "aiSubsTranslate": False,  # ...translated to English
+    "aiModel": "auto",        # whisper model: auto (by the graphics card) | base | turbo
 }
 
 
@@ -53,6 +66,20 @@ def _valid(key, v) -> bool:
         return v in ("dark", "light")
     if key == "volume":
         return isinstance(v, int) and not isinstance(v, bool) and 0 <= v <= 150
+    if key == "smoothMotion":
+        return v in ("off", "60", "120", "max")
+    if key == "hdrOutput":
+        return v in ("auto", "off")
+    if key == "passthrough":
+        return v in ("off", "on", "hd")
+    if key == "aiModel":
+        return v in ("auto", "base", "turbo")
+    if key == "bookmarks":
+        return isinstance(v, dict) and all(isinstance(k, str) and isinstance(x, list) for k, x in v.items())
+    if key == "skipMarks":
+        return isinstance(v, dict) and all(isinstance(k, str) and isinstance(x, dict) for k, x in v.items())
+    if key in ("lightBoost", "detailBoost"):
+        return isinstance(v, int) and not isinstance(v, bool) and 0 <= v <= 100
     if key == "folders":
         return isinstance(v, list) and all(isinstance(x, str) for x in v)
     if key == "shortcuts":
@@ -211,6 +238,16 @@ class Settings(QObject):
     hwdec = _mk("hwdec", bool)
     folders = _mk("folders", list)
     quickOpen = _mk("quickOpen", bool)
+    smoothMotion = _mk("smoothMotion", str)
+    lightBoost = _mk("lightBoost", int)
+    detailBoost = _mk("detailBoost", int)
+    hdrOutput = _mk("hdrOutput", str)
+    hdrDynamic = _mk("hdrDynamic", bool)
+    rtxVsr = _mk("rtxVsr", bool)
+    rtxHdr = _mk("rtxHdr", bool)
+    aiSubs = _mk("aiSubs", bool)
+    aiSubsTranslate = _mk("aiSubsTranslate", bool)
+    aiModel = _mk("aiModel", str)
     del _mk
 
     @Slot(str)

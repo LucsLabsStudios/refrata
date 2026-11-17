@@ -44,11 +44,16 @@ Item {
             anchors.fill: parent
             layer.enabled: true
             layer.effect: MultiEffect { maskEnabled: true; maskSource: pmask; maskThresholdMin: 0.5; maskSpreadAtMin: 1 }
-            VideoOutput {
+            VideoPipeline {
                 id: vo
+                outputName: "miniVideoOutput"
                 anchors.fill: parent
                 fillMode: VideoOutput.PreserveAspectCrop
                 visible: !player.isAudio
+                hdr: player.videoHdr === "pq" ? 1 : player.videoHdr === "hlg" ? 2 : 0
+                srcPeak: player.videoPeak
+                scene: player.hdrScene
+                measure: settings.hdrDynamic
                 Component.onCompleted: player.addSink(vo.videoSink)
                 Component.onDestruction: player.removeSink(vo.videoSink)
             }

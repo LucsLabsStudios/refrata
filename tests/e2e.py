@@ -1060,7 +1060,9 @@ def scroll_into_view(item):
         return
     top = item.mapToScene(QPointF(0, 0)).y()
     if top < 80 or top + item.height() > w.height() - 120:
-        flick.setProperty("contentY", max(0.0, flick.property("contentY") + top - w.height() / 3))
+        # within the page's bounds: past its end the Flickable glides back while the click lands
+        end = max(0.0, (flick.property("contentHeight") or 0) - flick.height())
+        flick.setProperty("contentY", min(end, max(0.0, flick.property("contentY") + top - w.height() / 3)))
         pump(0.15)
 
 
@@ -1337,6 +1339,24 @@ def t35_pages_by_mouse():
         check(s.value(key) == (not v), f"{name} switch")
         ui_click(sp, name)
         check(s.value(key) == v, f"{name} switch back")
+    # picture: smooth motion, light and detail boost
+    check(find_under(sp, "pictureCard").isVisible(), "the picture settings card shows")
+    for v in ("60", "120", "max", "off"):
+        ui_click(find_under(sp, "smoothMotionSeg"), "seg_" + v)
+        check(s.smoothMotion == v, f"smooth motion segmented → {v}", s.smoothMotion)
+    for name, key in (("lightBoostSlider", "lightBoost"), ("detailBoostSlider", "detailBoost")):
+        ui_click(sp, name)                       # the middle of the track
+        check(40 <= s.value(key) <= 60, f"{name} sets about half", str(s.value(key)))
+        s.setValue(key, 0)
+    # HDR: real HDR output on HDR screens (auto/off), per-scene brightness for HDR10
+    ui_click(sp, "hdrOutputToggle")
+    check(s.hdrOutput == "off", "HDR output switch → off", s.hdrOutput)
+    ui_click(sp, "hdrOutputToggle")
+    check(s.hdrOutput == "auto", "HDR output switch → auto", s.hdrOutput)
+    ui_click(sp, "hdrDynamicToggle")
+    check(s.hdrDynamic is False, "per-scene brightness switch → off")
+    ui_click(sp, "hdrDynamicToggle")
+    check(s.hdrDynamic is True, "per-scene brightness switch → on")
     ui_click(sp, "rescanBtn")
     wait(lambda: not lib.scanning and lib.videoCount == 3, 15, "rescan button")
     # pickers: a second click on the pill closes the list (it used to close on press and reopen)
@@ -1490,6 +1510,108 @@ def t40_native_subtitle_dialog():
     wait(lambda: len(e.subtitleTracks) > n0, 8, "picked subtitle becomes a track")
     pv.setProperty("panel", "")
     stop_playback()
+    go_page(0)
+
+
+@test
+def t52_player_tools_by_mouse():
+    """Ferramentas (frame back/forward, bookmarks, skip intro/outro, clip and GIF) and Faixas › Mais
+    legendas (second subtitle through the Windows dialog, subtitles from the sound), by real clicks."""
+    e = eng()
+    stop_playback()
+    pv = open_player_with([C.fx["video"], C.fx["video2"]])
+    poke = lambda: call(pv, "poke")  # noqa: E731
+    tools = C.parts.qml.rootContext().contextProperty("tools")
+    e.seek(6000)
+    pump(0.5)
+    e.pause()
+    wait(lambda: e.state == "paused", 5, "paused")
+    ui_click("pvTools"); poke()
+    check(pv.property("panel") == "tools", "tools panel opens")
+    pop = C.parts.find("popover")
+    wait(lambda: pop.property("opacity") > 0.95, 2)
+    n0, t0 = e._frames_seen, e._mp.get_time()
+    ui_click(pop, "frameBackBtn"); poke()
+    wait(lambda: e._frames_seen > n0, 5, "frame back button shows the previous frame")
+    check(e._mp.get_time() < t0, "the time went back", f"{e._mp.get_time()} vs {t0}")
+    n1 = e._frames_seen
+    ui_click(pop, "frameStepBtn"); poke()
+    wait(lambda: e._frames_seen > n1, 5, "frame step button")
+    ui_click(pop, "addBookmarkBtn"); poke()
+    wait(lambda: len(tools.property("bookmarks")) == 1, 3, "bookmark added by click")
+    e.seek(1000)
+    pump(0.4); poke()
+    ui_click(pop, "bookmark_0"); poke()
+    wait(lambda: abs(e.time - tools.property("bookmarks")[0]) < 500, 4, "a click on the bookmark jumps there")
+    ui_click(pop, "bookmarkDel_0"); poke()
+    wait(lambda: tools.property("bookmarks") == [], 3, "bookmark removed by click")
+    e.seek(3000)
+    pump(0.5); poke()
+    ui_click(pop, "markIntroBtn"); poke()
+    check(tools.property("introEnd") > 0, "opening end marked by click")
+    e.seek(e.length - 4000)
+    pump(0.5); poke()
+    ui_click(pop, "markOutroBtn"); poke()
+    check(tools.property("outroLength") > 0, "ending marked by click")
+    ui_click(pop, "clearSkipBtn"); poke()
+    check(tools.property("introEnd") == 0 and tools.property("outroLength") == 0, "skip marks cleared by click")
+    e.seek(2000)
+    pump(0.4); poke()
+    clips0 = len(list((TMP / "snaps").glob("*.mp4")))
+    ui_click(pop, "saveClipBtn"); poke()
+    wait(lambda: tools.property("exporting") == "", 40, "clip saved")
+    check(len(list((TMP / "snaps").glob("*.mp4"))) == clips0 + 1, "the clip button saves an MP4")
+    poke()
+    wait(lambda: find_under(pop, "saveGifBtn").property("enabled"), 5, "GIF button ready")
+    pump(0.3); poke()
+    ui_click(pop, "saveGifBtn"); poke()
+    wait(lambda: tools.property("exporting") == "gif" or list((TMP / "snaps").glob("*.gif")), 3, "the GIF button starts the GIF")
+    wait(lambda: tools.property("exporting") == "", 40, "GIF saved")
+    check(list((TMP / "snaps").glob("*.gif")), "the GIF button saves a GIF")
+    ui_click("pvTools"); poke()
+    # Faixas › Mais legendas
+    ui_click("pvTracks"); poke()
+    wait(lambda: pop.property("opacity") > 0.95, 2)
+    if sys.platform == "win32":
+        drive_dialog(lambda: ui_click(pop, "secondSubBtn"), "Segunda legenda",
+                     folder=str(C.fx["srt"].parent), names=[C.fx["srt"].name])
+        wait(lambda: tools.property("cuesName") == C.fx["srt"].name, 5, "second subtitle picked in the dialog")
+        poke()
+        ui_click(pop, "secondSubClear"); poke()
+        wait(lambda: tools.property("cuesName") == "", 3, "second subtitle removed by click")
+    aisubs = C.parts.qml.rootContext().contextProperty("aisubs")
+    status = find_under(pop, "aiSubsStatus")
+    check(status is not None and status.property("text") != "", "the AI subtitles line says what it does")
+    if aisubs.property("available"):
+        s = C.parts.settings
+        ui_click(pop, "aiTranslateToggle"); poke()
+        check(s.aiSubsTranslate is True, "translate switch on")
+        ui_click(pop, "aiTranslateToggle"); poke()
+        ui_click(pop, "aiSubsToggle"); poke()
+        check(s.aiSubs is True, "AI subtitles switch on")
+        ui_click(pop, "aiSubsToggle"); poke()
+        check(s.aiSubs is False, "AI subtitles switch off")
+    ui_click("pvTracks"); poke()
+    stop_playback()
+    go_page(0)
+
+
+@test
+def t53_settings_sound_and_rtx_by_mouse():
+    s = C.parts.settings
+    e = eng()
+    go_page(5)
+    sp = C.parts.find("settingsPage")
+    for v in ("on", "hd", "off"):
+        ui_click(find_under(sp, "passthroughSeg"), "seg_" + v)
+        check(e.passthrough == v and s.value("passthrough") == v, f"passthrough → {v}", e.passthrough)
+    if C.parts.ctl.property("nvidiaRtx"):
+        for name, key in (("rtxVsrToggle", "rtxVsr"), ("rtxHdrToggle", "rtxHdr")):
+            v = s.value(key)
+            ui_click(sp, name)
+            check(s.value(key) == (not v), f"{name} switch")
+            ui_click(sp, name)
+            check(s.value(key) == v, f"{name} switch back")
     go_page(0)
 
 

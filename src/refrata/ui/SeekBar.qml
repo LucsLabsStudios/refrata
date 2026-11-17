@@ -10,6 +10,7 @@ Item {
     property real loopA: -1     // ms; the A-B stretch is shown on the track
     property real loopB: -1
     property var chapters: []   // [{time, name}]: ticks on the track, the name in the bubble
+    property var marks: []      // bookmarks, ms
     property bool dragging: ma.pressed
     property bool previewEnabled: false
     property string previewSource: ""
@@ -49,6 +50,18 @@ Item {
             width: parent.width * root.frac
             height: parent.height; radius: parent.radius
             color: root.accent
+        }
+        // bookmarks (tools.py): a dot above the track at each one
+        Repeater {
+            model: root.to > 0 ? root.marks : []
+            Rectangle {
+                objectName: "bookmarkMark_" + index
+                x: parent.width * Math.min(1, modelData / root.to) - width / 2
+                y: -height - 3
+                width: 6; height: 6; radius: 3
+                color: root.accent
+                border.width: 1; border.color: Qt.rgba(0, 0, 0, 0.5)
+            }
         }
         Repeater {
             model: root.to > 0 ? root.chapters : []

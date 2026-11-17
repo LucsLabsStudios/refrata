@@ -70,10 +70,13 @@ com o seu `.sha256` e a sua assinatura `.sig`.
 
 | Área | O que tem |
 |---|---|
-| **Vídeo** | 4K na resolução nativa com conversão de cor na GPU, decodificação por hardware, brilho/contraste/saturação/gama/matiz, ajustar/preencher/esticar, girar, espelhar, proporção, zoom, desentrelaçar, prévia de cenas na barra de tempo |
-| **Áudio** | Volume até 150%, equalizador de 10 bandas com pré-amp e 18 presets, normalizar volume, escolha da saída (alto-falantes, fone, HDMI) |
-| **Legendas** | Troca de faixa, arquivos externos (botão ou arrastar), atraso, busca no OpenSubtitles pelo hash do arquivo, tamanho/cor/fundo, codificação |
-| **Reprodução** | Fila com reordenar e tocar em seguida, aleatório e repetir, velocidade 0,25×–4×, repetir trecho (A-B), quadro a quadro, capítulos, continuar de onde parou, timer de sono, captura de quadro |
+| **Vídeo** | Resolução nativa até 8K com conversão de cor na GPU, decodificação por hardware, brilho/contraste/saturação/gama/matiz, realce de luz e de detalhe, ajustar/preencher/esticar, girar, espelhar, proporção, zoom, desentrelaçar, prévia de cenas na barra de tempo |
+| **HDR** | HDR10, HDR10+ e HLG com as cores certas (curva BT.2390, mapeamento de BT.2020); metadados HDR10+ seguidos cena a cena e brilho do HDR10 medido a cada quadro na GPU; saída HDR real em telas com o HDR do Windows ligado (scRGB), com a interface no brilho SDR da área de trabalho |
+| **Movimento suave** | Interpolação de quadros na GPU para 60 ou 120 fps ou a taxa do monitor: busca de movimento com precisão de ¼ de pixel, vetor escolhido por pixel (logotipos e legendas não se arrastam), volta ao quadro real em cortes de cena e oclusões, sem limite de resolução |
+| **NVIDIA RTX** | RTX Video Super Resolution e RTX Video HDR pelo processador de vídeo da GPU (placas RTX) |
+| **Áudio** | Volume até 150%, equalizador de 10 bandas com pré-amp e 18 presets, normalizar volume, escolha da saída (alto-falantes, fone, HDMI), passthrough de Dolby e DTS (e TrueHD, DTS-HD, Atmos no modo HD) para o receiver |
+| **Legendas** | Troca de faixa, arquivos externos (botão ou arrastar), atraso, busca no OpenSubtitles pelo hash do arquivo, tamanho/cor/fundo, codificação, segunda legenda no alto da imagem (SRT, WebVTT, ASS), legendas geradas da fala com o Whisper na GPU, com tradução opcional para o inglês, tudo sem internet |
+| **Reprodução** | Fila com reordenar e tocar em seguida, aleatório e repetir, velocidade 0,25×–4×, repetir trecho (A-B), quadro a quadro para frente e para trás, capítulos, favoritos na barra de tempo, pular abertura e encerramento por pasta, continuar de onde parou, timer de sono, captura de quadro, salvar o trecho A-B em MP4 (sem recodificar, mantendo o HDR) ou GIF |
 | **Biblioteca** | Varredura das pastas de vídeos e músicas, miniaturas, duração e tags, busca e ordenação |
 | **Rede** | YouTube, Vimeo e outros sites pelo yt-dlp, streams HTTP/HLS/RTSP/RTMP/SMB, transmissão para Chromecast |
 | **Windows** | Prévia com Espaço no Explorer e na área de trabalho, player rápido, bandeja e iniciar com o Windows, picture-in-picture, sempre no topo, teclas de mídia e painel de mídia do Windows |
@@ -90,7 +93,8 @@ com o seu `.sha256` e a sua assinatura `.sig`.
 | `←` `→` | Voltar / avançar 10 s | `↑` `↓` | Volume |
 | `M` | Mudo | `N` / `P` | Próximo / anterior |
 | `Shift+N` / `Shift+P` | Próximo / anterior capítulo | `[` `]` `=` | Mais lento / mais rápido / normal |
-| `S` | Captura de quadro | `E` | Próximo quadro |
+| `S` | Captura de quadro | `E` / `Shift+E` | Próximo / quadro anterior |
+| `B` | Favoritar este momento | | |
 | `L` | Trecho A-B | `T` | Sempre no topo |
 | `I` | Informações da mídia | `R` | Girar |
 | `Ctrl+P` | Picture-in-picture | `Ctrl+O` | Abrir arquivos |
@@ -135,7 +139,7 @@ refrata/
 ├── tests/                Testes de unidade, ponta a ponta, robustez, abertura e pacotes
 ├── tools/                Build, lançamento, assinatura, traduções e identidade visual
 ├── packaging/windows/    Instalador (Inno Setup) e pacote MSIX (Microsoft Store)
-├── native/               Pipeline de quadros opcional em Rust (PyO3, experimental)
+├── native/               Módulo em Rust e C++: entrega de quadros ao Qt, RTX Video, HDR10+, whisper.cpp
 ├── site/                 refrata.vercel.app
 └── docs/                 Guias e notas de projeto
 ```

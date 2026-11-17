@@ -45,4 +45,4 @@ dependencies = { file = ["requirements.txt"] }
 where = ["src"]
 
 [tool.setuptools.package-data]
-refrata = ["ui/*.qml", "ui/*.js", "resources/*.*", "resources/brand/*", "resources/fonts/*", "locales/*.json"]
+refrata = ["ui/*.qml", "ui/*.js", "ui/shaders/*.qsb", "ui/shaders/*.frag", "resources/*.*", "resources/brand/*", "resources/fonts/*", "locales/*.json"]
