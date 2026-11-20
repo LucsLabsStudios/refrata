@@ -1587,7 +1587,7 @@ class Engine(QObject):
 
     @Slot(list, int, int)
     def openFilesAt(self, items, start, ms):
-        """openFiles, starting the first track at `ms` (hand-off from the quick player)."""
+        """openFiles, starting the first track at `ms` (hand-off from the Space preview)."""
         self._start_at = max(0, int(ms))
         self.openFiles(items, start)
 

@@ -55,10 +55,20 @@ Item {
         rtx: video.rtxState, motion: video.motionState, motionFrom: player.videoFps * player.rate,
         motionTo: video.motionTo, light: video.light, detail: video.detail
     })
+    // the mouse still over the picture: the controls go after 2 s (YouTube and Netflix wait 2-3 s,
+    // mpv 1 s); the mouse gone from the window: after half a second (a moment's grace, so passing
+    // over the edge does not make them blink)
+    readonly property int idleHideMs: 2000
+    readonly property int leaveHideMs: 500
     Timer {
         id: hideTimer
-        interval: 2800
+        interval: pv.idleHideMs
         onTriggered: if (pv.idleHide) pv.controlsVisible = false
+    }
+    Timer {
+        id: leaveTimer
+        interval: pv.leaveHideMs
+        onTriggered: if (pv.idleHide && !rootHover.hovered) pv.controlsVisible = false
     }
     Connections {
         target: player
@@ -76,6 +86,7 @@ Item {
     HoverHandler {
         id: rootHover
         property point last: Qt.point(-1, -1)
+        onHoveredChanged: if (hovered) leaveTimer.stop(); else if (pv.visible) leaveTimer.restart()
         onPointChanged: {
             var p = point.scenePosition
             if (Math.abs(p.x - last.x) + Math.abs(p.y - last.y) >= 2) {
@@ -160,6 +171,7 @@ Item {
                 visible: cues.length > 0
                 time: pvClock.value
                 atTop: tools.cuesName !== "ai"
+                subStyle: player.subtitleStyle
             }
         }
 
@@ -310,7 +322,8 @@ Item {
         anchors.fill: parent
         opacity: pv.controlsVisible ? 1 : 0
         visible: opacity > 0
-        Behavior on opacity { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
+        // out a little quicker than in: going away needs no attention
+        Behavior on opacity { NumberAnimation { duration: pv.controlsVisible ? 260 : 200; easing.type: Easing.OutCubic } }
 
         // ---- top-left
         Row {

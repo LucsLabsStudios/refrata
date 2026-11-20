@@ -154,9 +154,8 @@ class InstanceServer(QObject):
         if self._hold:
             self._queued.append(files)
             return
-        # a plain relaunch brings the window back; with files, the app decides where they go
-        # (quick player or the open window) - activating here would pop the main window up with
-        # the previous video behind the quick player
+        # a plain relaunch brings the window back; with files, the app restores and focuses the window
+        # itself, before the previous video is let go (activating here would show the old video first)
         if files:
             self.received.emit(files)
         else:

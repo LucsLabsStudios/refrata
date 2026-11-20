@@ -64,7 +64,7 @@ def env():
     # empty library: otherwise the defaults (the user's Videos and Music) get scanned and thumbnailed
     import json
     with open(os.path.join(d, "settings.json"), "w", encoding="utf8") as f:
-        json.dump({"settings": {"folders": [], "quickOpenReset": True}, "history": []}, f)
+        json.dump({"settings": {"folders": []}, "history": []}, f)
     return dict(os.environ, REFRATA_DATA=d, REFRATA_E2E_TMP=d), d
 
 

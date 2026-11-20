@@ -90,7 +90,7 @@ class Run:
         self.exe = exe
         self.dir = tempfile.mkdtemp(prefix="refrata_launch_")
         with open(os.path.join(self.dir, "settings.json"), "w", encoding="utf8") as f:   # empty library: no scan of the person's folders
-            json.dump({"settings": {"folders": [], "quickOpenReset": True, "volume": 0}, "history": []}, f)
+            json.dump({"settings": {"folders": [], "volume": 0}, "history": []}, f)
         self.procs = []
 
     def env(self, **extra):
@@ -195,7 +195,15 @@ def idle(exe):
     try:
         p = r.start("--new-window")
         h = handle(p.pid)
-        time.sleep(9)                    # start, the page warm-up, the first checks
+        # start, the pages' warm-up, the update check (~14 s in): over once five seconds in a row
+        # stay quiet (measured from a fixed 9 s, the end of the start read as idle CPU)
+        t0, last, calm = time.time(), cpu_s(h), 0
+        while time.time() - t0 < 35 and (calm < 5 or time.time() - t0 < 16):
+            time.sleep(1)
+            now = cpu_s(h)
+            calm = calm + 1 if now - last < 0.015 else 0
+            last = now
+        NUMBERS["idle: settled after (s)"] = round(time.time() - t0)
         c0 = cpu_s(h)
         time.sleep(12)
         ms = (cpu_s(h) - c0) / 12 * 1000

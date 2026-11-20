@@ -86,7 +86,7 @@ from refrata.updater import Updater  # noqa: E402
 from refrata.quicklook import QuickLook  # noqa: E402
 from refrata.tray import Tray  # noqa: E402
 from refrata.i18n import I18n  # noqa: E402
-from refrata.media import SUB_EXT, is_audio_path, is_media_path  # noqa: E402
+from refrata.media import SUB_EXT, is_audio_path  # noqa: E402
 from refrata.mediakeys import MediaKeys  # noqa: E402
 from refrata.subsearch import SubtitleSearch  # noqa: E402
 
@@ -477,10 +477,8 @@ def main():
             close_splash()
             os._exit(0)
 
-    # a single media file from Explorer opens in the quick player; --background starts in the tray
-    from refrata.settings import Settings as _S  # noqa: PLC0415
-    quick_open = bool(_S().value("quickOpen", False)) if files else False
-    hidden = args.background or (quick_open and len(files) == 1 and is_media_path(files[0]))
+    # --background starts in the tray; files from Explorer always open in the app
+    hidden = args.background
     # the full app opening files: start them before the interface is built (see build)
     from refrata.app import expand_paths  # noqa: PLC0415
     preopen = expand_paths(files) if files and not hidden else []
@@ -539,7 +537,9 @@ def main():
                 except (RuntimeError, TypeError):
                     pass
         parts.win.frameSwapped.connect(start_playing)
-        QTimer.singleShot(4000, start_playing)
+        # the frame comes ~50 ms after this as a rule; a window started minimised or hidden (a
+        # shortcut set to "Run: Minimized") never draws one, and its sound waited 4 s here
+        QTimer.singleShot(1500, start_playing)
     elif files:
         parts.ctl.handOver(files)
     if args.reopen:

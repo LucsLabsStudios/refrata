@@ -474,6 +474,7 @@ fn refrata_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<VideoOut>()?;
     m.add_class::<hdr10plus::Hdr10PlusReader>()?;
     m.add_class::<asr::Transcriber>()?;
+    m.add_class::<asr::Vad>()?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }

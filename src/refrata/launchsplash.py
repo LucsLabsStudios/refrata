@@ -4,7 +4,7 @@ It used to be PyInstaller's bootloader splash, shown before Python runs, so it s
 launch, including the ones that only hand a file to the Refrata already running (fastlaunch.py)
 and quit a moment later: a splash flashed before every video opened from Explorer. Here it is
 shown after that hand-over failed, i.e. on a cold start only, and never for a start that stays
-hidden (tray, the quick player) or a test run.
+hidden (the tray) or a test run.
 
 A plain Win32 layered window with the PNG decoded by GDI+, both through ctypes: no Tcl/Tk (which the
 bootloader splash unpacked and loaded on every start) and no Qt (whose loading is what the splash
@@ -12,7 +12,6 @@ covers). It lives on its own thread, with its own message loop, so Windows never
 responding while the main thread imports Qt and libVLC. Its window procedure is DefWindowProc
 itself: nothing calls back into Python. Keep this module free of Qt and of other refrata imports.
 """
-import json
 import os
 import sys
 import threading
@@ -23,21 +22,8 @@ _state = {"hwnd": 0, "thread": None, "tid": 0}
 _NO_SPLASH = ("--selftest", "--scenario", "--screenshot", "--background")
 
 
-def _quick_open_hidden(argv) -> bool:
-    """One media file with "open files in the quick player" on: the main window stays hidden."""
-    files = [a for a in argv[1:] if not a.startswith("-")]
-    if len(files) != 1:
-        return False
-    try:
-        base = os.environ.get("REFRATA_DATA") or os.path.join(os.environ.get("LOCALAPPDATA", ""), "Refrata")
-        with open(os.path.join(base, "settings.json"), encoding="utf8") as f:
-            return bool(json.load(f).get("settings", {}).get("quickOpen", False))
-    except (OSError, ValueError, AttributeError):
-        return False
-
-
 def wanted(argv) -> bool:
-    return sys.platform == "win32" and not any(f in argv for f in _NO_SPLASH) and not _quick_open_hidden(argv)
+    return sys.platform == "win32" and not any(f in argv for f in _NO_SPLASH)
 
 
 def show(png: str):

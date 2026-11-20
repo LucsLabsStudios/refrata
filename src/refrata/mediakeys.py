@@ -17,16 +17,30 @@ from datetime import timedelta
 
 from PySide6.QtCore import QObject, QTimer, QUrl, Signal
 
-try:
-    from winrt.windows.foundation import Uri
-    from winrt.windows.media import (MediaPlaybackStatus, MediaPlaybackType, SystemMediaTransportControlsButton,
-                                     SystemMediaTransportControlsTimelineProperties)
-    from winrt.windows.media.playback import MediaPlayer
-    from winrt.windows.storage import StorageFile
-    from winrt.windows.storage.streams import RandomAccessStreamReference
-    AVAILABLE = True
-except Exception:   # packages missing or Windows without WinRT media
-    AVAILABLE = False
+AVAILABLE: bool | None = None    # known once _load() ran
+SETUP_DELAY_MS = 1500
+Uri = MediaPlaybackStatus = MediaPlaybackType = SystemMediaTransportControlsButton = None
+SystemMediaTransportControlsTimelineProperties = MediaPlayer = StorageFile = RandomAccessStreamReference = None
+
+
+def _load() -> bool:
+    """The WinRT classes, imported the first time media keys are set up, after the window is on
+    screen: imported with this module (at start), they and the asyncio they pull in cost ~130 ms
+    of the main thread before the window could show."""
+    global AVAILABLE, Uri, MediaPlaybackStatus, MediaPlaybackType, SystemMediaTransportControlsButton
+    global SystemMediaTransportControlsTimelineProperties, MediaPlayer, StorageFile, RandomAccessStreamReference
+    if AVAILABLE is None:
+        try:
+            from winrt.windows.foundation import Uri
+            from winrt.windows.media import (MediaPlaybackStatus, MediaPlaybackType, SystemMediaTransportControlsButton,
+                                             SystemMediaTransportControlsTimelineProperties)
+            from winrt.windows.media.playback import MediaPlayer
+            from winrt.windows.storage import StorageFile
+            from winrt.windows.storage.streams import RandomAccessStreamReference
+            AVAILABLE = True
+        except Exception:   # packages missing or Windows without WinRT media
+            AVAILABLE = False
+    return AVAILABLE
 
 
 class MediaKeys(QObject):
@@ -42,7 +56,15 @@ class MediaKeys(QObject):
         self._art = ""
         self._art_ref = None
         self.available = False
-        if not AVAILABLE or os.environ.get("REFRATA_NO_MEDIAKEYS") == "1":
+        if os.environ.get("REFRATA_NO_MEDIAKEYS") == "1":
+            return
+        # set up once the window is on screen: the WinRT imports and the session cost the main
+        # thread ~150 ms that the first frame would otherwise wait for
+        QTimer.singleShot(SETUP_DELAY_MS, self._setup)
+
+    def _setup(self):
+        engine = self._engine
+        if not _load():
             return
         try:
             self._mp = MediaPlayer()
@@ -62,11 +84,13 @@ class MediaKeys(QObject):
         engine.stateChanged.connect(self._sync_state)
         engine.currentIndexChanged.connect(self._sync_state)   # queue cleared → hide the session
         engine.mediaChanged.connect(self._sync_meta)
-        # the overlay's progress bar: a refresh every couple of seconds and after seeks is plenty
+        # the overlay's progress bar: a refresh every couple of seconds while playing (and after
+        # seeks) is plenty; nothing runs while paused or idle
         self._timeline = QTimer(self)
         self._timeline.setInterval(2000)
         self._timeline.timeout.connect(self._sync_timeline)
-        self._timeline.start()
+        if engine.hasMedia:
+            self._sync_meta()                 # something started playing before the setup
 
     # ------------------------------------------------------------ buttons (COM thread)
     def _on_button(self, sender, args):
@@ -101,6 +125,11 @@ class MediaKeys(QObject):
             "playing": MediaPlaybackStatus.PLAYING, "loading": MediaPlaybackStatus.CHANGING,
             "paused": MediaPlaybackStatus.PAUSED,
         }.get(st, MediaPlaybackStatus.STOPPED)
+        if st == "playing":
+            if not self._timeline.isActive():
+                self._timeline.start()
+        else:
+            self._timeline.stop()
         self._sync_timeline()
 
     def _sync_meta(self):

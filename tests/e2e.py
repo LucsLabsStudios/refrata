@@ -43,7 +43,7 @@ if not FROZEN:
     sys.path[:0] = [str(ROOT), str(ROOT / "src")]
 
 import refrata.__main__ as main  # noqa: E402  (configures libVLC paths + Qt message capture)
-from PySide6.QtCore import QMetaObject, QObject, QPoint, QPointF, Qt, Q_ARG, Q_RETURN_ARG  # noqa: E402
+from PySide6.QtCore import QCoreApplication, QEvent, QMetaObject, QObject, QPoint, QPointF, Qt, Q_ARG, Q_RETURN_ARG  # noqa: E402
 from PySide6.QtGui import QGuiApplication, QImage, QWindow  # noqa: E402
 from PySide6.QtQuick import QQuickItem  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
@@ -209,6 +209,14 @@ def eng():
 
 def win():
     return C.parts.win
+
+
+def quick_window():
+    """The Space preview window, made with the warm-up or at the first Space (Main.qml)."""
+    from PySide6.QtGui import QWindow
+    root = C.parts.qml.rootObjects()[0]
+    root.setProperty("quickWanted", True)
+    return root.findChild(QWindow, "quickPlayer")
 
 
 def stop_playback():
@@ -899,6 +907,21 @@ def t27_controls_autohide_and_mouse():
     pump(0.1)
     move_mouse(C.parts, QPoint(420, 320))
     wait(lambda: pv.property("controlsVisible") is True, 2, "mouse move reveals controls")
+    # how long they wait: about 2 s with the mouse resting on the picture...
+    t0 = time.perf_counter()
+    wait(lambda: pv.property("controlsVisible") is False, 6, "hidden again")
+    idle = time.perf_counter() - t0
+    check(1.6 < idle < 3.0, "the controls go about 2 s after the mouse stops", f"{idle:.2f} s")
+    # ...and half a second once the mouse has left the window
+    move_mouse(C.parts, QPoint(420, 300))
+    wait(lambda: pv.property("controlsVisible") is True, 2, "mouse move reveals controls")
+    t0 = time.perf_counter()
+    QCoreApplication.sendEvent(C.parts.win, QEvent(QEvent.Type.Leave))
+    wait(lambda: pv.property("controlsVisible") is False, 3, "hidden when the mouse leaves")
+    gone = time.perf_counter() - t0
+    check(gone < 1.1, "the controls go soon after the mouse leaves the window", f"{gone:.2f} s")
+    move_mouse(C.parts, QPoint(440, 320))
+    wait(lambda: pv.property("controlsVisible") is True, 2, "back in: controls again")
     # big play button
     click(C.parts, "bigPlay")
     wait(lambda: e.state == "paused", 3, "big play button pauses")
@@ -1134,6 +1157,7 @@ def t33_player_controls_by_mouse():
     e.seek(5000)
     pump(0.4)
     t = e.time
+    poke()      # the hand on its way to the button (opening may have taken the 2 s the controls wait)
     ui_click("pvSkipFwd"); poke()
     wait(lambda: e.time > t + 8000, 3, "skip-forward button")
     ui_click("pvSkipBack"); poke()
@@ -1707,7 +1731,7 @@ def t41_second_launch_hands_files_to_running_instance():
     check(child.returncode == 0, "second launch exit code", str(child.returncode))
     # the app is open: the file plays right here (no quick player floating over it)
     from PySide6.QtGui import QWindow
-    quick = C.parts.qml.rootObjects()[0].findChild(QWindow, "quickPlayer")
+    quick = quick_window()
     wait(lambda: e.state == "playing" and e.queue and Path(e.queue[0]["path"]) == C.fx["tone_c"], 10,
          "handed-over file plays here")
     check(not quick.isVisible(), "no quick player over the open app")
@@ -1761,7 +1785,7 @@ def t42_command_line_files_route_to_the_ui():
     stop_playback()
     go_page(0)
     from PySide6.QtGui import QWindow
-    quick = C.parts.qml.rootObjects()[0].findChild(QWindow, "quickPlayer")
+    quick = quick_window()
     with main_hidden():
         ctl.handOver([str(C.fx["video"])])
         wait(lambda: C.parts.win.isVisible() and e.state == "playing" and win().property("playerOpen") is True, 10,
@@ -2150,7 +2174,7 @@ def t48_quick_player_preview_compact_and_background():
     from refrata import quicklook as Q
     e, ql, tray = eng(), C.parts.quicklook, C.parts.tray
     root = C.parts.qml.rootObjects()[0]
-    quick = root.findChild(QWindow, "quickPlayer")
+    quick = quick_window()
     video, video2 = str(C.fx["video"]), str(C.fx["video2"])
 
     # the hook's decision: only Explorer / desktop file lists, never while typing
@@ -2165,7 +2189,7 @@ def t48_quick_player_preview_compact_and_background():
     # previewing while Refrata plays music: the music waits, then resumes
     e.openFiles([str(C.fx["tone_long"])], 0)
     wait(lambda: e.state == "playing", 8)
-    QMetaObject.invokeMethod(quick, "open", Q_ARG("QVariant", video), Q_ARG("QVariant", sib), Q_ARG("QVariant", "preview"))
+    QMetaObject.invokeMethod(quick, "open", Q_ARG("QVariant", video), Q_ARG("QVariant", sib))
     wait(lambda: quick.isVisible(), 3)
     wait(lambda: e.state == "paused", 3, "Refrata's music pauses during a preview")
     QMetaObject.invokeMethod(quick, "close")
@@ -2173,7 +2197,7 @@ def t48_quick_player_preview_compact_and_background():
     stop_playback()
 
     # preview: opens, plays, browses, closes with Space
-    QMetaObject.invokeMethod(quick, "open", Q_ARG("QVariant", video), Q_ARG("QVariant", sib), Q_ARG("QVariant", "preview"))
+    QMetaObject.invokeMethod(quick, "open", Q_ARG("QVariant", video), Q_ARG("QVariant", sib))
     wait(lambda: quick.isVisible(), 3, "preview window shows")
     card = C.parts.find("quickCard")
     # 340 ms of animation; animations advance with frames, slow under Xvfb's CPU rendering when busy
@@ -2208,7 +2232,7 @@ def t48_quick_player_preview_compact_and_background():
     wait(lambda: not quick.isVisible(), 2, "Space closes the preview")
 
     # an immediate Space right after opening (the key that triggered it) must not close it
-    QMetaObject.invokeMethod(quick, "open", Q_ARG("QVariant", video), Q_ARG("QVariant", sib), Q_ARG("QVariant", "preview"))
+    QMetaObject.invokeMethod(quick, "open", Q_ARG("QVariant", video), Q_ARG("QVariant", sib))
     wait(lambda: quick.isVisible(), 3)
     wkey(quick, Qt.Key.Key_Space)
     pump(0.3)
@@ -2216,9 +2240,9 @@ def t48_quick_player_preview_compact_and_background():
     wkey(quick, Qt.Key.Key_Escape)
     wait(lambda: not quick.isVisible(), 2, "Esc closes")
 
-    # by default a double-clicked file from Explorer goes straight to the full app, even with
-    # Refrata hidden in the tray; the quick player is only for Space
-    check(C.parts.settings.value("quickOpen") is False, "'open files in the quick player' is off by default")
+    # a double-clicked file from Explorer goes straight to the full app, even with Refrata hidden in
+    # the tray; the floating window is only the Space preview (the option to open files there is gone)
+    check(C.parts.settings.value("quickOpen") is None, "no 'open files in the quick player' setting")
     tray.background = True       # keeps the app alive while its window is hidden
     C.parts.win.hide()
     pump(0.2)
@@ -2233,33 +2257,22 @@ def t48_quick_player_preview_compact_and_background():
     C.parts.win.hide()
     pump(0.2)
 
-    # with the option on, the double-click starts in the compact quick player instead: Space pauses
-    # there; expand hands over to Refrata
-    C.parts.settings.setValue("quickOpen", True)
-    C.parts.ctl.handOver([video])
-    wait(lambda: quick.isVisible() and quick.property("mode") == "compact", 3, "option on: compact quick player")
-    check(not C.parts.win.isVisible(), "option on: the full app stays hidden")
-    wait(lambda: quick.findChild(QObject, "quickSeek").property("value") > 1200, 8, "compact plays")
-    pump(0.35)
-    soft_focus(quick, "compact focus")
-    wkey(quick, Qt.Key.Key_Space)
-    pump(0.3)
-    paused_at = quick.findChild(QObject, "quickSeek").property("value")
-    pump(0.6)
-    check(abs(quick.findChild(QObject, "quickSeek").property("value") - paused_at) < 150, "Space pauses in compact mode")
+    # from the Space preview, "open in Refrata" hands over to the app at the same point
+    QMetaObject.invokeMethod(quick, "open", Q_ARG("QVariant", video), Q_ARG("QVariant", sib))
+    wait(lambda: quick.isVisible(), 3, "the preview again, the app in the tray")
+    wait(lambda: quick.findChild(QObject, "quickSeek").property("value") > 1200, 8, "the preview plays")
+    at = quick.findChild(QObject, "quickSeek").property("value")
     wclick(quick, C.parts.find("quickExpand"))
-    wait(lambda: e.state == "playing" and e.currentPath == video, 8, "expand plays it in Refrata")
+    wait(lambda: e.state == "playing" and e.currentPath == video, 8, "opened in Refrata")
     wait(lambda: e.time > 0, 5)
-    check(e.time >= paused_at - 1500, "Refrata continues where the quick player was", f"{e.time} vs {paused_at}")
-    wait(lambda: not quick.isVisible(), 2, "quick player leaves after expanding")
+    check(e.time >= at - 1500, "Refrata continues where the preview was", f"{e.time} vs {at}")
+    wait(lambda: not quick.isVisible(), 2, "the preview leaves")
     check(win().property("playerOpen") is True and C.parts.win.isVisible(), "full player is shown")
     tray.background = False
-    # with the app open on a video (option still on), a second file from Explorer replaces it in the app, never a
-    # quick player floating over it
+    # with the app open on a video, a second file from Explorer replaces it in the app
     C.parts.ctl.handOver([video2])
     wait(lambda: e.currentPath == video2 and e.state == "playing", 8, "the new file replaces the old one in the app")
-    check(not quick.isVisible(), "no quick player over the open app")
-    C.parts.settings.setValue("quickOpen", False)
+    check(not quick.isVisible(), "no floating window over the open app")
     win().setProperty("playerOpen", False)
     stop_playback()
 

@@ -400,15 +400,6 @@ Flickable {
                 Toggle { objectName: "toggleQuickLook"; checked: quicklook.enabled; onToggled: (on) => quicklook.enabled = on }
             }
             SettingRow {
-                title: qsTr("Abrir arquivos no player rápido")
-                desc: (appctl.platform === "windows" ? qsTr("Um vídeo ou música aberto pelo Explorer começa numa janela compacta e flutuante; ⤢ leva para o app completo.")
-                              : qsTr("Um vídeo ou música aberto pelo gerenciador de arquivos começa numa janela compacta e flutuante; ⤢ leva para o app completo."))
-                      + (settings.quickOpen && winassoc.available && !winassoc.isDefault ? " " + (appctl.platform === "windows"
-                         ? qsTr("Só vale para arquivos que o Windows abre com o Refrata (veja Player padrão do Windows, acima).")
-                         : qsTr("Só vale para arquivos que o sistema abre com o Refrata (veja Player padrão do sistema, acima).")) : "")
-                Toggle { objectName: "toggleQuickOpen"; checked: settings.quickOpen; onToggled: (on) => settings.quickOpen = on }
-            }
-            SettingRow {
                 title: qsTr("Manter em segundo plano")
                 desc: appctl.platform === "windows" ? qsTr("Ao fechar a janela, o Refrata fica na bandeja do Windows, e a prévia e os arquivos abrem na hora.")
                     : qsTr("Ao fechar a janela, o Refrata fica na bandeja do sistema, e os arquivos abrem na hora.")

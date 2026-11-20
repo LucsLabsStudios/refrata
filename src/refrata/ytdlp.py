@@ -17,7 +17,6 @@ from __future__ import annotations
 import hashlib
 import importlib.abc
 import importlib.machinery
-import importlib.metadata
 import importlib.util
 import json
 import os
@@ -26,7 +25,7 @@ import shutil
 import sys
 import threading
 import time
-import urllib.request
+import urllib.parse
 import zipfile
 from pathlib import Path
 
@@ -56,6 +55,7 @@ def _vkey(v: str):
 
 
 def bundled_version() -> str:
+    import importlib.metadata   # here, not at the top: ~75 ms off every start
     try:
         return importlib.metadata.version("yt-dlp")
     except Exception:
@@ -143,8 +143,9 @@ def _get(url: str, limit: int, timeout=30) -> bytes:
     parts = urllib.parse.urlsplit(url)
     if not os.environ.get("REFRATA_PYPI_URL") and (parts.scheme != "https" or parts.hostname not in PYPI_HOSTS):
         raise RuntimeError("refused: not an HTTPS address at PyPI")
-    req = urllib.request.Request(url, headers={"User-Agent": UA})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
+    from urllib.request import Request, urlopen   # only when something is downloaded
+    req = Request(url, headers={"User-Agent": UA})
+    with urlopen(req, timeout=timeout) as r:
         data = r.read(limit + 1)
     if len(data) > limit:
         raise RuntimeError("download too large")

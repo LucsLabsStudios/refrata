@@ -9,7 +9,7 @@ Window {
     height: 900
     minimumWidth: 1040
     minimumHeight: 660
-    // hidden when started for the quick player (file from Explorer) or in the tray (--background)
+    // hidden when started in the tray (--background)
     visible: !startHidden
     color: theme.bg
     title: player.title ? player.title + "  —  Refrata" : "Refrata"
@@ -127,20 +127,9 @@ Window {
         restoreWindow()          // hidden in the tray or minimised (it stayed down before)
         appctl.activateWindow(win)
     }
-    // A single media file from Explorer goes to the quick player (when that option is on) — but
-    // only while the app itself is not on screen. With the full app open, the file plays there,
-    // replacing what was playing, instead of a second player floating over the first.
-    function openFromExplorer(paths) {
-        if (win.visible) return false
-        if (paths.length === 1 && settings.value("quickOpen") && appctl.isMedia(paths[0]) && !appctl.isPlaylist(paths[0])) {
-            quick.open(paths[0], quicklook.siblings(paths[0]), "compact")
-            return true
-        }
-        return false
-    }
     // nothing visible and not living in the tray: leave
     function quitIfIdle() {
-        if (!win.visible && !quick.visible && !tray.background) Qt.quit()
+        if (!win.visible && !quickVisible() && !tray.background) Qt.quit()
     }
     function handleMenu(key, path) {
         if (key === "play") playPaths([path], 0)
@@ -177,7 +166,7 @@ Window {
         function onOpenRequested(paths) {
             if (!paths.length) return
             if (paths.length === 1 && appctl.isSubtitle(paths[0]) && player.hasMedia) player.addSubtitle(paths[0])
-            else if (!win.openFromExplorer(paths)) {
+            else {
                 // Restore and focus before libVLC tears down the previous video. That operation
                 // can wait for its decoder; it must not leave the window hidden or minimised.
                 win.showMain()
@@ -475,30 +464,44 @@ Window {
         }
         // closing the main window closes Refrata, quick player included (no window left behind
         // holding the app open)
-        if (quick.visible) quick.close()
-        if (pip.visible) pip.hide()
+        if (quickVisible()) quick.close()
+        if (pip && pip.visible) pip.hide()
         Qt.callLater(Qt.quit)
     }
 
-    // ------------------------------------------------------------ quick player / Space preview
-    QuickPlayer {
-        id: quick
-        onExpandRequested: (files, index, ms) => {
-            player.openFilesAt(files, index, ms)
-            if (!win.isAudioPath(files[index])) win.playerOpen = true
-            win.showMain()
+    // ------------------------------------------------------------ Space preview (QuickPlayer.qml)
+    // Made with the pages' warm-up, once the window is on screen (or at the first Space, if that
+    // comes sooner): built with the window, it held the first frame back by ~90 ms of the main thread.
+    property bool quickWanted: false
+    readonly property var quick: quickLoader.item
+    Loader {
+        id: quickLoader
+        active: win.pagesWarm || win.quickWanted
+        sourceComponent: Component {
+            QuickPlayer {
+                onExpandRequested: (files, index, ms) => {
+                    player.openFilesAt(files, index, ms)
+                    if (!win.isAudioPath(files[index])) win.playerOpen = true
+                    win.showMain()
+                }
+                onClosed: Qt.callLater(win.quitIfIdle)
+            }
         }
-        onClosed: Qt.callLater(win.quitIfIdle)
     }
+    function quickVisible() { return quick !== null && quick.visible }
     Connections {
         target: quicklook
-        function onPreviewRequested(path, list) { quick.open(path, list, "preview") }
+        function onPreviewRequested(path, list) {
+            win.quickWanted = true          // made now if the warm-up has not made it yet
+            if (win.quick) win.quick.open(path, list)
+        }
     }
     // ------------------------------------------------------------ picture-in-picture
     property bool pipOn: false
     property double pipSince: 0
     function enterPip() {
         if (pipOn || !player.hasMedia || player.castingTo !== "") return
+        pipWanted = true                    // the small window, made at its first use
         pip.place()
         pip.show()
         pipOn = true
@@ -512,7 +515,7 @@ Window {
     function leavePip(back) {
         if (!pipOn) return
         pipOn = false
-        pip.hide()
+        if (pip) pip.hide()
         if (back) {
             if (player.hasMedia && !player.isAudio) win.playerOpen = true
             win.restoreWindow()
@@ -520,10 +523,17 @@ Window {
         }
     }
     function togglePip() { if (pipOn) leavePip(true); else enterPip() }
-    PipWindow {
-        id: pip
-        onBackRequested: win.leavePip(true)
-        onCloseRequested: { player.pause(); win.leavePip(false) }
+    property bool pipWanted: false
+    readonly property var pip: pipLoader.item
+    Loader {
+        id: pipLoader
+        active: win.pipWanted
+        sourceComponent: Component {
+            PipWindow {
+                onBackRequested: win.leavePip(true)
+                onCloseRequested: { player.pause(); win.leavePip(false) }
+            }
+        }
     }
     // the app came back (taskbar, Alt+Tab): the small window is not needed any more
     // (ignored while the window is still settling after entering PiP)

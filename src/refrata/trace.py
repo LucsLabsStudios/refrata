@@ -39,9 +39,11 @@ _T0 = _process_start() if _PATH else 0.0
 
 
 def mark(label: str):
+    """A step done: the wall-clock time since the process started, and the CPU time this thread
+    (the main one) has used, which a busy machine barely changes, so steps can be compared there."""
     if not _PATH:
         return
-    _lines.append(f"{(time.time() - _T0) * 1000:7.0f} ms  {label}")
+    _lines.append(f"{(time.time() - _T0) * 1000:7.0f} ms  cpu {time.thread_time() * 1000:6.0f} ms  {label}")
     try:
         with open(_PATH, "w", encoding="utf8") as f:
             f.write("\n".join(_lines) + "\n")

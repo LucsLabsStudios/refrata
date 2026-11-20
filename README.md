@@ -1,4 +1,4 @@
-﻿<div align="center">
+<div align="center">
 
 <img src="src/refrata/resources/brand/icon-256.png" alt="Refrata" width="112" height="112">
 
@@ -41,7 +41,7 @@ wraps it in the experience people expect from a player today.
 - **Speaks your language.** 14 interface languages, switched live.
 - **Tested like a product.** Every release passes unit tests, an end-to-end suite that clicks
   through the interface, over 100 robustness scenarios (4K60 frame pacing among them), a check that
-  each of the 225 interface controls is used by a test, and clean installs on Ubuntu and Debian.
+  each of the 226 interface controls is used by a test, and clean installs on Ubuntu and Debian.
 
 ## New in 2.0.1
 
@@ -113,7 +113,7 @@ published with its `.sha256` checksum and `.sig` signature.
 | **Playback** | Queue with reorder and play next, shuffle and repeat, speed 0.25×–4×, A-B repeat, frame stepping forwards and backwards, chapters, bookmarks on the timeline, skip intro and credits per folder, resume where you left off, sleep timer, snapshots, save the A-B part as MP4 (stream copy, HDR kept) or GIF |
 | **Library** | Scans your video and music folders, thumbnails, durations and tags, search and sort |
 | **Network** | YouTube, Vimeo and other sites through yt-dlp, HTTP/HLS/RTSP/RTMP/SMB streams, Chromecast casting |
-| **Windows** | Space-bar preview in Explorer and on the desktop, quick player, tray mode and start with Windows, picture-in-picture, always on top, keyboard media keys and the Windows media overlay |
+| **Windows** | Space-bar preview in Explorer and on the desktop, tray mode and start with Windows, picture-in-picture, always on top, keyboard media keys and the Windows media overlay |
 | **Linux** | `.deb` and `.tar.gz` packages, MPRIS media keys and desktop media widgets, **Open with**, start with the session |
 | **Playlists** | M3U/M3U8, PLS, XSPF |
 | **Languages** | English, Portuguese, Spanish, French, German, Italian, Russian, Polish, Turkish, Indonesian, Hindi, Simplified Chinese, Japanese, Korean |

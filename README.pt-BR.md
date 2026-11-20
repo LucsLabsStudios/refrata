@@ -41,7 +41,7 @@ a experiência que se espera de um player hoje.
 - **Fala o seu idioma.** 14 idiomas, trocados na hora.
 - **Testado como produto.** Todo lançamento passa por testes de unidade, uma bateria de ponta a
   ponta que clica pela interface, mais de 100 cenários de robustez (entre eles o ritmo de quadros em
-  4K60), uma conferência de que cada um dos 225 controles da interface é usado por algum teste, e
+  4K60), uma conferência de que cada um dos 226 controles da interface é usado por algum teste, e
   instalações limpas no Ubuntu e no Debian.
 
 ## Novidades da 2.0.1
@@ -116,7 +116,7 @@ com o seu `.sha256` e a sua assinatura `.sig`.
 | **Reprodução** | Fila com reordenar e tocar em seguida, aleatório e repetir, velocidade 0,25×–4×, repetir trecho (A-B), quadro a quadro para frente e para trás, capítulos, favoritos na barra de tempo, pular abertura e encerramento por pasta, continuar de onde parou, timer de sono, captura de quadro, salvar o trecho A-B em MP4 (sem recodificar, mantendo o HDR) ou GIF |
 | **Biblioteca** | Varredura das pastas de vídeos e músicas, miniaturas, duração e tags, busca e ordenação |
 | **Rede** | YouTube, Vimeo e outros sites pelo yt-dlp, streams HTTP/HLS/RTSP/RTMP/SMB, transmissão para Chromecast |
-| **Windows** | Prévia com Espaço no Explorer e na área de trabalho, player rápido, bandeja e iniciar com o Windows, picture-in-picture, sempre no topo, teclas de mídia e painel de mídia do Windows |
+| **Windows** | Prévia com Espaço no Explorer e na área de trabalho, bandeja e iniciar com o Windows, picture-in-picture, sempre no topo, teclas de mídia e painel de mídia do Windows |
 | **Linux** | Pacotes `.deb` e `.tar.gz`, teclas e widgets de mídia (MPRIS), **Abrir com**, iniciar com a sessão |
 | **Playlists** | M3U/M3U8, PLS, XSPF |
 | **Idiomas** | Português, inglês, espanhol, francês, alemão, italiano, russo, polonês, turco, indonésio, hindi, chinês simplificado, japonês, coreano |

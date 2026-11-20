@@ -14,7 +14,6 @@ import os
 import re
 import struct
 import urllib.parse
-import urllib.request
 from pathlib import Path
 
 from PySide6.QtCore import Property, QObject, QThread, Signal, Slot
@@ -67,11 +66,12 @@ def guess_query(path: str) -> str:
 
 def _call(method: str, path: str, key: str, params=None, body=None, timeout=15):
     url = _api() + path + ("?" + urllib.parse.urlencode(params) if params else "")
+    from urllib.request import Request, urlopen   # at the first search, not at every start (~75 ms)
     data = json.dumps(body).encode() if body is not None else None
-    req = urllib.request.Request(url, data=data, method=method, headers={
+    req = Request(url, data=data, method=method, headers={
         "Api-Key": key, "User-Agent": UA, "Accept": "application/json",
         **({"Content-Type": "application/json"} if data else {})})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
+    with urlopen(req, timeout=timeout) as r:
         return json.loads(r.read().decode("utf8"))
 
 
@@ -113,8 +113,9 @@ def download(file_id: int, dest_dir: Path, stem: str, language: str) -> str:
         raise RuntimeError(res.get("message") or "no download link")
     if not str(link).lower().startswith("https://") and not os.environ.get("REFRATA_OPENSUBTITLES_URL"):
         raise RuntimeError("download link is not https")
-    req = urllib.request.Request(link, headers={"User-Agent": UA})
-    with urllib.request.urlopen(req, timeout=20) as r:
+    from urllib.request import Request, urlopen
+    req = Request(link, headers={"User-Agent": UA})
+    with urlopen(req, timeout=20) as r:
         data = r.read(MAX_SUBTITLE + 1)   # a subtitle is kilobytes; never hold a huge reply in memory
     if len(data) > MAX_SUBTITLE:
         raise RuntimeError("subtitle too large")

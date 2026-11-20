@@ -491,6 +491,8 @@ def startup_trace_writes_a_timeline_only_when_asked():
     check(len(lines) == 2 and lines[0].endswith("ms  one") and lines[1].endswith("ms  two"), "one line per step", str(lines))
     a, b = (float(ln.split("ms")[0]) for ln in lines)
     check(0 <= a < 60000 and b >= a + 60, "times count from the start of the process and grow", f"{a} {b}")
+    ca, cb = (float(ln.split("cpu")[1].split("ms")[0]) for ln in lines)
+    check(0 <= ca <= cb and cb - ca < 60, "and the main thread's CPU time, which a sleep does not add to", f"{ca} {cb}")
     env.pop("REFRATA_TRACE")
     out.unlink()
     r = subprocess.run([sys.executable, "-c", code], cwd=str(ROOT / "src"), env=env, capture_output=True, text=True, timeout=60)
@@ -1252,19 +1254,60 @@ def subtitles_from_speech_are_cut_like_subtitles():
              (3950, 4400, "subtitles."), (6000, 6300, "\nAfter"), (6350, 6600, "a"), (6650, 7000, "pause.")]
     cues = A.build_cues(words)
     texts = [c[2] for c in cues]
-    check(texts == ["Hello everyone.", "This is a test of the subtitles.", "After a pause."],
-          "cut at the end of each sentence and at a pause", str(texts))
-    check(cues[0][0] == 1000 and cues[1][0] == 1800 and cues[2][0] == 6000, "each starts with its first word",
-          str([c[0] for c in cues]))
-    check(all(a[1] < b[0] for a, b in zip(cues, cues[1:])), "never over the next one", str(cues))
-    check(all(c[1] - c[0] >= 200 for c in cues), "each long enough to read", str(cues))
-    # a long run with no punctuation: two lines of ~42 at most, then a new subtitle
+    # a short sentence said right before another shares its subtitle, one per line
+    check(texts == ["Hello everyone.\nThis is a test of the subtitles.", "After a pause."],
+          "cut at the end of sentences and at a pause; short ones together", str(texts))
+    check(cues[0][0] == 1000 - A.LEAD_MS and cues[1][0] == 6000 - A.LEAD_MS,
+          "each shows just before its first word", str([c[0] for c in cues]))
+    check(all(a[1] + A.GAP_MS <= b[0] for a, b in zip(cues, cues[1:])), "never over the next one", str(cues))
+    check(all(c[1] - c[0] >= A.CUE_MIN_MS for c in cues), "each long enough to read", str(cues))
+    # a long run with no punctuation: two lines of 42 at most, then a new subtitle
     long = [(i * 300, i * 300 + 250, w) for i, w in enumerate(("word " * 40).split())]
     cues = A.build_cues(long)
-    check(all(len(line) <= A.LINE_CHARS + 6 for c in cues for line in c[2].split("\n")),
-          "lines of about 42 characters", str([c[2] for c in cues][:2]))
+    check(all(len(line) <= A.LINE_CHARS for c in cues for line in c[2].split("\n")),
+          "lines of 42 characters at most", str([c[2] for c in cues][:2]))
     check(all(c[2].count("\n") <= 1 for c in cues), "two lines at most")
-    check(all(c[1] - c[0] <= A.CUE_MAX_MS + 300 for c in cues), "no subtitle stays too long")
+    check(all(c[1] - c[0] <= A.CUE_MAX_MS + 1500 for c in cues), "no subtitle stays too long")
+    # a long sentence is cut where it reads best (after the comma), not leaving two words alone
+    s = "There was a turtle by the name of Bert, and Bert the turtle was very alert."
+    sent = [(8000 + i * 450, 8000 + i * 450 + 380, w) for i, w in enumerate(s.split())]   # 7 s: two subtitles
+    sent[0] = (sent[0][0], sent[0][1], "\n" + sent[0][2])
+    cues = A.build_cues(sent)
+    check([c[2].replace("\n", " ") for c in cues] == ["There was a turtle by the name of Bert,",
+                                                       "and Bert the turtle was very alert."],
+          "a long sentence cut at its comma", str([c[2] for c in cues]))
+    # a giant word (sung syllables, a URL) is cut so no line runs off the picture
+    cues = A.build_cues([(0, 4000, "\nDum-dum-dum-deedle-dum-dum-deedle-dum-dum-deedle-dum-dum-deedle-dum-dum.")])
+    check(cues and all(len(x) <= A.LINE_CHARS for x in cues[0][2].split("\n")), "a giant word wrapped",
+          str(cues))
+    # a word left alone by a pause goes with what follows
+    cues = A.build_cues([(0, 400, "\nDuck"), (1300, 1700, "and"), (1750, 2300, "cover.")])
+    check([c[2] for c in cues] == ["Duck and cover."], "no lone word", str(cues))
+    # subtitle credits Whisper learnt from subtitle sites are dropped; a real "thank you" is not
+    cues = A.build_cues([(0, 500, "\nSubtitles"), (500, 900, "by"), (900, 1400, "the"), (1400, 1900, "Amara.org"),
+                         (1900, 2400, "community")])
+    check(cues == [], "made-up credits dropped", str(cues))
+    cues = A.build_cues([(0, 500, "\nThank"), (500, 900, "you"), (900, 1200, "for"), (1200, 1700, "watching.")])
+    check([c[2] for c in cues] == ["Thank you for watching."], "a real thank-you kept", str(cues))
+    # reading speed: a long subtitle said fast stays long enough to read
+    fast = [(i * 120, i * 120 + 100, w) for i, w in enumerate("one two three four five six seven eight nine.".split())]
+    c = A.build_cues(fast)[0]
+    check(len(c[2]) * 1000 / (c[1] - c[0]) <= A.READ_CPS + 0.5, "at most READ_CPS characters per second", str(c))
+    # speech -> pieces for Whisper: together when close, cut at a pause, never mid-stretch
+    sp = [(1000, 4000), (4500, 9000), (15000, 20000)]
+    check(A.pieces(sp, 0, 40000, False) == ((1000, 9000), 9000), "speech close together in one piece",
+          str(A.pieces(sp, 0, 40000, False)))
+    check(A.pieces([(5000, 39900)], 0, 40000, False) == (None, 4900), "speech running past the window waits for it",
+          str(A.pieces([(5000, 39900)], 0, 40000, False)))
+    check(A.pieces([(1000, 3000), (3500, 39900)], 0, 40000, False) == ((1000, 3000), 3000),
+          "the stretch cut by the window is left for the next one")
+    check(A.pieces([], 0, 40000, False) == (None, 37000), "silence: on, with a little overlap")
+    check(A.pieces([], 0, 40000, True) == (None, 40000), "silence at the end: done")
+    check(A._merge_ranges([[0, 1000], [1200, 3000], [9000, 9500]]) == [[0, 3000], [9000, 9500]], "ranges merged")
+    f = TMP / "film.mkv"
+    f.write_bytes(b"x")
+    check(A.cache_key(str(f), "turbo", False) != A.cache_key(str(f), "medium", True), "one cache per model and task")
+    check(A.vad_path().is_file() and A.vad_path().stat().st_size == 885098, "the VAD model ships with the app")
     check(A.pick_model.__defaults__ == (False,), "the model depends on translation")
 
 

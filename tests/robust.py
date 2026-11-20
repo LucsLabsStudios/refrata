@@ -136,14 +136,25 @@ def win():
 
 def quick_window():
     from PySide6.QtGui import QWindow
-    return H.parts.qml.rootObjects()[0].findChild(QWindow, "quickPlayer")
+    root = H.parts.qml.rootObjects()[0]
+    root.setProperty("quickWanted", True)   # made with the warm-up or at the first Space (Main.qml)
+    return root.findChild(QWindow, "quickPlayer")
 
 
-def open_quick(path, mode):
+def pip_window():
+    """The picture-in-picture window, made at its first use (Main.qml)."""
+    from PySide6.QtGui import QWindow
+    root = H.parts.qml.rootObjects()[0]
+    root.setProperty("pipWanted", True)
+    return root.findChild(QWindow, "pipWindow")
+
+
+def open_quick(path):
+    """The Space preview on a file, as a Space in Explorer opens it."""
     from PySide6.QtCore import QMetaObject, Q_ARG
     from refrata import quicklook as Q
     QMetaObject.invokeMethod(quick_window(), "open", Q_ARG("QVariant", str(path)),
-                             Q_ARG("QVariant", Q.media_siblings(str(path))), Q_ARG("QVariant", mode))
+                             Q_ARG("QVariant", Q.media_siblings(str(path))))
 
 
 def rss_mb() -> float:
@@ -387,12 +398,12 @@ def quit_with_equalizer_and_adjustments():
 
 
 @scenario()
-def quit_quick_player_compact():
+def quit_quick_player_preview_playing():
     q = quick_window()
-    open_quick(H.fx["video"], "compact")
-    wait(lambda: q.isVisible(), 4, "quick player open")
+    open_quick(H.fx["video"])
+    wait(lambda: q.isVisible(), 4, "preview open")
     wait(lambda: q.findChild(__import__("PySide6.QtCore", fromlist=["QObject"]).QObject, "quickSeek").property("value") > 800,
-         8, "quick player plays")
+         8, "the preview plays")
 
 
 @scenario()
@@ -401,7 +412,7 @@ def quit_quick_player_preview_over_music():
     e.openFiles([str(H.fx["tone_long"])])
     playing_media(video=False)
     q = quick_window()
-    open_quick(H.fx["video"], "preview")
+    open_quick(H.fx["video"])
     wait(lambda: q.isVisible() and e.state == "paused", 5, "preview open, music paused")
 
 
@@ -2300,7 +2311,8 @@ def feature_second_subtitle_and_subtitles_from_speech():
         return
     _paused_at(0)
     H.parts.settings.aiSubs = True
-    wait(lambda: any("subtitles" in c[2].lower() for c in t.property("cues")), 200,
+    # the pieces come as they are done (cut at pauses): the last sentence means the whole file
+    wait(lambda: any("thank" in c[2].lower() for c in t.property("cues")), 200,
          "the speech written as subtitles (model download on the first run)")
     cues = t.property("cues")
     H.notes.append("from speech: " + " | ".join(c[2] for c in cues))
@@ -2314,6 +2326,33 @@ def feature_second_subtitle_and_subtitles_from_speech():
     check(txt.property("y") > H.parts.find("subOverlay").property("height") / 2, "at the bottom of the picture")
     check(all(c[2].count("\n") <= 1 and len(c[2]) <= 2 * 42 + 8 for c in cues), "two lines at most, each short",
           str([c[2] for c in cues]))
+    # the subtitle style changed while they show: libVLC's player is rebuilt (the same file opened
+    # again). The subtitles made so far stay on screen and the transcription carries on: it used
+    # to start over from nothing, the subtitles gone meanwhile. The overlay takes the new style.
+    size0 = txt.property("font").pixelSize()
+    worker0 = aisubs._worker
+    seen_empty = False
+    for key, value in (("subSize", "large"), ("subBackground", "box"), ("subColor", "yellow")):
+        e.setSubtitleStyle(key, value)
+        t1 = time.perf_counter()
+        while time.perf_counter() - t1 < 2.5:
+            pump(0.05)
+            seen_empty = seen_empty or not t.property("cues")
+    wait(lambda: e.state in ("paused", "playing") and e.length > 0, 15, "the file back after the rebuilds")
+    _paused_at(int((first[0] + first[1]) / 2))
+    pump(0.4)
+    check(not seen_empty, "the subtitles stay while the player is rebuilt")
+    check(t.property("cuesName") == "ai" and len(t.property("cues")) >= len(cues) - 1, "none lost",
+          f"{len(t.property('cues'))} vs {len(cues)}")
+    check(aisubs._worker is worker0 or worker0 is None or not worker0.is_alive(),
+          "the transcription was not started over")
+    check(txt.property("font").pixelSize() > size0 * 1.2, "the size chosen", f"{size0} -> {txt.property('font').pixelSize()}")
+    check(H.parts.find("subOverlayBox").property("visible"), "the box behind the text")
+    check(txt.property("color").name().lower() == "#ffe14d", "the colour chosen", txt.property("color").name())
+    for key, value in (("subSize", "normal"), ("subBackground", "outline"), ("subColor", "white")):
+        e.setSubtitleStyle(key, value)
+        pump(1.5)
+    wait(lambda: e.state in ("paused", "playing") and e.length > 0, 15, "the file back after the rebuilds")
     # resumed in the middle: the same subtitles at the same times (the sound used to be taken from
     # the point with libVLC's start-time, and came out ~2 s off)
     whole = {c[2]: c[0] for c in cues}
@@ -2340,6 +2379,53 @@ def feature_second_subtitle_and_subtitles_from_speech():
               f"ends at {again[1]} vs {later[1]} ms: {again[2]!r} / {later[2]!r}")
         H.parts.settings.aiSubs = False
         wait(lambda: t.property("cues") == [], 5, "off: gone")
+
+
+@scenario(timeout=420)
+def feature_subtitles_from_speech_long_file():
+    """Subtitles from speech on a real film (REFRATA_AISUBS_FILE, minutes long; skipped without
+    it): they come piece by piece ahead of playback; a jump forward starts there, a jump back to
+    what is done does not start over; the file opened again shows them at once (the cache)."""
+    path = os.environ.get("REFRATA_AISUBS_FILE", "")
+    aisubs = H.parts.qml.rootContext().contextProperty("aisubs")
+    if not path or not os.path.isfile(path) or not aisubs.property("available"):
+        H.notes.append("subtitles from speech on a long file: REFRATA_AISUBS_FILE not set, skipped")
+        return
+    e, t = eng(), _tools()
+    e.openFiles([path])
+    playing_media(video=True)
+    win().setProperty("playerOpen", True)
+    H.parts.settings.aiSubs = True
+    wait(lambda: len(t.property("cues")) >= 5, 180, "the first subtitles")
+    t0 = time.perf_counter()
+    wait(lambda: aisubs._front >= 60_000, 120, "a minute ahead of playback")
+    H.notes.append(f"first minute ready {time.perf_counter() - t0:.1f} s after the first subtitles")
+    cues = t.property("cues")
+    check(all(a[1] + 40 <= b[0] for a, b in zip(cues, cues[1:])), "never two at once")
+    check(all(len(x) <= 42 for c in cues for x in c[2].split("\n")) and all(c[2].count("\n") <= 1 for c in cues),
+          "two lines of 42 at most")
+    # forward: transcribed from there
+    e.seek(240_000)
+    wait(lambda: any(239_000 <= c[0] <= 270_000 for c in t.property("cues")), 90, "subtitles after the jump")
+    worker = aisubs._worker
+    # back into what is done: no new start, the subtitles there unchanged
+    before = [c for c in t.property("cues") if c[0] < 30_000]
+    e.seek(5_000)
+    pump(2.5)
+    check(aisubs._worker is worker, "a jump back to what is done does not start over")
+    check([c for c in t.property("cues") if c[0] < 30_000] == before, "and changes nothing there")
+    # the file again, later: the subtitles at once
+    done = list(aisubs._done)
+    e.openFiles([str(H.fx["video"])])
+    playing_media(video=True)
+    pump(2.5)                       # the cache is written two seconds after the last piece
+    e.openFiles([path])
+    t1 = time.perf_counter()
+    wait(lambda: len(t.property("cues")) >= len(before), 10, "the file again: its subtitles back")
+    check(time.perf_counter() - t1 < 3, "at once, from the cache", f"{time.perf_counter() - t1:.1f} s")
+    check(aisubs._done and aisubs._done[0][1] >= done[0][1] - 1000, "what was done is known", str(aisubs._done))
+    H.parts.settings.aiSubs = False
+    wait(lambda: not t.property("cues"), 5, "off: gone")
 
 
 @scenario(timeout=180)
@@ -2785,11 +2871,21 @@ def feature_switch_while_casting_path():
     e._cast_ptr = None
 
 
+def _mediakeys_ready():
+    """The Windows media session, once set up (1.5 s after the window shows: refrata/mediakeys.py)."""
+    mk = H.parts.mediakeys
+    if mk is not None:
+        t0 = time.time()
+        while not mk.available and time.time() - t0 < 5:
+            pump(0.1)
+    return mk
+
+
 @scenario(timeout=60)
 def feature_mediakeys_overlay():
     """The Windows media session mirrors Refrata (only this scenario turns it on, briefly; no
     real key is pressed: the person's own media keys are left alone)."""
-    mk = H.parts.mediakeys
+    mk = _mediakeys_ready()
     if mk is None or not mk.available:
         H.notes.append("Windows media controls not available on this machine")
         return
@@ -2840,7 +2936,7 @@ def _overlay_cover_bytes(mk) -> int:
 def feature_mediakeys_cover():
     """The media overlay shows the cover of what plays: the library's thumbnail for a video, kept
     when the next item has the same cover (two songs of one album), dropped when it has none."""
-    mk = H.parts.mediakeys
+    mk = _mediakeys_ready()
     if mk is None or not mk.available:
         H.notes.append("Windows media controls not available on this machine")
         return
@@ -3306,7 +3402,7 @@ def feature_picture_in_picture():
     w.setProperty("playerOpen", True)
     playing_media(video=True)
     pump(0.5)
-    pip = H.parts.qml.rootObjects()[0].findChild(QWindow, "pipWindow")
+    pip = pip_window()
     check(pip is not None and not pip.isVisible(), "PiP window exists, hidden")
     H.parts.find("pvPip").clicked.emit()
     pump(0.8)
@@ -3554,9 +3650,10 @@ def _focus():
 
 @scenario(timeout=60)
 def feature_review_settings_and_open_with():
-    """The 'Abrir arquivos no player rápido' switch did not move when clicked (it read the setting
-    once). The portable copy never showed up in Explorer's 'Abrir com', so double-clicks went to
-    Windows' own player: Ajustes now registers it (here inside a throwaway registry key)."""
+    """A switch in this part of Ajustes did not move when clicked (it read the setting once): the
+    Space preview's switch now. The portable copy never showed up in Explorer's 'Abrir com', so
+    double-clicks went to Windows' own player: Ajustes now registers it (here inside a throwaway
+    registry key)."""
     import sys
     import winreg
     from refrata import assoc
@@ -3567,14 +3664,22 @@ def feature_review_settings_and_open_with():
     w.setProperty("page", 5)
     pump(0.8)
     page = H.parts.find("settingsPage")
-    toggle = H.parts.find("toggleQuickOpen")
+    try:
+        H.parts.find("toggleQuickOpen")
+        gone = False
+    except LookupError:
+        gone = True
+    check(gone, "no 'open files in the quick player' switch (the Space preview does it)")
+    ql = H.parts.qml.rootContext().contextProperty("quicklook")
+    toggle = H.parts.find("toggleQuickLook")
     _scroll_to(page, toggle)
-    check(toggle.property("checked") is False and H.parts.settings.value("quickOpen") is False, "quick player off by default")
+    was = toggle.property("checked")
+    check(was == ql.property("enabled"), "the Space preview switch shows the setting")
     _click(toggle)
-    check(H.parts.settings.value("quickOpen") is True, "a click turns the quick player on")
-    check(toggle.property("checked") is True, "and the switch shows it at once")
+    check(ql.property("enabled") is (not was), "a click turns the Space preview over")
+    check(toggle.property("checked") is (not was), "and the switch shows it at once")
     _click(toggle)
-    check(H.parts.settings.value("quickOpen") is False and toggle.property("checked") is False, "a second click turns it off")
+    check(ql.property("enabled") is was and toggle.property("checked") is was, "a second click turns it back")
 
     wa = H.parts.assoc
     wa.refresh()
@@ -4209,7 +4314,7 @@ def feature_every_button_does_what_it_says():
     pv.setProperty("panel", "")
 
     # PiP's own buttons
-    pip = H.parts.qml.rootObjects()[0].findChild(QWindow, "pipWindow")
+    pip = pip_window()
     H.parts.find("pvPip").clicked.emit()
     wait(lambda: pip.isVisible(), 3, "PiP open")
     pump(0.8)
@@ -4255,7 +4360,7 @@ def feature_every_button_does_what_it_says():
 
     # the preview's play button
     q = quick_window()
-    open_quick(H.fx["video"], "preview")
+    open_quick(H.fx["video"])
     wait(lambda: q.isVisible(), 3)
     seek = _find_in(q, "quickSeek")
     wait(lambda: seek.property("value") > 300, 4, "the preview plays")
@@ -4391,8 +4496,18 @@ def feature_space_preview_from_a_real_explorer_window():
         k = Q.KBDLLHOOKSTRUCT(vkCode=Q.VK_SPACE)
         t0 = time.perf_counter()
         ql._last_typing = 0.0
+        asked = []
+        ql.previewRequested.connect(lambda p, s: asked.append(p))
         ql._on_key(0, Q.WM_KEYDOWN, ctypes.addressof(k))
-        wait(lambda: q.isVisible(), 4, "Space on the selected file opens the preview")
+        try:
+            wait(lambda: q.isVisible(), 4, "Space on the selected file opens the preview")
+        except Exception:
+            root = H.parts.qml.rootObjects()[0]
+            qml_q = root.property("quick")
+            # what went wrong: the hook never asked (a key typed elsewhere just before), or it asked
+            # and the window did not show
+            raise AssertionError(f"no preview: asked for {asked}, hook busy {ql._busy}, the app's preview window "
+                                 f"is the one watched: {qml_q is q}, it is visible: {q.isVisible()}")
         H.notes.append(f"Space → preview window: {(time.perf_counter() - t0) * 1000:.0f} ms")
         check(os.path.normcase(q.property("path")) == os.path.normcase(str(target)), "previewing the selected file", q.property("path"))
         files = q.property("files")
@@ -4646,10 +4761,10 @@ def feature_music_page_and_stage_by_mouse():
 
 @scenario(timeout=60)
 def feature_quick_player_title_and_pin():
-    """The quick player names what it plays; in compact mode its pin keeps it above other windows."""
+    """The Space preview names what it plays and stays above other windows."""
     from PySide6.QtCore import Qt
     q = quick_window()
-    open_quick(H.fx["video"], "preview")
+    open_quick(H.fx["video"])
     wait(lambda: q.isVisible(), 3)
     title = _find_in(q, "quickTitle")
     wait(lambda: title.property("value"), 3, "the preview shows a title")
@@ -4661,26 +4776,9 @@ def feature_quick_player_title_and_pin():
     check(keys.property("focus") and (held is None or held.objectName() == "quickKeys"),
           "the preview's key handler is what holds the keyboard in its window",
           held.objectName() if held is not None else "focus not on the key handler")
-    check(not _find_in(q, "quickPin").isVisible(), "a preview has no pin (it is always on top)")
+    check(_find_in(q, "quickPin") is None, "no pin: the preview is always on top")
     check(bool(q.flags() & Qt.WindowType.WindowStaysOnTopHint), "and stays on top")
     from PySide6.QtCore import QMetaObject
-    QMetaObject.invokeMethod(q, "close")
-    wait(lambda: not q.isVisible(), 3)
-    open_quick(H.fx["video2"], "compact")
-    wait(lambda: q.isVisible(), 3)
-    pump(0.6)
-    pin = _find_in(q, "quickPin")
-    check(pin.isVisible(), "the compact player has a pin")
-    on = bool(q.property("pinned"))
-    from PySide6.QtCore import QPoint
-    from PySide6.QtTest import QTest
-    QTest.mouseMove(q, QPoint(q.width() // 2, q.height() // 2)); pump(0.3)
-    _click_on(pin, "pin", q)
-    wait(lambda: bool(q.property("pinned")) != on, 2, "the pin toggles")
-    pump(0.3)
-    check(bool(q.flags() & Qt.WindowType.WindowStaysOnTopHint) == (not on), "and the window follows it",
-          f"pinned={q.property('pinned')}")
-    check(q.isVisible(), "the window is still there after the change")
     QMetaObject.invokeMethod(q, "close")
     wait(lambda: not q.isVisible(), 3)
 
@@ -4736,7 +4834,7 @@ def feature_pip_keys_drive_the_video_once():
     e.openFiles([str(H.fx["video"])])
     w.setProperty("playerOpen", True)
     playing_media(video=True)
-    pip = H.parts.qml.rootObjects()[0].findChild(QWindow, "pipWindow")
+    pip = pip_window()
     H.parts.find("pvPip").clicked.emit()
     wait(lambda: pip.isVisible(), 3, "PiP open")
     QMetaObject.invokeMethod(H.parts.ctl, "activateWindow", Q_ARG(QObject, pip))

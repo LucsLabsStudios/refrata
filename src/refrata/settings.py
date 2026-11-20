@@ -34,7 +34,6 @@ DEFAULTS = {
     "volume": 80,
     "folders": [str(Path.home() / "Videos"), str(Path.home() / "Music")],
     "snapshotDir": str(Path.home() / "Pictures" / "Refrata"),
-    "quickOpen": False,       # files from Explorer start in the quick player (off: full app)
     "quickLook": True,        # Space preview in Explorer
     "background": False,      # close to the tray
     "language": "auto",       # auto (Windows language) or a code from refrata/i18n.py
@@ -176,12 +175,10 @@ class Settings(QObject):
                 self._history = _clean_history(raw.get("history"))
         except Exception:
             pass   # unreadable or not JSON: start from the defaults
-        # Up to 1.3.0 "quickOpen" defaulted to on, and every default gets written to settings.json, so
-        # old installs carry quickOpen=true without anyone choosing it. Reset it once to the new
-        # default (off: a double-click opens the full app); a later choice in Ajustes sticks.
-        if not self._data.get("quickOpenReset"):
-            self._data["quickOpen"] = False
-            self._data["quickOpenReset"] = True
+        # "open files in the quick player" is gone (2.0.2): a double-click opens the app, Space
+        # previews; the old keys leave settings.json
+        for gone in ("quickOpen", "quickOpenReset"):
+            self._data.pop(gone, None)
         self._hmodel = HistoryModel(self)
         self._hmodel.sync(self._visible_history())
         self.historyChanged.connect(lambda: self._hmodel.sync(self._visible_history()))
@@ -237,7 +234,6 @@ class Settings(QObject):
     autoplay = _mk("autoplay", bool)
     hwdec = _mk("hwdec", bool)
     folders = _mk("folders", list)
-    quickOpen = _mk("quickOpen", bool)
     smoothMotion = _mk("smoothMotion", str)
     lightBoost = _mk("lightBoost", int)
     detailBoost = _mk("detailBoost", int)

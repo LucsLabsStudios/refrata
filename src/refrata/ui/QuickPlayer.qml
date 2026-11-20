@@ -4,16 +4,13 @@ import QtQuick.Effects
 import QtMultimedia
 import "Utils.js" as U
 
-// Floating quick player.
-//  mode "preview": Space on a file in Explorer (QuickLook-style). Space / Esc closes, ← → browse
-//                  the folder, Enter opens it in Refrata at the same point.
-//  mode "compact": with Ajustes › "Abrir arquivos no player rápido" on (off by default), a file
-//                  opened from Explorer plays here first; Space pauses, ⤢ expands to the app.
+// The Space preview: Space on a file in Explorer or on the desktop (QuickLook-style).
+// Space / Esc closes, ← → browse the folder, Enter opens it in Refrata at the same point.
 // It plays with its own QtMultimedia player, so whatever Refrata is playing is left untouched.
 Window {
     id: qw
     objectName: "quickPlayer"
-    flags: Qt.Window | Qt.FramelessWindowHint | (pinned ? Qt.WindowStaysOnTopHint : 0)
+    flags: Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
     // its own top-level window, not the main window's child: Qt counts a parent as active while
     // its child is, so the main window's shortcuts (Space, arrows) fired over the preview and
     // drove the player behind it
@@ -24,7 +21,6 @@ Window {
     signal expandRequested(var files, int index, real ms)
     signal closed()
 
-    property string mode: "preview"
     property var files: []
     property int index: 0
     readonly property string path: files.length ? files[Math.max(0, Math.min(index, files.length - 1))] : ""
@@ -34,7 +30,6 @@ Window {
     readonly property string name: info.title || fileName
     readonly property string artist: info.artist || ""
     readonly property bool isAudio: /\.(mp3|flac|wav|m4a|aac|ogg|opus|wma|alac|aiff|ape|mka|mid|midi|amr|ac3|dts)$/i.test(path)
-    property bool pinned: mode === "preview"
     property bool shown: false
     property real openedAt: 0
     property int dir: 0                          // last browse direction, for the slide
@@ -61,9 +56,8 @@ Window {
     }
 
     // ------------------------------------------------------------------ API
-    function open(path, list, how) {
-        if (visible && shown && mode === "preview" && how === "preview" && path === qw.path) { close(); return }
-        mode = how
+    function open(path, list) {
+        if (visible && shown && path === qw.path) { close(); return }
         files = list && list.length ? list : [path]
         var i = files.indexOf(path)
         index = i < 0 ? 0 : i
@@ -111,7 +105,7 @@ Window {
     function close() {
         if (!shown) return
         shown = false
-        restoreFocus = mode === "preview"
+        restoreFocus = true
         openAnim.stop()
         closeAnim.restart()
     }
@@ -296,7 +290,7 @@ Window {
                         Text {
                             text: (qw.artist ? qw.artist + "  ·  " : "")
                                   + (qw.files.length > 1 ? qsTr("%1 de %2").arg(qw.index + 1).arg(qw.files.length) + "  ·  " : "")
-                                  + (qw.mode === "preview" ? qsTr("Espaço fecha  ·  ← → navega") : qsTr("Espaço pausa  ·  ← → navega"))
+                                  + qsTr("Espaço fecha  ·  ← → navega")
                             color: Qt.rgba(1, 1, 1, 0.6); font.pixelSize: 11
                         }
                     }
@@ -305,7 +299,6 @@ Window {
                         anchors.right: parent.right; anchors.rightMargin: 12
                         anchors.verticalCenter: parent.verticalCenter
                         spacing: 2
-                        IconButton { objectName: "quickPin"; visible: qw.mode === "compact"; icon: "up"; motion: "pop"; onMedia: true; size: 36; iconSize: 13; checked: qw.pinned; tip: qw.pinned ? qsTr("Sempre no topo: ligado") : qsTr("Sempre no topo"); onClicked: qw.pinned = !qw.pinned }
                         IconButton { objectName: "quickExpand"; icon: "fullscreen"; onMedia: true; size: 36; iconSize: 13; tip: qsTr("Abrir no Refrata (Enter)"); onClicked: qw.expand() }
                         IconButton { objectName: "quickClose"; icon: "close"; onMedia: true; size: 36; iconSize: 12; tip: qsTr("Fechar (Esc)"); onClicked: qw.close() }
                     }
@@ -388,7 +381,7 @@ Window {
             // the Space that opened the preview may still be arriving: ignore it for a moment
             if (e.key === Qt.Key_Space && Date.now() - qw.openedAt < 280) { e.accepted = true; return }
             switch (e.key) {
-            case Qt.Key_Space: qw.mode === "preview" ? qw.close() : qw.togglePlay(); break
+            case Qt.Key_Space: qw.close(); break
             case Qt.Key_Escape: qw.close(); break
             case Qt.Key_Left: qw.browse(-1); break
             case Qt.Key_Right: qw.browse(1); break

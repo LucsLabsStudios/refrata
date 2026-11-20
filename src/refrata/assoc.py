@@ -2,7 +2,7 @@
 
 The installer registers these keys (installer/Refrata.iss). The portable zip registered nothing,
 so a copy run from a folder never showed up in "Abrir com", Windows kept opening videos in its
-own player, and "Abrir arquivos no player rápido" never got a file. `register()` writes the
+own player. `register()` writes the
 installer's keys under HKCU for the running exe. Since Windows 8 an app can't make itself the
 default; `openDefaults()` opens the Windows page where the user picks it.
 

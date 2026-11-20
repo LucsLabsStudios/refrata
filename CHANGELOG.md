@@ -7,6 +7,43 @@ All notable changes to Refrata are listed here, newest first. Each version links
 The project follows [Semantic Versioning](https://semver.org/). Patch releases (`1.4.x`) can also
 ship updated components only (libVLC, yt-dlp, python-vlc) after passing the full test suite.
 
+## [2.0.2] - 2026-11-20
+### Removed
+- Settings › "Open files in the quick player" (off by default since 1.3.1). It did what the Space
+  preview does better: the preview is for a look, a double-click opens the full app (in under
+  half a second with Refrata open). The floating window remains as the Space preview.
+
+### Fixed
+- AI subtitles no longer start over when the subtitle size, colour or background changes (which
+  rebuilds the player), when the same file is opened again, or after a jump back: what is done is
+  kept per file and model, in memory and on disk, and shows at once.
+- AI subtitles follow the subtitle size, colour and background chosen in the settings, like
+  libVLC's own subtitles.
+- AI subtitles show with the speech: they appeared about half a second early (Whisper's token
+  times); with DTW word times they start within ~0.1 s of the voice on average.
+- No more words or sentences cut in two where 30-second blocks met, and no sentences made up over
+  silence or music.
+
+### Performance
+- Faster start: about 150 ms less of the main thread's work before the window shows (~9%). The
+  Space preview and the picture-in-picture windows are made after the window is on screen (PiP at
+  its first use); the Windows media keys are set up 1.5 s after it; the network modules (urllib,
+  importlib.metadata) and WinRT load only when used.
+- The media overlay's timeline refreshes only while something plays (it ran every 2 s always).
+- A file opened with the window started minimised or hidden starts playing after 1.5 s instead of 4 s.
+- Startup trace (`REFRATA_TRACE`) also gives the main thread's CPU time per step, which a busy
+  machine barely changes; the launch battery measures idle CPU once the start has settled.
+
+### Changed
+- The player's controls go sooner: 2 s after the mouse stops over the picture (was 2.8 s), and
+  half a second after it leaves the window (it used to wait the full time), with a quicker fade.
+- Speech recognition: Silero voice activity detection (shipped with the app, 885 kB) finds where
+  people speak, and only speech goes to Whisper, in pieces of up to 28 s cut at pauses, with the
+  sentence before as context. About 19× faster than real time on an RTX 2080 with large-v3-turbo.
+- Subtitles are cut by the usual rules: a whole sentence when it fits two lines of 42 characters,
+  else balanced parts cut at commas and breaths; short sentences said together share a subtitle,
+  one per line; no lone word; at most 20 characters per second; giant words wrapped.
+
 ## [2.0.1] - 2026-11-19
 ### Changed
 - The player's Tracks, Tools and Adjust panels are redesigned: columns with dividers, named

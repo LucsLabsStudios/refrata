@@ -12,7 +12,7 @@ body:
     attributes:
       label: Refrata version
       description: Settings › About
-      placeholder: "2.0.1"
+      placeholder: "2.0.2"
     validations:
       required: true
   - type: dropdown
