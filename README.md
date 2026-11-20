@@ -41,17 +41,31 @@ wraps it in the experience people expect from a player today.
 - **Speaks your language.** 14 interface languages, switched live.
 - **Tested like a product.** Every release passes unit tests, an end-to-end suite that clicks
   through the interface, over 100 robustness scenarios (4K60 frame pacing among them), a check that
-  each of the 224 interface controls is used by a test, and clean installs on Ubuntu and Debian.
+  each of the 225 interface controls is used by a test, and clean installs on Ubuntu and Debian.
+
+## New in 2.0.1
+
+- **HDR follows Windows live.** Turn Windows "Use HDR" on or off with a video playing, windowed or
+  full screen, and the picture follows in under a second, without reopening the app. The same
+  happens when the window moves to another monitor. HDR reference white follows the desktop's SDR
+  white.
+- **Every picture option says what it is doing.** Under smooth motion, true HDR and RTX Video,
+  Settings and the player's Adjust panel say what each one does to the video playing, and why not
+  when it does nothing (the video is already HDR, the screen has no HDR, the driver refused).
+- **AI subtitles cut like real subtitles:** up to two lines, 1 to 5.5 seconds, ending at pauses,
+  timed from word timestamps. Translation into English uses the Whisper medium model.
+- **Clearer player panels.** Tracks, Tools and Adjust are laid out in sections with dividers; detail
+  boost is clearly visible now.
 
 ## New in 2.0
 
 | | |
 |---|---|
-| **True HDR** | With Windows HDR on, HDR video shows at its real brightness up to the screen's peak, while the interface stays at the desktop's SDR brightness. On an SDR screen, HDR is tone mapped with the BT.2390 curve. |
+| **True HDR** | With Windows HDR on, HDR video shows at its real brightness up to the screen's peak, while the interface stays at the desktop's SDR brightness. On an SDR screen, HDR is tone mapped with the BT.2390 curve. Since 2.0.1 it follows Windows HDR being switched while the app runs. |
 | **HDR10+ and per-frame brightness** | HDR10+ (SMPTE ST 2094-40) metadata is followed scene by scene; plain HDR10 is measured on the GPU every frame, so dark scenes are not dimmed. |
 | **Smooth motion** | 24 and 30 fps video plays at 60, 120 fps or the monitor's refresh rate. Motion is searched to a quarter of a pixel; logos and subtitles stay still; scene cuts show the real frame. |
 | **NVIDIA RTX Video** | Super Resolution and RTX Video HDR through the GPU's video processor on RTX cards. |
-| **AI subtitles** | whisper.cpp built into the app, running on the GPU through Vulkan. The model (82 MB, or 574 MB on GPUs with 3 GB or more) downloads once and is checked by SHA-256. |
+| **AI subtitles** | whisper.cpp built into the app, running on the GPU through Vulkan. The model (82 MB, or 574 MB on GPUs with 3 GB or more; 539 MB for translation) downloads once and is checked by SHA-256. |
 | **Player tools** | A second subtitle at the top of the picture, one frame back, bookmarks on the timeline, skip intro and credits per folder, A-B clips to MP4 or GIF, Dolby, DTS, TrueHD and Atmos passthrough. |
 | **Native frame path** | Frames go from libVLC to Qt in Rust and C++, without Python; in the release tests, 4K60 SDR and HDR10+ play at 60 fps with no dropped frames. |
 
@@ -91,7 +105,7 @@ published with its `.sha256` checksum and `.sig` signature.
 | Area | What you get |
 |---|---|
 | **Video** | Native resolution up to 8K with GPU color conversion, hardware decoding, brightness/contrast/saturation/gamma/hue, light and detail boost, fit/fill/stretch, rotate, mirror, forced aspect, zoom, deinterlacing, timeline scene preview |
-| **HDR** | HDR10, HDR10+ and HLG with correct color (BT.2390 tone curve, BT.2020 gamut mapping); HDR10+ metadata followed scene by scene and HDR10 brightness measured per frame on the GPU; true HDR output on Windows HDR screens (scRGB), with the interface at the desktop's SDR brightness |
+| **HDR** | HDR10, HDR10+ and HLG with correct color (BT.2390 tone curve, BT.2020 gamut mapping); HDR10+ metadata followed scene by scene and HDR10 brightness measured per frame on the GPU; true HDR output on Windows HDR screens (scRGB), with the interface at the desktop's SDR brightness; follows Windows HDR being switched on or off, and the window moving between monitors, while a video plays |
 | **Smooth motion** | GPU frame interpolation to 60 or 120 fps or the monitor's refresh rate: quarter-pixel motion search, per-pixel vector choice that keeps logos and subtitles still, scene-cut and occlusion fallback, no resolution limit |
 | **NVIDIA RTX** | RTX Video Super Resolution and RTX Video HDR through the GPU's video processor (RTX cards) |
 | **Audio** | Volume up to 150%, 10-band equalizer with preamp and 18 presets, volume normalization, output device selection (speakers, headphones, HDMI), passthrough of Dolby and DTS (and TrueHD, DTS-HD, Atmos in HD mode) to a receiver |
@@ -159,7 +173,7 @@ refrata/
 ├── tests/                Unit, end-to-end, robustness, launch and packaging tests
 ├── tools/                Build, release, signing, localization and brand tooling
 ├── packaging/windows/    Inno Setup installer and MSIX (Microsoft Store) package
-├── native/               Rust and C++ module: frame delivery to Qt, RTX Video, HDR10+, whisper.cpp
+├── native/               Rust and C++ module: frame delivery to Qt, RTX Video, HDR10+, live HDR switching, whisper.cpp
 ├── site/                 refrata.vercel.app
 └── docs/                 Guides and design notes
 ```

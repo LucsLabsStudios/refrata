@@ -52,7 +52,7 @@ python src/refrata/__main__.py --screenshot out.png --page settings --panel abou
 | `python tests/e2e.py` | The real app (QML + libVLC) with isolated data and generated media: every control clicked with the mouse, keyboard, panels, full screen, drag and drop, native Windows dialogs, single instance, shutdown | ~5 min |
 | `python tests/e2e.py -k t35,t40` | Only the tests whose name contains one of the filters | |
 | `python tests/e2e_parallel.py --exe dist\Refrata\Refrata.exe` | The e2e suite split across several app processes, against the packaged app | ~2 min |
-| `python tests/robust.py` | 81 scenarios, each in its own app process that exits through the real quit path | ~7 min |
+| `python tests/robust.py` | 108 scenarios, each in its own app process that exits through the real quit path | ~10 min |
 | `python tests/launch.py --exe dist\Refrata\Refrata.exe` | Cold start, hand-off, idle CPU and memory, 1080p30 and 4K60 playback budgets | ~1 min |
 | `python tests/test_installer.py` | Installs, tests the installed copy, opens a file through the registry, uninstalls | |
 | `python tests/test_msix.py` | The same for the MSIX package (see [microsoft-store.md](microsoft-store.md)) | |
@@ -75,6 +75,18 @@ Any Qt or QML warning fails a test. The robustness suite also fails a scenario t
 - **Layout:** all 14 languages on every page and panel with no clipped text, also at 150% scale
   with the window at its minimum size.
 - **Monkey:** seeded random clicks and keys for two minutes.
+- **HDR and picture:** Windows HDR switched while a video plays (simulated), windowed and full
+  screen, with the window's place and size kept; 20 picture option switches while playing; reopen
+  in place.
+
+Some scenarios need real hardware and only run when asked:
+
+| Variable | Runs |
+|---|---|
+| `REFRATA_REAL_HDR=1` | Switches Windows HDR on the real screen (`tests/winhdr.py`), checks the swapchain follows, and turns it back as it was. Needs an HDR screen. |
+| `REFRATA_BENCH_DIR=<folder>` | Plays every video in the folder and reports frame pacing; `REFRATA_BENCH_SECONDS` sets the time per video, `REFRATA_BENCH_HIDDEN=1` measures with the window hidden. |
+
+`python tests/winhdr.py on` and `off` switch Windows HDR by hand.
 
 The packaged app runs the same suite from inside: `Refrata.exe --selftest --report r.json`.
 

@@ -41,18 +41,33 @@ a experiência que se espera de um player hoje.
 - **Fala o seu idioma.** 14 idiomas, trocados na hora.
 - **Testado como produto.** Todo lançamento passa por testes de unidade, uma bateria de ponta a
   ponta que clica pela interface, mais de 100 cenários de robustez (entre eles o ritmo de quadros em
-  4K60), uma conferência de que cada um dos 224 controles da interface é usado por algum teste, e
+  4K60), uma conferência de que cada um dos 225 controles da interface é usado por algum teste, e
   instalações limpas no Ubuntu e no Debian.
+
+## Novidades da 2.0.1
+
+- **O HDR acompanha o Windows na hora.** Ligue ou desligue o "Usar HDR" do Windows com um vídeo
+  tocando, em janela ou em tela cheia, e a imagem acompanha em menos de um segundo, sem reabrir o
+  app. O mesmo vale ao mover a janela para outro monitor. O branco do vídeo HDR segue o branco SDR
+  da área de trabalho.
+- **Cada opção de imagem diz o que está fazendo.** Embaixo de movimento suave, HDR real e RTX
+  Video, os Ajustes e o painel Ajustes do player dizem o que cada um faz no vídeo que está tocando e,
+  quando não faz nada, por quê (o vídeo já é HDR, a tela não tem HDR, o driver recusou).
+- **Legendas por IA cortadas como legendas de verdade:** até duas linhas, de 1 a 5,5 segundos,
+  terminando nas pausas, no tempo de cada palavra. A tradução para o inglês usa o modelo medium do
+  Whisper.
+- **Painéis do player mais claros.** Faixas, Ferramentas e Ajustes organizados em seções com
+  divisórias; o realce de detalhes agora é bem visível.
 
 ## Novidades da 2.0
 
 | | |
 |---|---|
-| **HDR de verdade** | Com o HDR do Windows ligado, o vídeo HDR aparece com o brilho real, até o pico da tela, e a interface fica no brilho SDR da área de trabalho. Numa tela SDR, o HDR é convertido com a curva BT.2390. |
+| **HDR de verdade** | Com o HDR do Windows ligado, o vídeo HDR aparece com o brilho real, até o pico da tela, e a interface fica no brilho SDR da área de trabalho. Numa tela SDR, o HDR é convertido com a curva BT.2390. Desde a 2.0.1, acompanha o HDR do Windows sendo ligado ou desligado com o app aberto. |
 | **HDR10+ e brilho por quadro** | Os metadados HDR10+ (SMPTE ST 2094-40) são seguidos cena por cena; o HDR10 comum é medido na GPU a cada quadro, e cena escura não fica apagada. |
 | **Movimento suave** | Vídeo de 24 e 30 fps passa a 60, 120 fps ou na taxa do monitor. O movimento é buscado com precisão de ¼ de pixel; logotipos e legendas ficam parados; cortes de cena mostram o quadro real. |
 | **NVIDIA RTX Video** | Super Resolution e RTX Video HDR pelo processador de vídeo da GPU, em placas RTX. |
-| **Legendas por IA** | whisper.cpp dentro do app, rodando na GPU pelo Vulkan. O modelo (82 MB, ou 574 MB em placas com 3 GB ou mais) é baixado uma vez e conferido por SHA-256. |
+| **Legendas por IA** | whisper.cpp dentro do app, rodando na GPU pelo Vulkan. O modelo (82 MB, ou 574 MB em placas com 3 GB ou mais; 539 MB para traduzir) é baixado uma vez e conferido por SHA-256. |
 | **Ferramentas do player** | Segunda legenda no alto da imagem, voltar um quadro, favoritos na barra de tempo, pular abertura e encerramento por pasta, trecho A-B em MP4 ou GIF, passthrough de Dolby, DTS, TrueHD e Atmos. |
 | **Caminho nativo dos quadros** | Os quadros vão do libVLC ao Qt em Rust e C++, sem passar pelo Python; nos testes de lançamento, 4K60 em SDR e HDR10+ roda a 60 fps sem quadros descartados. |
 
@@ -93,7 +108,7 @@ com o seu `.sha256` e a sua assinatura `.sig`.
 | Área | O que tem |
 |---|---|
 | **Vídeo** | Resolução nativa até 8K com conversão de cor na GPU, decodificação por hardware, brilho/contraste/saturação/gama/matiz, realce de luz e de detalhe, ajustar/preencher/esticar, girar, espelhar, proporção, zoom, desentrelaçar, prévia de cenas na barra de tempo |
-| **HDR** | HDR10, HDR10+ e HLG com as cores certas (curva BT.2390, mapeamento de BT.2020); metadados HDR10+ seguidos cena a cena e brilho do HDR10 medido a cada quadro na GPU; saída HDR real em telas com o HDR do Windows ligado (scRGB), com a interface no brilho SDR da área de trabalho |
+| **HDR** | HDR10, HDR10+ e HLG com as cores certas (curva BT.2390, mapeamento de BT.2020); metadados HDR10+ seguidos cena a cena e brilho do HDR10 medido a cada quadro na GPU; saída HDR real em telas com o HDR do Windows ligado (scRGB), com a interface no brilho SDR da área de trabalho; acompanha o HDR do Windows sendo ligado ou desligado, e a janela indo para outro monitor, com o vídeo tocando |
 | **Movimento suave** | Interpolação de quadros na GPU para 60 ou 120 fps ou a taxa do monitor: busca de movimento com precisão de ¼ de pixel, vetor escolhido por pixel (logotipos e legendas não se arrastam), volta ao quadro real em cortes de cena e oclusões, sem limite de resolução |
 | **NVIDIA RTX** | RTX Video Super Resolution e RTX Video HDR pelo processador de vídeo da GPU (placas RTX) |
 | **Áudio** | Volume até 150%, equalizador de 10 bandas com pré-amp e 18 presets, normalizar volume, escolha da saída (alto-falantes, fone, HDMI), passthrough de Dolby e DTS (e TrueHD, DTS-HD, Atmos no modo HD) para o receiver |
@@ -161,7 +176,7 @@ refrata/
 ├── tests/                Testes de unidade, ponta a ponta, robustez, abertura e pacotes
 ├── tools/                Build, lançamento, assinatura, traduções e identidade visual
 ├── packaging/windows/    Instalador (Inno Setup) e pacote MSIX (Microsoft Store)
-├── native/               Módulo em Rust e C++: entrega de quadros ao Qt, RTX Video, HDR10+, whisper.cpp
+├── native/               Módulo em Rust e C++: entrega de quadros ao Qt, RTX Video, HDR10+, troca de HDR ao vivo, whisper.cpp
 ├── site/                 refrata.vercel.app
 └── docs/                 Guias e notas de projeto
 ```

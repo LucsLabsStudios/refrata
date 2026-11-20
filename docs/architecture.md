@@ -43,6 +43,27 @@ libVLC 3 turns hardware decoding off for applications that use video callbacks. 
 carry no subtitles on this path, so an item that shows subtitles reopens in software decoding at
 the same position.
 
+## HDR output
+
+On a Windows HDR screen the window's swapchain is scRGB (16-bit float) and HDR video is drawn at
+its real brightness; elsewhere it is 8-bit and HDR is tone mapped. `hdroutput.py` keeps the two in
+step with the screen while the app runs:
+
+- A hidden window on its own thread hears `WM_DISPLAYCHANGE`, then reads the screen's state
+  (`hdrdisplay.py`) a few times while Windows settles, plus a light poll every 2 s. Nothing of this
+  runs on the interface or render thread.
+- When the screen and the swapchain disagree, the window's native surface is destroyed and shown
+  again in the same place, size and full-screen state. Qt keeps its device, so the picture is back
+  in under 100 ms and playback does not stop.
+- Qt 6.8 asks DXGI whether the output is in HDR through an adapter made at startup, which keeps
+  the state of that moment. `native/src/dxgihook.cpp` patches `IDXGIOutput6::GetDesc1` to answer
+  with the current state for the screens Refrata watches, so HDR turned on after launch works too.
+- If a driver ever refuses anyway, the window shows **Reopen in HDR**: `reopen.py` starts a new
+  instance with the same queue, position, page and window, and the old one closes.
+
+`tests/winhdr.py` switches Windows HDR for real; `tests/robust.py` has simulated and real switch
+scenarios (the real ones need `REFRATA_REAL_HDR=1`).
+
 ## Startup
 
 A double-click on a file while Refrata runs must answer at once. `fastlaunch.py` runs before Qt
