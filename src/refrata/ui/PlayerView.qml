@@ -48,6 +48,13 @@ Item {
     onVisibleChanged: if (visible && !warm) { poke(); Qt.callLater(function () { pv.glassTick++ }) }
 
     SmoothTime { id: pvClock; active: pv.visible && !player.isAudio; frameSource: video.videoSink }
+    // what is applied to the picture right now (Settings › Imagem and the Picture panel show it)
+    readonly property var pictureStatus: ({
+        video: !player.isAudio && player.currentPath !== "",
+        hdr: video.hdr, hdrOut: video.hdrOut, outWhite: video.outWhite, outPeak: video.outPeak,
+        rtx: video.rtxState, motion: video.motionState, motionFrom: player.videoFps * player.rate,
+        motionTo: video.motionTo, light: video.light, detail: video.detail
+    })
     Timer {
         id: hideTimer
         interval: 2800
@@ -544,16 +551,58 @@ Item {
     }
 
     // ---------------------------------------------------------- popover panels
-    component PanelTitle: Text { color: "white"; font.family: theme.displayFont; font.pixelSize: 22; font.weight: Font.DemiBold }
-    component Caption: Text { color: Qt.rgba(1, 1, 1, 0.55); font.pixelSize: 11; font.weight: Font.Bold; font.letterSpacing: 1.6 }
+    // One look for every panel: a title, then groups separated by thin dividers, each group with a
+    // heading in plain case, an optional line of help and its controls. What is on is in the accent
+    // colour; buttons shrink a little while pressed.
+    component PanelTitle: Text { color: "white"; font.family: theme.displayFont; font.pixelSize: 22; font.weight: Font.DemiBold; elide: Text.ElideRight }
+    component Caption: Text {
+        width: parent ? parent.width : implicitWidth
+        color: Qt.rgba(1, 1, 1, 0.94); font.pixelSize: 14; font.weight: Font.DemiBold; elide: Text.ElideRight
+    }
+    component Hint: Text {
+        width: parent ? parent.width : 240
+        color: Qt.rgba(1, 1, 1, 0.64); font.pixelSize: 13; wrapMode: Text.WordWrap; lineHeight: 1.12
+    }
+    component Divider: Item {
+        width: parent ? parent.width : 1; height: 17
+        Rectangle { anchors.verticalCenter: parent.verticalCenter; width: parent.width; height: 1; color: Qt.rgba(1, 1, 1, 0.11) }
+    }
+    // a column of a panel, with a vertical rule on its left when another column stands beside it
+    // (none when a narrow window wrapped the columns). The rule sits outside the stack of content:
+    // inside a Column it was laid out as one more item, as tall as the column, and pushed the
+    // content out of sight.
+    component PanelColumn: Item {
+        id: pcol
+        default property alias content: pinner.data
+        property alias spacing: pinner.spacing
+        width: 300
+        height: pinner.implicitHeight
+        Rectangle { x: -13; width: 1; height: pcol.height; color: Qt.rgba(1, 1, 1, 0.11); visible: pcol.x > 0 }
+        Column { id: pinner; width: pcol.width; spacing: 6 }
+    }
     component Chip: Rectangle {
         id: chip
         property string text: ""
+        property string icon: ""
         property bool selected: false
+        property bool primary: false            // the main action of its group
         signal clicked()
-        width: Math.max(56, ct.implicitWidth + 28); height: 38; radius: 19
-        color: selected ? "white" : (cm.containsMouse ? Qt.rgba(1, 1, 1, 0.16) : Qt.rgba(1, 1, 1, 0.08))
-        Text { id: ct; anchors.centerIn: parent; text: chip.text; color: chip.selected ? "#111" : "white"; font.pixelSize: 13; font.weight: Font.DemiBold }
+        width: Math.max(44, crow.implicitWidth + 28); height: 38; radius: height / 2
+        color: selected ? theme.accent : primary ? Qt.rgba(1, 1, 1, 0.92)
+               : cm.containsMouse ? Qt.rgba(1, 1, 1, 0.17) : Qt.rgba(1, 1, 1, 0.08)
+        border.width: selected || primary ? 0 : 1
+        border.color: Qt.rgba(1, 1, 1, 0.10)
+        opacity: enabled ? 1 : 0.45
+        scale: cm.pressed ? 0.97 : 1
+        Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+        Behavior on color { ColorAnimation { duration: 120 } }
+        Row {
+            id: crow
+            anchors.centerIn: parent
+            spacing: 7
+            Icon { visible: chip.icon !== ""; name: chip.icon; size: 14; anchors.verticalCenter: parent.verticalCenter; color: chip.primary && !chip.selected ? "#111" : "white" }
+            Text { id: ct; anchors.verticalCenter: parent.verticalCenter; text: chip.text; color: chip.primary && !chip.selected ? "#111" : "white"; font.pixelSize: 13; font.weight: Font.DemiBold }
+        }
         MouseArea { id: cm; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: chip.clicked() }
     }
     component TrackItem: Rectangle {
@@ -561,10 +610,12 @@ Item {
         property string text: ""
         property bool selected: false
         signal clicked()
-        width: parent ? parent.width : 200; height: 42; radius: 14
-        color: tm.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+        width: parent ? parent.width : 200; height: 40; radius: 12
+        color: ti.selected ? Qt.rgba(1, 1, 1, 0.10) : tm.containsMouse ? Qt.rgba(1, 1, 1, 0.06) : "transparent"
+        Behavior on color { ColorAnimation { duration: 100 } }
+        Rectangle { x: 0; width: 3; height: 18; radius: 1.5; anchors.verticalCenter: parent.verticalCenter; color: theme.accent; visible: ti.selected }
         Icon { x: 12; anchors.verticalCenter: parent.verticalCenter; name: "check"; size: 13; color: theme.accent; visible: ti.selected }
-        Text { x: 36; anchors.verticalCenter: parent.verticalCenter; width: parent.width - 48; elide: Text.ElideRight; text: ti.text; color: ti.selected ? "white" : Qt.rgba(1, 1, 1, 0.8); font.pixelSize: 14; font.weight: ti.selected ? Font.DemiBold : Font.Normal }
+        Text { x: 34; anchors.verticalCenter: parent.verticalCenter; width: parent.width - 44; elide: Text.ElideRight; text: ti.text; color: ti.selected ? "white" : Qt.rgba(1, 1, 1, 0.82); font.pixelSize: 14; font.weight: ti.selected ? Font.DemiBold : Font.Normal }
         MouseArea { id: tm; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: ti.clicked() }
     }
     component Stepper: Row {
@@ -574,9 +625,41 @@ Item {
         signal changed(int v)
         spacing: 8
         Chip { text: "−"; onClicked: st.changed(st.value - 100) }
-        Text { width: 84; anchors.verticalCenter: parent.verticalCenter; horizontalAlignment: Text.AlignHCenter; text: (st.value > 0 ? "+" : "") + st.value + " " + st.unit; color: "white"; font.pixelSize: 14; font.weight: Font.DemiBold; font.features: { "tnum": 1 } }
+        Text { width: 84; anchors.verticalCenter: parent.verticalCenter; horizontalAlignment: Text.AlignHCenter; text: (st.value > 0 ? "+" : "") + st.value + " " + st.unit; color: st.value !== 0 ? theme.accent : "white"; font.pixelSize: 14; font.weight: Font.DemiBold; font.features: { "tnum": 1 } }
         Chip { text: "+"; onClicked: st.changed(st.value + 100) }
-        Chip { text: qsTr("Zerar"); onClicked: st.changed(0) }
+        Chip { text: qsTr("Zerar"); visible: st.value !== 0; onClicked: st.changed(0) }
+    }
+    // a toggle with what it does: title, one line of explanation
+    component ToggleLine: Item {
+        id: tl
+        property string title: ""
+        property string desc: ""
+        property alias checked: tsw.checked
+        property alias toggleName: tsw.objectName
+        signal toggled(bool on)
+        width: parent ? parent.width : 300
+        height: Math.max(tsw.height, tcol.implicitHeight)
+        Toggle { id: tsw; anchors.top: parent.top; onToggled: (on) => tl.toggled(on) }
+        Column {
+            id: tcol
+            x: tsw.width + 12; width: parent.width - x
+            spacing: 2
+            Text { width: parent.width; text: tl.title; color: "white"; font.pixelSize: 14; font.weight: Font.DemiBold; wrapMode: Text.WordWrap }
+            Text { width: parent.width; visible: tl.desc !== ""; text: tl.desc; color: Qt.rgba(1, 1, 1, 0.62); font.pixelSize: 13; wrapMode: Text.WordWrap }
+        }
+    }
+    // what a feature is doing right now: a coloured dot and a line ("on" green, "paused" amber)
+    component StatusLine: Row {
+        property string text: ""
+        property string kind: "idle"
+        visible: text !== ""
+        width: parent ? parent.width : 300
+        spacing: 8
+        Rectangle {
+            width: 8; height: 8; radius: 4; y: 5
+            color: parent.kind === "on" ? "#3ecf7a" : parent.kind === "paused" ? "#f0b43c" : Qt.rgba(1, 1, 1, 0.4)
+        }
+        Text { width: parent.width - 16; text: parent.text; color: parent.kind === "on" ? "white" : Qt.rgba(1, 1, 1, 0.72); font.pixelSize: 13; wrapMode: Text.WordWrap }
     }
 
     GlassPanel {
@@ -587,16 +670,18 @@ Item {
         Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
         x: player.isAudio ? Math.max(32, (pv.width - (pv.queueOpen ? queuePanel.width + 32 : 0) - width) / 2) : 48 + 120
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: player.isAudio ? musicStage.dockBottom + musicStage.dockH + 16 : 36 + 48 + 16
-        width: Math.min(player.isAudio ? pv.width - 64 : pv.width - 168 - 24, pv.panel === "eq" ? 620 : pv.panel === "tracks" ? 1000 : pv.panel === "adjust" ? 780
-               : pv.panel === "tools" ? 760
+        // above the time bar (margin 36 + buttons 48 + spacing 18 + bar 24): it used to cover the bar
+        anchors.bottomMargin: player.isAudio ? musicStage.dockBottom + musicStage.dockH + 16 : 36 + 48 + 18 + 24 + 14
+        width: Math.min(player.isAudio ? pv.width - 64 : pv.width - 168 - 24, pv.panel === "eq" ? 620 : pv.panel === "tracks" ? 1040 : pv.panel === "adjust" ? 820
+               : pv.panel === "tools" ? 780
                : pv.panel === "info" ? 560 : pv.panel === "chapters" ? 460 : pv.panel === "subs" ? 640 : 420)
         // never taller than the room above the controls: the content scrolls instead
         height: Math.min(panelLoader.item ? panelLoader.item.implicitHeight + 56 : 100, Math.max(160, pv.height - anchors.bottomMargin - 16))
         radius: 28
         backdrop: backdrop
         geometryTick: pv.glassTick + width + height
-        tint: Qt.rgba(0.07, 0.07, 0.09, 0.66)
+        // dark enough to read over any picture (at 0.66 a bright scene washed the text out)
+        tint: Qt.rgba(0.07, 0.07, 0.09, 0.82)
         blurMax: 64
         MouseArea { anchors.fill: parent; hoverEnabled: true; onPositionChanged: pv.poke(); onWheel: (w) => { w.accepted = true; pv.poke() } }
         Flickable {
@@ -621,109 +706,133 @@ Item {
 
     Component {
         id: tracksPanel
+        // three columns side by side (a narrow window wraps them), a rule between them
         Flow {
-            width: parent ? parent.width : 0   // a narrow window: the columns wrap
-            spacing: 24
-            Column {
+            width: parent ? parent.width : 0
+            spacing: 26
+            // ------------------------------------------------ sound
+            PanelColumn {
                 id: ac
-                width: 270
+                width: 280
                 spacing: 6
-                PanelTitle { text: qsTr("Áudio") }
-                Item { width: 1; height: 6 }
+                PanelTitle { text: qsTr("Áudio"); width: parent.width }
+                Item { width: 1; height: 4 }
                 Repeater {
                     model: player.audioTracks
                     TrackItem { objectName: "atrack_" + index; text: modelData.name; selected: modelData.id === player.audioTrack; onClicked: player.setAudioTrack(modelData.id) }
                 }
-                Text { visible: player.audioTracks.length === 0; text: qsTr("Nenhuma faixa"); color: Qt.rgba(1, 1, 1, 0.5); font.pixelSize: 13 }
-                Item { width: 1; height: 8 }
-                Caption { text: qsTr("ATRASO DO ÁUDIO") }
+                Hint { visible: player.audioTracks.length === 0; text: qsTr("Nenhuma faixa") }
+                Divider {}
+                Caption { text: qsTr("Atraso do áudio") }
+                Hint { text: qsTr("Se a fala vem antes ou depois da boca, corrija aqui.") }
                 Stepper { value: player.audioDelay; onChanged: (v) => player.setAudioDelay(v) }
-                Item { width: 1; height: 8 }
-                Caption { text: qsTr("SAÍDA DE ÁUDIO") }
-                ListView {
+                Divider {}
+                Caption { text: qsTr("Saída de áudio") }
+                Dropdown {
                     objectName: "audioDevices"
+                    itemPrefix: "adev_"
                     width: parent.width
-                    height: Math.min(contentHeight, 42 * 4)
-                    clip: true
-                    boundsBehavior: Flickable.StopAtBounds
-                    model: player.audioDevices
-                    delegate: TrackItem { objectName: "adev_" + index; width: ListView.view.width; text: modelData.name; selected: modelData.id === player.audioDevice; onClicked: player.setAudioDevice(modelData.id) }
+                    maxWidth: parent.width
+                    model: player.audioDevices.map(function (d) { return { value: d.id, text: d.name } })
+                    value: player.audioDevice
+                    onPicked: (v) => player.setAudioDevice(v)
                 }
             }
-            Column {
+            // ------------------------------------------------ subtitles
+            PanelColumn {
                 id: sc
-                width: 290
+                width: 300
                 spacing: 6
-                Row {
-                    width: parent.width
-                    spacing: 6
-                    PanelTitle { text: qsTr("Legendas"); width: parent.width - addSub.width - (findSub.visible ? findSub.width + 6 : 0) - 6; elide: Text.ElideRight }
-                    Chip { id: findSub; objectName: "findSubBtn"; visible: subsearch.available && player.currentPath !== ""; text: qsTr("Buscar online"); onClicked: { pv.panel = "subs"; subsearch.find(pv.subLanguages) } }
-                    Chip { id: addSub; objectName: "addSubBtn"; text: qsTr("+ Arquivo"); onClicked: pv.loadSubtitle() }
+                PanelTitle { text: qsTr("Legendas"); width: parent.width }
+                Flow {
+                    width: parent.width; spacing: 6
+                    Chip { id: addSub; objectName: "addSubBtn"; icon: "file"; text: qsTr("Abrir arquivo"); onClicked: pv.loadSubtitle() }
+                    Chip { id: findSub; objectName: "findSubBtn"; icon: "search"; visible: subsearch.available && player.currentPath !== ""; text: qsTr("Buscar online"); onClicked: { pv.panel = "subs"; subsearch.find(pv.subLanguages) } }
                 }
-                Item { width: 1; height: 6 }
+                Item { width: 1; height: 2 }
                 Repeater {
                     model: player.subtitleTracks
                     TrackItem { objectName: "strack_" + index; text: modelData.name; selected: modelData.id === player.subtitleTrack; onClicked: player.setSubtitleTrack(modelData.id) }
                 }
-                Text { visible: player.subtitleTracks.length === 0; text: qsTr("Nenhuma legenda — arraste um .srt para a janela"); color: Qt.rgba(1, 1, 1, 0.5); font.pixelSize: 13; width: parent.width; wrapMode: Text.WordWrap }
-                Item { width: 1; height: 8 }
-                Caption { text: qsTr("SINCRONIA DA LEGENDA") }
+                Hint { visible: player.subtitleTracks.length === 0; text: qsTr("Este vídeo não tem legendas. Abra um arquivo, busque online ou arraste um .srt para a janela.") }
+                Divider {}
+                Caption { text: qsTr("Sincronia") }
+                Hint { text: qsTr("Legenda adiantada: +. Atrasada: −.") }
                 Stepper { value: player.subtitleDelay; onChanged: (v) => player.setSubtitleDelay(v) }
-                Item { width: 1; height: 8 }
-                Caption { text: qsTr("APARÊNCIA DA LEGENDA") }
-                Flow {
-                    width: parent.width; spacing: 6
-                    Repeater {
-                        model: [{ v: "small", t: qsTr("Pequena") }, { v: "normal", t: qsTr("Normal") }, { v: "large", t: qsTr("Grande") }, { v: "huge", t: qsTr("Enorme") }]
-                        Chip { objectName: "subSize_" + modelData.v; height: 32; text: modelData.t; selected: player.subtitleStyle.subSize === modelData.v; onClicked: player.setSubtitleStyle("subSize", modelData.v) }
-                    }
-                }
-                Flow {
-                    width: parent.width; spacing: 6
-                    Repeater {
-                        model: [{ k: "subColor", v: "white", t: qsTr("Branca") }, { k: "subColor", v: "yellow", t: qsTr("Amarela") },
-                                { k: "subBackground", v: "outline", t: qsTr("Contorno") }, { k: "subBackground", v: "box", t: qsTr("Fundo escuro") }]
-                        Chip { objectName: modelData.k + "_" + modelData.v; height: 32; text: modelData.t; selected: player.subtitleStyle[modelData.k] === modelData.v; onClicked: player.setSubtitleStyle(modelData.k, modelData.v) }
+                Divider {}
+                Caption { text: qsTr("Aparência") }
+                // one labelled line per choice: size, colour, background
+                Repeater {
+                    model: [
+                        { label: qsTr("Tamanho"), key: "subSize", opts: [{ v: "small", t: qsTr("Pequena") }, { v: "normal", t: qsTr("Normal") }, { v: "large", t: qsTr("Grande") }, { v: "huge", t: qsTr("Enorme") }] },
+                        { label: qsTr("Cor"), key: "subColor", opts: [{ v: "white", t: qsTr("Branca") }, { v: "yellow", t: qsTr("Amarela") }] },
+                        { label: qsTr("Fundo"), key: "subBackground", opts: [{ v: "outline", t: qsTr("Contorno") }, { v: "box", t: qsTr("Fundo escuro") }] }
+                    ]
+                    Item {
+                        id: styleLine
+                        readonly property string key: modelData.key
+                        width: sc.width
+                        height: Math.max(34, appFlow.height)
+                        Text { width: 70; y: 8; text: modelData.label; color: Qt.rgba(1, 1, 1, 0.7); font.pixelSize: 13; elide: Text.ElideRight }
+                        Flow {
+                            id: appFlow
+                            x: 76; width: parent.width - 76; spacing: 6
+                            Repeater {
+                                model: modelData.opts
+                                Chip {
+                                    objectName: styleLine.key + "_" + modelData.v
+                                    height: 32; text: modelData.t
+                                    selected: player.subtitleStyle[styleLine.key] === modelData.v
+                                    onClicked: player.setSubtitleStyle(styleLine.key, modelData.v)
+                                }
+                            }
+                        }
                     }
                 }
             }
-            Column {
-                width: 250
+            // ------------------------------------------------ more subtitles
+            PanelColumn {
+                id: mc
+                width: 280
                 spacing: 6
                 visible: !player.isAudio
-                PanelTitle { text: qsTr("Mais legendas") }
-                Item { width: 1; height: 6 }
-                Caption { text: qsTr("SEGUNDA LEGENDA") }
-                Text {
-                    width: parent.width; wrapMode: Text.WordWrap; font.pixelSize: 13
-                    color: Qt.rgba(1, 1, 1, tools.cuesName && tools.cuesName !== "ai" ? 0.9 : 0.5)
-                    text: tools.cuesName && tools.cuesName !== "ai" ? tools.cuesName : qsTr("Duas línguas ao mesmo tempo: esta aparece no alto da tela.")
+                PanelTitle { text: qsTr("Mais legendas"); width: parent.width }
+                Item { width: 1; height: 4 }
+                Caption { text: qsTr("Segunda legenda") }
+                Hint {
+                    text: tools.cuesName && tools.cuesName !== "ai" ? qsTr("No alto da tela: %1").arg(tools.cuesName)
+                          : qsTr("Duas línguas ao mesmo tempo: esta aparece no alto da tela.")
+                    color: tools.cuesName && tools.cuesName !== "ai" ? "white" : Qt.rgba(1, 1, 1, 0.64)
                 }
                 Row {
                     spacing: 6
-                    Chip { objectName: "secondSubBtn"; text: qsTr("+ Arquivo"); onClicked: pv.loadSecondSubtitle() }
-                    Chip { objectName: "secondSubClear"; visible: tools.cuesName !== "" && tools.cuesName !== "ai"; text: qsTr("Remover"); onClicked: tools.clearSecondSubtitle() }
+                    Chip { objectName: "secondSubBtn"; icon: "file"; text: qsTr("Abrir arquivo"); onClicked: pv.loadSecondSubtitle() }
+                    Chip { objectName: "secondSubClear"; icon: "close"; visible: tools.cuesName !== "" && tools.cuesName !== "ai"; text: qsTr("Remover"); onClicked: tools.clearSecondSubtitle() }
                 }
-                Item { width: 1; height: 8 }
-                Caption { text: qsTr("LEGENDAS POR IA") }
-                Row {
-                    spacing: 10
-                    Toggle { objectName: "aiSubsToggle"; enabled: aisubs.available; checked: settings.aiSubs; onToggled: (on) => settings.aiSubs = on }
-                    Text { anchors.verticalCenter: parent.verticalCenter; text: qsTr("Gerar do áudio"); color: "white"; font.pixelSize: 14 }
+                Divider {}
+                Caption { text: qsTr("Legendas por IA") }
+                ToggleLine {
+                    toggleName: "aiSubsToggle"
+                    enabled: aisubs.available
+                    title: qsTr("Escrever a partir da fala")
+                    desc: qsTr("Para vídeos sem legenda. Tudo no seu computador, sem enviar nada.")
+                    checked: settings.aiSubs
+                    onToggled: (on) => settings.aiSubs = on
                 }
-                Row {
-                    spacing: 10
-                    Toggle { objectName: "aiTranslateToggle"; enabled: aisubs.available; checked: settings.aiSubsTranslate; onToggled: (on) => settings.aiSubsTranslate = on }
-                    Text { anchors.verticalCenter: parent.verticalCenter; text: qsTr("Traduzir para o inglês"); color: "white"; font.pixelSize: 14 }
+                ToggleLine {
+                    toggleName: "aiTranslateToggle"
+                    enabled: aisubs.available
+                    title: qsTr("Traduzir para o inglês")
+                    desc: qsTr("Usa um modelo maior (514 MB), baixado na primeira vez.")
+                    checked: settings.aiSubsTranslate
+                    onToggled: (on) => settings.aiSubsTranslate = on
                 }
-                Text {
+                StatusLine {
                     objectName: "aiSubsStatus"
-                    width: parent.width; wrapMode: Text.WordWrap; font.pixelSize: 12
-                    color: Qt.rgba(1, 1, 1, 0.6)
-                    text: !aisubs.available ? qsTr("Indisponível neste computador")
+                    text: !aisubs.available ? qsTr("Indisponível neste computador (precisa de uma placa de vídeo com Vulkan).")
                           : settings.aiSubs ? (aisubs.status + (aisubs.progress > 0 && aisubs.progress < 1 ? " " + Math.round(aisubs.progress * 100) + "%" : ""))
-                          : qsTr("Reconhece a fala do vídeo e escreve a legenda, no computador, sem enviar nada.")
+                          : ""
+                    kind: !aisubs.available ? "paused" : settings.aiSubs && aisubs.progress >= 1 ? "on" : "idle"
                 }
             }
         }
@@ -731,51 +840,74 @@ Item {
 
     Component {
         id: toolsPanel
-        Column {
-            spacing: 10
-            Row {
-                spacing: 8
-                PanelTitle { text: qsTr("Ferramentas"); anchors.verticalCenter: parent.verticalCenter }
-                Item { width: 16; height: 1 }
-                Chip { objectName: "frameBackBtn"; text: "◀ " + qsTr("Quadro"); onClicked: player.frameBack() }
-                Chip { objectName: "frameStepBtn"; text: qsTr("Quadro") + " ▶"; onClicked: player.frameStep() }
-            }
-            Caption { text: qsTr("FAVORITOS") }
-            Flow {
-                width: parent.width; spacing: 6
-                Chip { objectName: "addBookmarkBtn"; text: qsTr("+ Favorito aqui (B)"); onClicked: tools.addBookmark() }
-                Repeater {
-                    model: tools.bookmarks
-                    Row {
-                        spacing: 2
-                        Chip { objectName: "bookmark_" + index; text: U.time(modelData); onClicked: tools.jumpBookmark(modelData) }
-                        Chip { objectName: "bookmarkDel_" + index; text: "×"; onClicked: tools.removeBookmark(modelData) }
+        // two columns: moving around the video (frames, bookmarks) | the folder and the clip
+        Flow {
+            width: parent ? parent.width : 0
+            spacing: 26
+            PanelColumn {
+                id: tl1
+                width: 340
+                spacing: 6
+                PanelTitle { text: qsTr("Ferramentas"); width: parent.width }
+                Item { width: 1; height: 4 }
+                Caption { text: qsTr("Quadro a quadro") }
+                Hint { text: qsTr("Pausa e anda um quadro por vez, para achar o momento exato.") }
+                Row {
+                    spacing: 6
+                    Chip { objectName: "frameBackBtn"; icon: "left"; text: qsTr("Anterior"); onClicked: player.frameBack() }
+                    Chip { objectName: "frameStepBtn"; icon: "right"; text: qsTr("Próximo"); onClicked: player.frameStep() }
+                }
+                Hint { text: qsTr("Teclas: Shift+E volta, E avança."); color: Qt.rgba(1, 1, 1, 0.5); font.pixelSize: 12 }
+                Divider {}
+                Caption { text: qsTr("Favoritos") }
+                Hint {
+                    text: tools.bookmarks.length ? qsTr("Clique num horário para voltar a ele. Eles também aparecem na barra de tempo.")
+                                                 : qsTr("Marque cenas deste vídeo para voltar a elas depois.")
+                }
+                Chip { objectName: "addBookmarkBtn"; icon: "add"; primary: true; text: qsTr("Favoritar este momento (B)"); onClicked: tools.addBookmark() }
+                Flow {
+                    width: parent.width; spacing: 6
+                    visible: tools.bookmarks.length > 0
+                    Repeater {
+                        model: tools.bookmarks
+                        Row {
+                            spacing: 2
+                            Chip { objectName: "bookmark_" + index; icon: "star"; text: U.time(modelData); onClicked: tools.jumpBookmark(modelData) }
+                            Chip { objectName: "bookmarkDel_" + index; icon: "close"; text: ""; width: 38; onClicked: tools.removeBookmark(modelData) }
+                        }
                     }
                 }
             }
-            Caption { text: qsTr("PULAR ABERTURA E ENCERRAMENTO") }
-            Text {
-                width: parent.width; wrapMode: Text.WordWrap; font.pixelSize: 13; color: Qt.rgba(1, 1, 1, 0.7)
-                text: (tools.introEnd > 0 || tools.outroLength > 0)
-                      ? qsTr("Nesta pasta: abertura até %1, encerramento nos últimos %2.").arg(tools.introEnd > 0 ? U.time(tools.introEnd) : "—").arg(tools.outroLength > 0 ? U.time(tools.outroLength) : "—")
-                      : qsTr("Marque uma vez e vale para todos os vídeos desta pasta, como os episódios de uma série.")
-            }
-            Flow {
-                width: parent.width; spacing: 6
-                Chip { objectName: "markIntroBtn"; text: qsTr("A abertura termina aqui"); onClicked: tools.markIntroEnd() }
-                Chip { objectName: "markOutroBtn"; text: qsTr("O encerramento começa aqui"); onClicked: tools.markOutroStart() }
-                Chip { objectName: "clearSkipBtn"; visible: tools.introEnd > 0 || tools.outroLength > 0; text: qsTr("Limpar"); onClicked: tools.clearSkip() }
-            }
-            Caption { text: qsTr("SALVAR TRECHO") }
-            Text {
-                width: parent.width; wrapMode: Text.WordWrap; font.pixelSize: 13; color: Qt.rgba(1, 1, 1, 0.7)
-                text: player.loopA >= 0 && player.loopB > player.loopA ? qsTr("O trecho A-B marcado (%1).").arg(U.time(player.loopB - player.loopA))
-                      : qsTr("Os próximos 6 segundos, ou marque um trecho com A-B (L).")
-            }
-            Row {
+            PanelColumn {
+                id: tl2
+                width: 340
                 spacing: 6
-                Chip { objectName: "saveClipBtn"; enabled: tools.exporting === ""; text: tools.exporting === "mp4" ? qsTr("Salvando…") : qsTr("Salvar vídeo (MP4)"); onClicked: tools.saveClip() }
-                Chip { objectName: "saveGifBtn"; enabled: tools.exporting === ""; text: tools.exporting === "gif" ? qsTr("Criando…") : qsTr("Salvar GIF"); onClicked: tools.saveGif() }
+                Item { width: 1; height: tl2.x > 0 ? 34 : 0 }
+                Caption { text: qsTr("Pular abertura e encerramento") }
+                Hint { text: qsTr("Marque uma vez e vale para todos os vídeos desta pasta, como os episódios de uma série.") }
+                StatusLine {
+                    text: (tools.introEnd > 0 || tools.outroLength > 0)
+                          ? qsTr("Nesta pasta: abertura até %1, encerramento nos últimos %2.").arg(tools.introEnd > 0 ? U.time(tools.introEnd) : "—").arg(tools.outroLength > 0 ? U.time(tools.outroLength) : "—")
+                          : ""
+                    kind: "on"
+                }
+                Flow {
+                    width: parent.width; spacing: 6
+                    Chip { objectName: "markIntroBtn"; text: qsTr("A abertura termina aqui"); onClicked: tools.markIntroEnd() }
+                    Chip { objectName: "markOutroBtn"; text: qsTr("O encerramento começa aqui"); onClicked: tools.markOutroStart() }
+                    Chip { objectName: "clearSkipBtn"; icon: "close"; visible: tools.introEnd > 0 || tools.outroLength > 0; text: qsTr("Limpar"); onClicked: tools.clearSkip() }
+                }
+                Divider {}
+                Caption { text: qsTr("Salvar trecho") }
+                Hint {
+                    text: player.loopA >= 0 && player.loopB > player.loopA ? qsTr("O trecho A-B marcado (%1).").arg(U.time(player.loopB - player.loopA))
+                          : qsTr("Salva os próximos 6 segundos. Para escolher o trecho, marque o início e o fim com a tecla L.")
+                }
+                Row {
+                    spacing: 6
+                    Chip { objectName: "saveClipBtn"; icon: "film"; enabled: tools.exporting === ""; text: tools.exporting === "mp4" ? qsTr("Salvando…") : qsTr("Vídeo (MP4)"); onClicked: tools.saveClip() }
+                    Chip { objectName: "saveGifBtn"; icon: "picture"; enabled: tools.exporting === ""; text: tools.exporting === "gif" ? qsTr("Criando…") : qsTr("GIF animado"); onClicked: tools.saveGif() }
+                }
             }
         }
     }
@@ -851,16 +983,21 @@ Item {
 
     Component {
         id: adjustPanel
-        Row {
-            spacing: 28
-            Column {
+        // colour and light | the frame (fit, rotation, aspect, zoom) | what is processing the picture
+        Flow {
+            width: parent ? parent.width : 0
+            spacing: 26
+            PanelColumn {
+                id: aj1
                 width: 400
-                spacing: 14
-                Row {
-                    width: parent.width
-                    PanelTitle { text: bottom.compact ? "" : qsTr("Imagem"); width: parent.width - rs.width }
-                    Chip { id: rs; objectName: "adjReset"; text: qsTr("Restaurar"); onClicked: { player.resetAdjust(); pv.resetGeometry() } }
+                spacing: 6
+                Item {
+                    width: parent.width; height: rs.height
+                    PanelTitle { anchors.verticalCenter: parent.verticalCenter; text: qsTr("Imagem"); width: parent.width - rs.width - 12 }
+                    Chip { id: rs; objectName: "adjReset"; anchors.right: parent.right; icon: "refresh"; text: qsTr("Restaurar"); onClicked: { player.resetAdjust(); pv.resetGeometry() } }
                 }
+                Item { width: 1; height: 4 }
+                Caption { text: qsTr("Cor e brilho") }
                 Repeater {
                     model: [
                         { key: "brightness", label: qsTr("Brilho"), from: 0, to: 2, center: 1 },
@@ -869,39 +1006,79 @@ Item {
                         { key: "gamma", label: qsTr("Gama"), from: 0.1, to: 3, center: 1 },
                         { key: "hue", label: qsTr("Matiz"), from: -180, to: 180, center: 0 },
                     ]
-                    Row {
-                        spacing: 12
-                        Text { width: 90; anchors.verticalCenter: parent.verticalCenter; text: modelData.label; color: "white"; font.pixelSize: 14; elide: Text.ElideRight }
+                    Item {
+                        width: aj1.width; height: 36
+                        readonly property real v: player.adjust[modelData.key]
+                        readonly property bool changed: Math.abs(v - modelData.center) > 0.005
+                        Text { width: 96; anchors.verticalCenter: parent.verticalCenter; text: modelData.label; color: parent.changed ? "white" : Qt.rgba(1, 1, 1, 0.8); font.pixelSize: 14; font.weight: parent.changed ? Font.DemiBold : Font.Normal; elide: Text.ElideRight }
                         MiniSlider {
                             objectName: "adj_" + modelData.key
-                            width: 240; anchors.verticalCenter: parent.verticalCenter
+                            x: 104; width: parent.width - 104 - 64; anchors.verticalCenter: parent.verticalCenter
                             from: modelData.from; to: modelData.to; center: modelData.center
-                            value: player.adjust[modelData.key]; onMedia: true
+                            value: parent.v; onMedia: true
                             onMoved: (v) => player.setAdjust(modelData.key, v)
                         }
-                        Text { width: 40; anchors.verticalCenter: parent.verticalCenter; horizontalAlignment: Text.AlignRight; text: player.adjust[modelData.key].toFixed(modelData.key === "hue" ? 0 : 2); color: Qt.rgba(1, 1, 1, 0.6); font.pixelSize: 12; font.features: { "tnum": 1 } }
+                        // as people read it: 100% is the picture as it came, hue in degrees
+                        Text {
+                            anchors.right: parent.right; width: 56; anchors.verticalCenter: parent.verticalCenter
+                            horizontalAlignment: Text.AlignRight
+                            text: modelData.key === "hue" ? Math.round(parent.v) + "°" : Math.round(parent.v * 100) + "%"
+                            color: parent.changed ? theme.accent : Qt.rgba(1, 1, 1, 0.55)
+                            font.pixelSize: 13; font.weight: Font.DemiBold; font.features: { "tnum": 1 }
+                        }
                     }
                 }
-                Caption { text: qsTr("ENQUADRAMENTO") }
+                Divider {}
+                Caption { text: qsTr("Processamento neste vídeo") }
+                // the same words as Settings › Imagem: what is on, what is paused and why
+                StatusLine {
+                    text: pv.pictureStatus.hdr > 0 ? (pv.pictureStatus.hdrOut
+                              ? qsTr("HDR real: branco em %1 nits, realces até %2.").arg(Math.round(pv.pictureStatus.outWhite)).arg(Math.round(pv.pictureStatus.outPeak))
+                              : qsTr("HDR convertido para a tela comum."))
+                          : qsTr("Vídeo comum (SDR).")
+                    kind: pv.pictureStatus.hdr > 0 && pv.pictureStatus.hdrOut ? "on" : "idle"
+                }
+                StatusLine {
+                    visible: settings.smoothMotion !== "off"
+                    text: pv.pictureStatus.motion === "on" ? qsTr("Movimento suave: %1 → %2 quadros por segundo.").arg(Math.round(pv.pictureStatus.motionFrom)).arg(Math.round(pv.pictureStatus.motionTo))
+                          : pv.pictureStatus.motion === "ready" ? qsTr("Movimento suave: começa quando o vídeo tocar.")
+                          : qsTr("Movimento suave: sem efeito neste vídeo (ele já é rápido o bastante para a tela).")
+                    kind: pv.pictureStatus.motion === "on" ? "on" : "idle"
+                }
+                StatusLine {
+                    visible: appctl.nvidiaRtx && (settings.rtxVsr || settings.rtxHdr)
+                    text: "RTX Video: " + U.rtxLine(true, true, pv.pictureStatus.rtx)[0]
+                    kind: U.rtxLine(true, true, pv.pictureStatus.rtx)[1]
+                }
+                StatusLine {
+                    visible: settings.lightBoost > 0 || settings.detailBoost > 0
+                    text: qsTr("Realce de luz %1% · de detalhes %2%").arg(settings.lightBoost).arg(settings.detailBoost)
+                    kind: "on"
+                }
+                Hint { text: qsTr("Estas opções ficam em Ajustes › Reprodução › Imagem."); color: Qt.rgba(1, 1, 1, 0.5); font.pixelSize: 12 }
+            }
+            PanelColumn {
+                id: aj2
+                width: 320
+                spacing: 6
+                Item { width: 1; height: aj2.x > 0 ? 34 : 0 }
+                Caption { text: qsTr("Enquadramento") }
                 Segmented {
                     onMedia: true
                     options: [{ text: qsTr("Ajustar"), value: VideoOutput.PreserveAspectFit }, { text: qsTr("Preencher"), value: VideoOutput.PreserveAspectCrop }, { text: qsTr("Esticar"), value: VideoOutput.Stretch }]
                     value: pv.fillMode
                     onPicked: (v) => pv.fillMode = v
                 }
-            }
-            Column {
-                width: 296
-                spacing: 10
-                Item { width: 1; height: 40 }
-                Caption { text: qsTr("GIRAR E ESPELHAR") }
+                Divider {}
+                Caption { text: qsTr("Girar e espelhar") }
                 Flow {
                     width: parent.width; spacing: 6
-                    Chip { objectName: "rotateLeft"; height: 32; text: "↺ 90°"; onClicked: pv.rotate(-90) }
-                    Chip { objectName: "rotateRight"; height: 32; text: "↻ 90°"; onClicked: pv.rotate(90) }
+                    Chip { objectName: "rotateLeft"; height: 32; icon: "rotate"; text: "−90°"; onClicked: pv.rotate(-90) }
+                    Chip { objectName: "rotateRight"; height: 32; icon: "rotate"; text: "+90°"; onClicked: pv.rotate(90) }
                     Chip { objectName: "mirror"; height: 32; text: qsTr("Espelhar"); selected: pv.videoMirror; onClicked: pv.videoMirror = !pv.videoMirror }
                 }
-                Caption { text: qsTr("PROPORÇÃO") }
+                Divider {}
+                Caption { text: qsTr("Proporção") }
                 Flow {
                     width: parent.width; spacing: 6
                     Repeater {
@@ -909,7 +1086,8 @@ Item {
                         Chip { objectName: "aspect_" + (modelData.v || "auto"); height: 32; text: modelData.t; selected: pv.videoAspect === modelData.v; onClicked: pv.videoAspect = modelData.v }
                     }
                 }
-                Caption { text: qsTr("ZOOM") }
+                Divider {}
+                Caption { text: qsTr("Zoom") }
                 Flow {
                     width: parent.width; spacing: 6
                     Repeater {
@@ -917,7 +1095,9 @@ Item {
                         Chip { objectName: "zoom_" + modelData; height: 32; text: Math.round(modelData * 100) + "%"; selected: Math.abs(pv.videoZoom - modelData) < 0.01; onClicked: pv.videoZoom = modelData }
                     }
                 }
-                Caption { text: qsTr("DESENTRELAÇAR") }
+                Divider {}
+                Caption { text: qsTr("Desentrelaçar") }
+                Hint { text: qsTr("Para gravações de TV com linhas tremidas."); color: Qt.rgba(1, 1, 1, 0.5); font.pixelSize: 12 }
                 Segmented {
                     onMedia: true
                     options: [{ text: qsTr("Automático"), value: "auto" }, { text: qsTr("Ligado"), value: "on" }, { text: qsTr("Desligado"), value: "off" }]

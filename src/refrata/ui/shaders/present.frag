@@ -146,15 +146,20 @@ float sceneLight() {
 // HDR R'G'B' -> light (BT.709 primaries, in units of `white`), tone mapped for the screen
 vec3 hdrToLinear(vec3 c, float white) {
     float target = hdrOut > 0.5 ? max(outPeak, white) : SDR_WHITE;
+    // HDR screen: the video's reference white (BT.2408: 203 nits) goes to the desktop's own white
+    // when that is brighter. Shown at its absolute nits under a desktop at 240, an HDR film's white
+    // sat at 0.85 of the interface's: HDR came out dimmer than the menus around it. Only the
+    // highlights above that white then use the screen's remaining headroom, up to its peak.
+    float gain = hdrOut > 0.5 ? max(outWhite / SDR_WHITE, 1.0) : 1.0;
     vec3 nits;
     if (hdr < 1.5) {
-        nits = pqToNits(c);
-        float peak = sceneLight();
+        nits = pqToNits(c) * gain;
+        float peak = sceneLight() * gain;
         float m = max(max(nits.r, nits.g), nits.b);
         if (m > 1e-4) {
             float m2 = m;
             if (curveOn > 0.5)
-                m2 = bezier(m / curveSrc) * curveDst;
+                m2 = min(bezier(m / gain / curveSrc) * curveDst * gain, target);
             else if (peak > target * 1.01)
                 m2 = eetf(min(m, peak), peak, target);
             else
@@ -167,6 +172,10 @@ vec3 hdrToLinear(vec3 c, float white) {
         if (hdrOut < 0.5) {
             float m = max(max(nits.r, nits.g), nits.b);
             if (m > 1e-4) nits *= eetf(m, 1000.0, SDR_WHITE) / m;
+        } else {
+            float m = max(max(nits.r, nits.g), nits.b);
+            float top = clamp(outPeak, 400.0, 2000.0);
+            if (m > 1e-4 && gain > 1.0) nits *= eetf(min(m * gain, top * gain), top * gain, target) / m;
         }
     }
     // BT.2020 -> BT.709 primaries (linear light)
@@ -262,11 +271,15 @@ void main() {
         vec4 near = phase < 0.5 ? texture(older, uv) : texture(newer, uv);
         float d = abs(dot(a.rgb - b.rgb, LUMA709));
         float local = smoothstep(0.035, 0.14, max(d, 0.8 * f.z));
+        // where the motion is not found, the two real frames blended in place (measured on a
+        // 60 fps clip halved to 15: the worst 1% of pixels off by 80 levels, against 120 for the
+        // nearest real frame; a hard switch to it also jumped at mid-phase)
+        vec4 blend = mix(texture(older, uv), texture(newer, uv), phase);
         // scene cut: the whole field matches badly (mean error), or most blocks found no match
-        // at all (share of changed blocks, MVTools' thscd2)
+        // at all (share of changed blocks, MVTools' thscd2): the real frame, never a blend
         vec4 whole = textureLod(field, vec2(0.5), 16.0);
         float scene = max(smoothstep(0.10, 0.16, whole.z), smoothstep(0.45, 0.65, whole.w));
-        c = mix(mc, near, max(local, scene));
+        c = mix(mix(mc, blend, local), near, scene);
     } else {
         c = texture(newer, uv);
     }

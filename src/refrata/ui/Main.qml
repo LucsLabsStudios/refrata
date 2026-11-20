@@ -14,7 +14,8 @@ Window {
     color: theme.bg
     title: player.title ? player.title + "  —  Refrata" : "Refrata"
 
-    // HDR screen (hdroutput.py): a scRGB swapchain, read by Qt when it creates it (at first show)
+    // HDR screen (hdroutput.py): a scRGB swapchain, read by Qt when it creates it; when the screen
+    // changes (Windows HDR on or off, another monitor) hdroutput rebuilds the native window
     readonly property bool hdrWanted: typeof hdrout !== "undefined" && hdrout.requested
     readonly property bool hdrActive: hdrWanted && hdrout.active
     property string _qt_sg_hdr_format: hdrWanted ? "scrgb" : ""
@@ -46,6 +47,26 @@ Window {
         for (var j = 0; j < kids.length; j++) kids[j].parent = hdrRoot
     }
     onHdrActiveChanged: if (hdrActive) adoptIntoHdrRoot()
+    // a new native window: the title bar colours go on it again, and a window rebuilt maximised or
+    // full screen gets back the size it had before (Windows only knows the new window's size)
+    property rect windowedRect: Qt.rect(x, y, width, height)
+    property bool rebuiltFromBig: false
+    // noted once the window has stayed windowed a moment: going full screen, Windows reports the
+    // big size a few ms before the state changes
+    function noteWindowed() { noteTimer.restart() }
+    Timer {
+        id: noteTimer
+        interval: 400
+        onTriggered: if (win.visibility === Window.Windowed && !win.rebuiltFromBig) win.windowedRect = Qt.rect(win.x, win.y, win.width, win.height)
+    }
+    onXChanged: noteWindowed()
+    onYChanged: noteWindowed()
+    onWidthChanged: noteWindowed()
+    onHeightChanged: noteWindowed()
+    Connections {
+        target: typeof hdrout !== "undefined" ? hdrout : null
+        function onRebuilt() { win.restyle() }     // (rebuiltFromBig is set by hdroutput, before)
+    }
     Connections {
         target: win.hdrActive ? win.contentItem : null
         function onChildrenChanged() { Qt.callLater(win.adoptIntoHdrRoot) }   // items made later
@@ -341,7 +362,7 @@ Window {
             PageSlot {
                 id: settingsSlot
                 index: 5
-                page: Component { SettingsPage { objectName: "settingsPage"; onAddFolder: addFolderDialog.open(); onNotify: (text) => toast.show(text) } }
+                page: Component { SettingsPage { objectName: "settingsPage"; pictureStatus: pv.pictureStatus; onAddFolder: addFolderDialog.open(); onNotify: (text) => toast.show(text) } }
             }
 
             UpdateBanner {
@@ -509,6 +530,12 @@ Window {
     onVisibilityChanged: {
         if (win.visibility === Window.Windowed || win.visibility === Window.Maximized || win.visibility === Window.FullScreen)
             restoreTo = win.visibility   // see restoreWindow
+        if (rebuiltFromBig && win.visibility === Window.Windowed) {
+            // the rect as it is now: the window passes through its big size on the way out, and
+            // that would be noted as the windowed size before the call below runs
+            var r = windowedRect
+            Qt.callLater(function() { win.x = r.x; win.y = r.y; win.width = r.width; win.height = r.height; win.rebuiltFromBig = false })
+        }
         if (pipOn && Date.now() - pipSince > 1200 && !pipMinimize.running
                 && (win.visibility === Window.Windowed || win.visibility === Window.Maximized)) leavePip(true)
     }
@@ -522,6 +549,13 @@ Window {
     Connections {
         target: Qt.application
         function onStateChanged() { if (Qt.application.state === Qt.ApplicationActive) winassoc.refresh() }
+    }
+
+    // over everything, the player too: Windows HDR came on after Refrata opened (hdroutput.py)
+    HdrBanner {
+        anchors.horizontalCenter: parent.horizontalCenter
+        y: 18
+        z: 60
     }
 
     Toast { id: toast; objectName: "toast" }

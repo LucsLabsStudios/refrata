@@ -1630,7 +1630,11 @@ def t52_player_tools_by_mouse():
         wait(lambda: tools.property("cuesName") == "", 3, "second subtitle removed by click")
     aisubs = C.parts.qml.rootContext().contextProperty("aisubs")
     status = find_under(pop, "aiSubsStatus")
-    check(status is not None and status.property("text") != "", "the AI subtitles line says what it does")
+    # what it does is under the switch; the status line speaks only when on, or when it cannot run
+    check(status is not None, "the AI subtitles status line is there")
+    check((status.property("text") != "") == (not aisubs.property("available") or C.parts.settings.aiSubs),
+          "the AI subtitles line speaks when on or unavailable, and is quiet when off",
+          repr(status.property("text")))
     if aisubs.property("available"):
         s = C.parts.settings
         ui_click(pop, "aiTranslateToggle"); poke()

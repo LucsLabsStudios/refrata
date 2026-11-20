@@ -4,6 +4,8 @@
 //
 //   vout.cpp  the video output: pictures from libVLC to Qt's video sinks without Python
 //   rtx.cpp   (Windows) the RTX video item: NVIDIA RTX Video Super Resolution / HDR through D3D11
+//   dxgihook.cpp (Windows) the screen's current HDR state for Qt's HDR checks (Windows HDR
+//             switched on after Refrata started)
 //
 //   QT_DIR   the SDK's arch folder, e.g. C:\Tools\Qt\6.8.1\msvc2022_64 (aqtinstall:
 //            python -m aqt install-qt windows desktop 6.8.1 win64_msvc2022_64 -m qtmultimedia)
@@ -11,7 +13,7 @@ use std::path::PathBuf;
 use std::process::Command;
 
 fn main() {
-    for f in ["src/vout.cpp", "src/vout.h", "src/rtx.cpp", "src/rtx.h"] {
+    for f in ["src/vout.cpp", "src/vout.h", "src/rtx.cpp", "src/rtx.h", "src/dxgihook.cpp"] {
         println!("cargo:rerun-if-changed={f}");
     }
     println!("cargo:rerun-if-env-changed=QT_DIR");
@@ -41,7 +43,7 @@ fn main() {
         let moc_out = out.join("moc_rtx.cpp");
         let st = Command::new(&moc).arg("src/rtx.h").arg("-o").arg(&moc_out).status().expect("moc");
         assert!(st.success(), "moc failed");
-        b.file("src/rtx.cpp").file(&moc_out);
+        b.file("src/rtx.cpp").file(&moc_out).file("src/dxgihook.cpp");
     }
     if cfg!(target_env = "msvc") {
         b.flag("/std:c++17").flag("/Zc:__cplusplus").flag("/permissive-").flag("/EHsc").flag("/utf-8");

@@ -13,6 +13,7 @@ QScreen.name() returns on Windows. Never raises: anything unknown reads as an SD
 """
 import ctypes
 import sys
+import threading
 from ctypes import wintypes as wt
 
 SDR_WHITE_DEFAULT = 80.0   # Windows' SDR white with the slider at 0 (the sRGB reference)
@@ -201,6 +202,7 @@ def _dxgi():
 
 _cache = [0.0, {}]
 CACHE_S = 1.0
+_lock = threading.Lock()
 
 
 class _ADAPTER_DESC1(ctypes.Structure):
@@ -242,17 +244,19 @@ def gpus() -> list[dict]:
     return out
 
 
-def screens():
+def screens(fresh: bool = False):
     """{gdi name: info} for every active display; {} when it cannot be read. Read again at most
-    once a second (startup asks twice in a row)."""
+    once a second (startup asks twice in a row), or now with `fresh` (Windows just said the
+    displays changed: HDR switched on or off)."""
     if sys.platform != "win32":
         return {}
     import time
     now = time.monotonic()
-    if now - _cache[0] < CACHE_S:
-        return {k: dict(v) for k, v in _cache[1].items()}
-    res = _read_all()
-    _cache[0], _cache[1] = now, res
+    with _lock:                       # the interface and hdroutput's watcher thread both read
+        if not fresh and now - _cache[0] < CACHE_S:
+            return {k: dict(v) for k, v in _cache[1].items()}
+        res = _read_all()
+        _cache[0], _cache[1] = time.monotonic(), res
     return {k: dict(v) for k, v in res.items()}
 
 
@@ -271,10 +275,10 @@ def _read_all():
     return res
 
 
-def screen(name):
+def screen(name, fresh: bool = False):
     """Info for one screen by its GDI device name (\\\\.\\DISPLAY1); SDR defaults when unknown.
     (Qt's QScreen.name() is the monitor's model name on Windows: use screen_of_window.)"""
-    return screens().get(name) or _empty(name)
+    return screens(fresh).get(name) or _empty(name)
 
 
 class _MONITORINFOEXW(ctypes.Structure):
@@ -299,9 +303,9 @@ def device_of_window(hwnd: int) -> str:
     return ""
 
 
-def screen_of_window(hwnd: int):
+def screen_of_window(hwnd: int, fresh: bool = False):
     """Info for the screen a window is on."""
-    return screen(device_of_window(hwnd))
+    return screen(device_of_window(hwnd), fresh)
 
 
 if __name__ == "__main__":

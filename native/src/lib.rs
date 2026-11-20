@@ -424,9 +424,53 @@ fn register_qml() -> bool {
     false
 }
 
+#[cfg(windows)]
+extern "C" {
+    fn rv_dxgi_hook_install() -> i32;
+    fn rv_dxgi_override(name: *const u16, hdr: i32);
+    fn rv_dxgi_hits() -> std::os::raw::c_long;
+}
+
+/// (Windows) Make DXGI's answer to Qt's "is this screen in HDR?" the current one (dxgihook.cpp).
+#[pyfunction]
+fn dxgi_hook_install() -> bool {
+    #[cfg(windows)]
+    {
+        unsafe { rv_dxgi_hook_install() == 1 }
+    }
+    #[cfg(not(windows))]
+    false
+}
+
+/// (Windows) What the display `name` (\\.\DISPLAY1) is now: 1 HDR, 0 SDR, -1 let DXGI answer.
+#[pyfunction]
+fn dxgi_override(name: &str, hdr: i32) {
+    #[cfg(windows)]
+    {
+        let w: Vec<u16> = name.encode_utf16().chain(std::iter::once(0)).collect();
+        unsafe { rv_dxgi_override(w.as_ptr(), hdr) };
+    }
+    #[cfg(not(windows))]
+    let _ = (name, hdr);
+}
+
+/// (Windows) How many DXGI answers were corrected (tests).
+#[pyfunction]
+fn dxgi_hits() -> i64 {
+    #[cfg(windows)]
+    {
+        unsafe { rv_dxgi_hits() as i64 }
+    }
+    #[cfg(not(windows))]
+    0
+}
+
 #[pymodule]
 fn refrata_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(register_qml, m)?)?;
+    m.add_function(wrap_pyfunction!(dxgi_hook_install, m)?)?;
+    m.add_function(wrap_pyfunction!(dxgi_override, m)?)?;
+    m.add_function(wrap_pyfunction!(dxgi_hits, m)?)?;
     m.add_class::<VideoOut>()?;
     m.add_class::<hdr10plus::Hdr10PlusReader>()?;
     m.add_class::<asr::Transcriber>()?;

@@ -17,7 +17,8 @@ import sys
 import threading
 import uuid
 
-SKIP_FLAGS = ("--selftest", "--scenario", "--screenshot", "--new-window", "--background")
+# --reopen: the running instance is the one quitting for it (refrata/reopen.py): never hand over
+SKIP_FLAGS = ("--selftest", "--scenario", "--screenshot", "--new-window", "--background", "--reopen")
 
 
 def server_name(tag: str = "") -> str:
@@ -27,7 +28,7 @@ def server_name(tag: str = "") -> str:
 
 
 # __main__.py's options that take a value: the value is not a file to open
-VALUE_FLAGS = ("--page", "--panel", "--delay", "--size", "--theme", "-k", "--report", "--log")
+VALUE_FLAGS = ("--page", "--panel", "--delay", "--size", "--theme", "-k", "--report", "--log", "--reopen")
 
 
 def _files(argv) -> list[str]:

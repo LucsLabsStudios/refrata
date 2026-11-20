@@ -1173,6 +1173,30 @@ def feature_smooth_motion():
     fps = e.videoFps
     check(fps > 0, "the stream's frame rate is known", str(fps))
     wait(lambda: pipe.property("interpolating"), 5, f"interpolating ({fps:.0f} fps on a {hz:.0f} Hz display)")
+    # Ajustes › Imagem says what is happening to this video, in numbers (any language: the
+    # figures and the arrow stay), and why RTX Video is paused while smooth motion runs
+    def st(key):
+        try:
+            return H.parts.find("status_" + key).property("text")
+        except LookupError:                       # the settings page is built a moment after start
+            return None
+    page0 = win().property("page")
+    win().setProperty("page", 5)                  # Ajustes, behind the player: built on first visit
+    wait(lambda: st("motion") is not None, 5, "the settings page is built")
+    win().setProperty("page", page0)
+    want = f"{round(fps)} → {round(pipe.property('motionTo'))}"
+    try:
+        wait(lambda: want in st("motion"), 3, "")
+    except Exception:
+        check(False, "the smooth motion line shows the rates", f"want {want!r}, it says {st('motion')!r}")
+    rtx0 = H.parts.settings.rtxVsr
+    H.parts.settings.rtxVsr = True
+    pump(0.3)
+    check(pipe.property("rtxState") == "motion" and st("rtxVsr") != "",
+          "RTX Video with smooth motion on: the line says it is paused and why", f"{pipe.property('rtxState')} {st('rtxVsr')!r}")
+    H.parts.settings.rtxVsr = rtx0
+    pump(0.2)
+    check(st("hdr") != "" or H.parts.settings.hdrOutput == "off", "the HDR line speaks for the SDR video too", st("hdr"))
 
     class Counter(QObject):
         n = 0
@@ -1213,6 +1237,7 @@ def feature_smooth_motion():
     H.parts.settings.smoothMotion = "off"
     pump(0.5)
     check(not pipe.property("pairing") and e._pair is None, "off: back to one sink")
+    check(st("motion") == "", "off: the smooth motion line goes away", st("motion"))
     check(abs(e._mp.audio_get_delay()) < 1000, "off: the sound is not held back any more", str(e._mp.audio_get_delay()))
     n0 = e._frames_seen
     wait(lambda: e._frames_seen > n0 + 5, 5, "frames keep coming")
@@ -1229,7 +1254,28 @@ def feature_light_and_detail_boost():
     check(pipe.property("active"), "the boosts turn the pipeline on")
     rgb = [c for _, _, c in _screen_video(6)]
     check(max(max(abs(a - b) for a, b in zip(rgb[0], c)) for c in rgb) > 20, "the boosted picture shows", str(rgb[:3]))
+    # detail boost on its own, the video (640x360) shown much larger than it is: sharpening measured
+    # one screen pixel apart found the upscale's smooth ramps and changed next to nothing
+    from PySide6.QtCore import QObject
     H.parts.settings.lightBoost = 0
+    _paused_at(4000)
+
+    def grab():
+        res = pipe.grabToImage()
+        got = []
+        res.ready.connect(lambda: got.append(1))
+        wait(lambda: got, 5, "grabbed")
+        return res.image()
+    H.parts.settings.detailBoost = 1        # the same path, all but no sharpening (at 0 it is bypassed)
+    pump(0.6)
+    plain = _sharpness(grab())
+    check(plain > 0.2, "the picture is captured", f"sharpness {plain:.2f}")
+    H.parts.settings.detailBoost = 100
+    pump(0.6)
+    sharp = _sharpness(grab())
+    H.notes.append(f"detail boost 100% vs off: sharpness {sharp:.2f} vs {plain:.2f} "
+                   f"(radius {pipe.findChild(QObject, 'detailA').property('radius') if pipe.findChild(QObject, 'detailA') else '?'})")
+    check(sharp > plain * 1.35, "detail boost at 100% is clearly sharper", f"{sharp:.2f} vs {plain:.2f}")
     H.parts.settings.detailBoost = 0
     pump(0.4)
     check(not pipe.property("active"), "both at zero: the plain path again")
@@ -1297,6 +1343,355 @@ def feature_hdr10plus_scenes():
     check(not e.hdr10Plus and e.hdrScene == {}, "an SDR file next: no HDR10+ left over")
 
 
+@scenario(timeout=120, data={"hdrOutput": "auto"}, solo=True)
+def feature_hdr_follows_the_screen():
+    """Windows HDR switched while the app runs (here simulated: the watcher's notice is injected,
+    the real screen stays as it is): the window asks for the other swapchain and is rebuilt once,
+    in the same state (windowed, full screen) and size, the video playing on; when Qt cannot make
+    it (an SDR screen really) there is no rebuild loop; the setting switches it too."""
+    from PySide6.QtGui import QWindow
+    hdrout = H.parts.qml.rootContext().contextProperty("hdrout")
+    w = win()
+    real = dict(hdrout.property("screenInfo").toVariant() if hasattr(hdrout.property("screenInfo"), "toVariant")
+                else hdrout.property("screenInfo"))
+    if real.get("hdr"):
+        H.notes.append("the screen is in HDR: the simulated switch runs the other way")
+    e = eng()
+    e.openFiles([str(H.fx["video"])])
+    playing_media(video=True)
+    w.setProperty("playerOpen", True)
+    pump(0.8)
+    fake = dict(real, hdr=not real.get("hdr"), sdr_white=240.0, max_nits=409.0)
+    # the notice Windows sends when HDR is switched reaches the watcher's own hidden window and
+    # makes it read the screen again at once (posted to that window only, not broadcast)
+    import ctypes
+    wat = hdrout._watch
+    wait(lambda: wat is not None and wat.own, 5, "the display watcher runs")
+    n0, r0 = wat.notices, wat.fresh_reads
+    ctypes.windll.user32.PostMessageW(ctypes.c_void_p(wat.own), 0x007E, 32, 0)
+    wait(lambda: wat.notices == n0 + 1 and wat.fresh_reads > r0, 1.0, "WM_DISPLAYCHANGE: the screen read at once")
+    wait(lambda: wat.fresh_reads >= r0 + 3, 3, "and again while the display settles")
+    check(hdrout.property("requested") == (bool(real.get("hdr"))), "an unchanged screen changes nothing")
+
+    from refrata.hdroutput import HDR_TRIES
+
+    def switch(info, what):
+        n0, hwnd0, f0 = hdrout.property("rebuilds"), int(w.winId()), e._frames_seen
+        hdrout._seen.emit(dict(info))
+        wait(lambda: hdrout.property("rebuilds") == n0 + 1, 5, f"{what}: the window is rebuilt")
+        check(int(w.winId()) != hwnd0, f"{what}: a new native window (new swapchain)")
+        # Qt cannot make HDR here (the real screen is not in HDR): a few tries spaced out (a real
+        # switch can take a moment), then it stops
+        tries = HDR_TRIES if info.get("hdr") else 1
+        pump(4.0)
+        check(hdrout.property("rebuilds") == n0 + tries, f"{what}: {tries} tries, then no more (no loop)",
+              str(hdrout.property("rebuilds") - n0))
+        check(w.isVisible(), f"{what}: the window is on screen")
+        wait(lambda: e._frames_seen > f0 + 20, 5, f"{what}: the video plays on")
+        check(e.state == "playing", f"{what}: still playing", e.state)
+        gap = hdrout.property("rebuildGapMs")
+        H.notes.append(f"{what}: picture back {gap:.0f} ms after the old window went")
+        check(0 < gap < 1000, f"{what}: the picture is back within a second", f"{gap:.0f} ms")
+        return hwnd0
+
+    # windowed: back at the same place and size
+    w.showNormal()
+    pump(0.5)
+    geo = w.geometry().getRect()
+    switch(fake, "HDR switched (windowed)")
+    check(w.visibility() == QWindow.Visibility.Windowed and w.geometry().getRect() == geo,
+          "windowed: same place and size", f"{w.visibility()} {w.geometry().getRect()} vs {geo}")
+    check(hdrout.property("requested") == bool(fake["hdr"]), "it asks for the swapchain the screen calls for")
+    # the screen as it really is again: no rebuild when the swapchain Qt kept already fits it;
+    # one when Qt made the other one (DXGI's answer corrected, dxgihook.cpp: it took the
+    # simulated screen at its word)
+    n0 = hdrout.property("rebuilds")
+    fits = hdrout.property("active") == bool(real.get("hdr"))
+    hdrout._seen.emit(dict(real))
+    pump(1.5)
+    check(hdrout.property("requested") == bool(real.get("hdr")), "back on the real screen: asks for what it has")
+    check(hdrout.property("rebuilds") == n0 + (0 if fits else 1),
+          "rebuilt only if the swapchain does not fit it", f"{hdrout.property('rebuilds') - n0}, fits={fits}")
+    check(hdrout.property("active") == bool(real.get("hdr")), "the swapchain the real screen calls for")
+    # full screen: rebuilt full screen, and leaving it gives back the windowed size
+    w.showFullScreen()
+    pump(0.8)
+    switch(fake, "HDR switched (full screen)")
+    check(w.visibility() == QWindow.Visibility.FullScreen, "full screen stays full screen", str(w.visibility()))
+    w.showNormal()
+    try:
+        wait(lambda: w.geometry().getRect() == geo, 5, "")
+    except Exception:
+        check(False, "out of full screen: the size it had", f"{w.geometry().getRect()} vs {geo}; "
+              f"remembered {w.property('windowedRect')} big={w.property('rebuiltFromBig')} {hdrout.property('rebuiltBig')}")
+    # the setting: off with an HDR screen = nothing asked; on again = asked
+    if fake.get("hdr"):
+        H.parts.settings.hdrOutput = "off"
+        pump(0.3)
+        check(not hdrout.property("requested"), "setting off: no HDR swapchain asked for")
+        H.parts.settings.hdrOutput = "auto"
+        pump(0.3)
+        check(hdrout.property("requested"), "setting on again: asked for at once")
+    hdrout._seen.emit(dict(real))
+    pump(1.5)
+    check(hdrout.property("requested") == (bool(real.get("hdr")) and H.parts.settings.hdrOutput != "off"),
+          "back to the real screen")
+
+
+@scenario(timeout=180, data={"hdrOutput": "auto"}, solo=True)
+def feature_hdr_real_windows_switch():
+    """Optional (REFRATA_REAL_HDR=1, an HDR-capable monitor; the screen blinks): Windows HDR really
+    switched (tests/winhdr.py, as Settings › Display does) while a video plays, windowed and full
+    screen. What Qt 6.8 allows (hdroutput.py notes): with Windows HDR on when Refrata started, the
+    window follows both ways live; started with it off, switching it off and on stays SDR and asks
+    to reopen (needsReopen), never rebuilding in a loop, never hanging. The setting, and RTX Video
+    on an SDR video, across the switches. HDR is left as it was found. Run it once with Windows HDR
+    on and once with it off."""
+    if sys.platform != "win32" or not os.environ.get("REFRATA_REAL_HDR"):
+        H.notes.append("REFRATA_REAL_HDR not set: Windows HDR not switched")
+        return
+    try:
+        from tests import winhdr               # packaged (the release gate runs the exe)
+    except ImportError:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import winhdr
+    from refrata.hdroutput import HDR_TRIES
+    found = winhdr.hdr_display()
+    if not found:
+        H.notes.append("no HDR-capable display: nothing to switch")
+        return
+    dev, was_on = found
+    hdrout = H.parts.qml.rootContext().contextProperty("hdrout")
+    # live both ways when Qt's device saw the screen in HDR, or when DXGI's answer is corrected
+    # (dxgihook.cpp); otherwise HDR coming on asks for a reopen
+    hooked = hdrout._dxgi is not None
+    live = was_on or hooked
+    H.notes.append(f"Refrata started with Windows HDR {'on' if was_on else 'off'}, DXGI answer corrected: {hooked}"
+                   + (" -> both ways live" if live else " -> HDR asks to reopen"))
+    w = win()
+    e = eng()
+    s = H.parts.settings
+    # long enough for the whole test (the fixture lasts 6 s): a real HDR10 file when given
+    path = os.environ.get("REFRATA_REAL_HDR_VIDEO") or _pipe_fixture("pipe_hdr10") or str(H.fx["video"])
+
+    def hd_white():
+        from refrata import hdrdisplay
+        return hdrdisplay.screens(fresh=True).get(dev, {}).get("sdr_white", 80.0)
+
+    def state():
+        si = hdrout.property("screenInfo")
+        si = si.toVariant() if hasattr(si, "toVariant") else si
+        return (f"active={hdrout.property('active')} requested={hdrout.property('requested')} "
+                f"reopen={hdrout.property('needsReopen')} rebuilds={hdrout.property('rebuilds')} screen hdr={si.get('hdr')}")
+
+    try:
+        e.openFiles([path])
+        playing_media(video=True)
+        w.setProperty("playerOpen", True)
+        w.showNormal()
+        pump(1.0)
+        check(hdrout.property("active") == was_on, "at start: the swapchain the screen called for", state())
+        pipe = H.parts.find("videoPipeline")
+
+        def switch(on, what):
+            n0, f0 = hdrout.property("rebuilds"), e._frames_seen
+            vis = w.visibility()
+            t = time.perf_counter()
+            check(winhdr.set_hdr(on, dev), f"{what}: Windows reports HDR {'on' if on else 'off'}")
+            switched = (time.perf_counter() - t) * 1000
+            t = time.perf_counter()
+            hdr_now = on and live
+            try:
+                wait(lambda: hdrout.property("active") == hdr_now and hdrout.property("screenHdr") == hdr_now
+                     and hdrout.property("needsReopen") == (on and not live), 5, "")
+            except Exception:
+                check(False, f"{what}: the window follows ({'HDR' if hdr_now else 'SDR'}"
+                      f"{', reopen asked' if on and not live else ''})", state())
+            followed = (time.perf_counter() - t) * 1000
+            check(pipe.property("hdrOut") == hdr_now, f"{what}: the video is written for the window", str(pipe.property("hdrOut")))
+            pump(3.0)
+            tries = hdrout.property("rebuilds") - n0
+            check(tries <= HDR_TRIES, f"{what}: at most {HDR_TRIES} rebuild", str(tries))
+            n1 = hdrout.property("rebuilds")
+            pump(2.0)
+            check(hdrout.property("rebuilds") == n1, f"{what}: then it stays (no loop)", str(hdrout.property("rebuilds") - n1))
+            check(w.visibility() == vis, f"{what}: same window state", f"{w.visibility()} vs {vis}")
+            wait(lambda: e._frames_seen > f0 + 30, 5, f"{what}: the video plays on")
+            check(e.state == "playing", f"{what}: still playing", e.state)
+            if hdr_now:
+                check(abs(hdrout.property("sdrWhite") - hd_white()) < 1, f"{what}: the desktop's SDR white read",
+                      f"{hdrout.property('sdrWhite')} vs {hd_white()}")
+            H.notes.append(f"{what}: Windows switched in {switched:.0f} ms, the app settled {followed:.0f} ms later "
+                           f"({tries} rebuild(s)); {state()}")
+
+        geo = w.geometry().getRect()
+        switch(not was_on, "windowed, 1st switch")
+        switch(was_on, "windowed, 2nd switch")
+        check(w.geometry().getRect() == geo, "windowed: same place and size", f"{w.geometry().getRect()} vs {geo}")
+        w.showFullScreen()
+        pump(1.0)
+        switch(not was_on, "full screen, 1st switch")
+        switch(was_on, "full screen, 2nd switch")
+        w.showNormal()
+        wait(lambda: w.geometry().getRect() == geo, 5, f"out of full screen: the size it had ({geo})")
+        # the setting, with Windows HDR on
+        check(winhdr.set_hdr(True, dev), "Windows HDR on for the setting")
+        pump(2.5)
+        s.hdrOutput = "off"
+        wait(lambda: not hdrout.property("active") and not hdrout.property("needsReopen"), 5,
+             "setting off: SDR, nothing asked")
+        s.hdrOutput = "auto"
+        try:
+            wait(lambda: hdrout.property("active") == live and hdrout.property("needsReopen") == (not live), 5, "")
+        except Exception:
+            check(False, "setting on: HDR again" + ("" if live else " asked by a reopen"), state())
+        check(e.state == "playing", "still playing after it all", e.state)
+        # NVIDIA RTX Video on an SDR video across the switches: RTX Video HDR only on an HDR window
+        if H.parts.ctl.property("nvidiaRtx"):
+            s.rtxVsr, s.rtxHdr = True, True
+            e.openFiles([str(H.fx["video"])])
+            playing_media(video=True)
+            pump(1.0)
+
+            def rtx_working(what, hdr_on):
+                wait(lambda: pipe.property("rtxState") in ("on", "noScreen"), 5, f"{what}: RTX Video ({pipe.property('rtxState')})")
+                item = pipe.property("rtxItem")
+                n = item.property("frames")
+                wait(lambda: item.property("frames") > n + 10, 5, f"{what}: the GPU's video processor makes pictures")
+                check(pipe.property("rtxHdrOn") == hdr_on, f"{what}: RTX Video HDR {'on' if hdr_on else 'off'}",
+                      str(pipe.property("rtxHdrOn")))
+                H.notes.append(f"{what}: RTX status {item.property('status')!r}, RTX HDR {pipe.property('rtxHdrOn')}")
+            rtx_working("RTX, Windows HDR on", live)
+            check(winhdr.set_hdr(False, dev), "HDR off with RTX on")
+            wait(lambda: not hdrout.property("active"), 5, "RTX: SDR swapchain")
+            pump(1.0)
+            rtx_working("RTX, Windows HDR off", False)
+            check(winhdr.set_hdr(True, dev), "HDR on with RTX on")
+            pump(2.5)
+            rtx_working("RTX, Windows HDR on again", live)
+            s.rtxVsr, s.rtxHdr = False, False
+    finally:
+        if hdrout._dxgi is not None:
+            H.notes.append(f"DXGI answers corrected: {hdrout._dxgi.dxgi_hits()}")
+        winhdr.set_hdr(was_on, dev)                 # as it was found
+        pump(1.5)
+
+
+@scenario(timeout=120, data={"hdrOutput": "auto"}, solo=True)
+def feature_hdr_reopen_real():
+    """Optional (REFRATA_REAL_HDR=1, Windows HDR off when it starts): an HDR video in full screen,
+    Windows HDR switched on, needsReopen, then the real "Reabrir em HDR": this process leaves and a
+    new one takes over. The new one writes REFRATA_REOPEN_REPORT (in the work dir, path in the
+    notes) a few seconds later: checked from outside (it must be in HDR, at the same point)."""
+    if sys.platform != "win32" or not os.environ.get("REFRATA_REAL_HDR"):
+        H.notes.append("REFRATA_REAL_HDR not set: no real reopen")
+        return
+    try:
+        from tests import winhdr
+    except ImportError:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import winhdr
+    found = winhdr.hdr_display()
+    if not found or found[1]:
+        H.notes.append("needs an HDR-capable display with Windows HDR off at start")
+        return
+    dev = found[0]
+    hdrout = H.parts.qml.rootContext().contextProperty("hdrout")
+    if hdrout._dxgi is not None:
+        # the reopen is the way when DXGI's answer cannot be corrected: test it that way
+        hdrout._dxgi.dxgi_override(dev, -1)
+        hdrout._dxgi = None
+    w = win()
+    e = eng()
+    path = os.environ.get("REFRATA_REAL_HDR_VIDEO") or _pipe_fixture("pipe_hdr10") or str(H.fx["video"])
+    e.openFiles([path])
+    playing_media(video=True)
+    w.setProperty("playerOpen", True)
+    w.showFullScreen()
+    pump(1.0)
+    e.seek(20000)
+    wait(lambda: abs(e.time - 20000) < 2000, 5, "at 20 s")
+    check(winhdr.set_hdr(True, dev), "Windows HDR on")
+    wait(lambda: hdrout.property("needsReopen"), 6, "HDR came on after start: a reopen is asked")
+    wait(lambda: H.parts.find("hdrBanner").property("shown"), 3, "the banner shows")
+    report = Path(os.environ["REFRATA_E2E_TMP"]) / "reopen_report.json"
+    os.environ["REFRATA_REOPEN_REPORT"] = str(report)          # the new process inherits it
+    os.environ["REFRATA_REOPEN_REPORT_MS"] = "9000"
+    H.notes.append(f"report: {report}")
+    check(hdrout.reopen(), "the new process started")
+
+
+@scenario(timeout=120, solo=True)
+def feature_reopen_in_place():
+    """"Reabrir em HDR" (refrata/reopen.py): what is written for the new process brings back the
+    same queue, item, point, paused or playing, player, page and window (full screen, size); the
+    banner shows when needsReopen comes on, "Agora não" hides it until next time, and its button
+    calls the reopen (not run here: it would end this process)."""
+    from refrata import reopen
+    from PySide6.QtGui import QWindow
+    e = eng()
+    w = win()
+    hdrout = H.parts.qml.rootContext().contextProperty("hdrout")
+    files = [str(H.fx["video"]), str(H.fx["video2"])] if "video2" in H.fx else [str(H.fx["video"])]
+    e.openFiles(files, len(files) - 1)
+    playing_media(video=True)
+    w.setProperty("playerOpen", True)
+    w.showNormal()
+    pump(0.5)
+    geo = w.geometry().getRect()
+    w.showFullScreen()
+    pump(0.8)
+    e.seek(6000)
+    wait(lambda: abs(e.time - 6000) < 1500, 5, "at 6 s")
+    e.pause()
+    wait(lambda: e.state == "paused", 5, "paused")
+    st = reopen.capture(e, w)
+    check(st["files"] == files and st["index"] == len(files) - 1, "the queue and the item", str(st))
+    check(st["visibility"] == "fullscreen" and tuple(st["rect"]) == geo, "full screen, with the windowed size",
+          f"{st['visibility']} {st['rect']} vs {geo}")
+    check(not st["playing"] and st["playerOpen"], "paused, player open", str(st))
+    # something else on screen, as a fresh process would have
+    e.openFiles([str(H.fx["video"])])
+    playing_media(video=True)
+    w.setProperty("playerOpen", False)
+    w.showNormal()
+    w.setGeometry(100, 100, 1100, 700)
+    pump(0.8)
+    reopen.restore(st, e, w)
+    wait(lambda: e.currentIndex == st["index"] and len(e._queue) == len(files), 10, "the same queue and item")
+    wait(lambda: e.state == "paused" and abs(e.time - st["ms"]) < 1500, 10,
+         f"paused again at the same point ({st['ms']} ms; it is {e.time} {e.state})")
+    wait(lambda: w.visibility() == QWindow.Visibility.FullScreen, 5, "full screen again")
+    check(w.property("playerOpen"), "the player open again")
+    w.showNormal()
+    wait(lambda: w.geometry().getRect() == geo, 5, f"out of full screen: the windowed size ({geo}; {w.geometry().getRect()})")
+    # the file is read once and must be recent
+    reopen.STATE.write_text(__import__("json").dumps(dict(st, written=time.time() - 3600)), encoding="utf8")
+    check(reopen.load() is None and not reopen.STATE.exists(), "an old state file is ignored and removed")
+    # the banner
+    banner = H.parts.find("hdrBanner")
+    check(not banner.property("shown"), "no banner normally")
+    called = []
+    hdrout.reopen_with(lambda: called.append(1) or True)
+    hdrout._reopen = True
+    hdrout.changed.emit()
+    wait(lambda: banner.property("shown"), 3, "needsReopen: the banner shows")
+    wait(lambda: banner.property("opacity") > 0.99, 3, "the banner has come in")
+    pump(0.3)
+    _click_on(H.parts.find("hdrReopen"), "Reabrir em HDR")
+    check(called == [1], "its button reopens", str(called))
+    _click_on(H.parts.find("hdrReopenDismiss"), "Agora não")
+    wait(lambda: not banner.property("shown"), 3, "Agora não: hidden")
+    hdrout._reopen = False
+    hdrout.changed.emit()
+    pump(0.2)
+    hdrout._reopen = True
+    hdrout.changed.emit()
+    wait(lambda: banner.property("shown"), 3, "asked again the next time HDR comes on")
+    hdrout._reopen = False
+    hdrout.changed.emit()
+
+
 @scenario(timeout=90)
 def feature_hdr_output_math():
     """The picture written for an HDR screen (scRGB layer): with the screen's white and peak at
@@ -1333,6 +1728,16 @@ def feature_hdr_output_math():
         after = lum(_screen_video())
         check(after > before + 10, "on a brighter screen the same scene is brighter against its white",
               f"{before:.0f} -> {after:.0f}")
+        # a modest HDR monitor with the desktop's white turned up (measured on the reference PC:
+        # SDR white 240 nits, peak 409): the film's white goes to the desktop's white, so the
+        # picture is not dimmer than the interface around it (it was 203/240 = 0.85 of it)
+        pipe.setProperty("outWhite", 240)
+        pipe.setProperty("outPeak", 409)
+        pump(0.5)
+        modest = lum(_screen_video())
+        H.notes.append(f"HDR picture against the desktop's white: neutral screen {before:.0f}, 240/409 nits {modest:.0f}")
+        check(modest >= before - 3, "with the desktop's white at 240 nits the film is not dimmer than the interface",
+              f"{modest:.0f} vs {before:.0f} on a neutral screen")
         pipe.setProperty("hdrOut", False)
     # the layer shader on its own: scale 1 over an opaque window colour = no change
     view = QQuickView()
@@ -1900,15 +2305,41 @@ def feature_second_subtitle_and_subtitles_from_speech():
     cues = t.property("cues")
     H.notes.append("from speech: " + " | ".join(c[2] for c in cues))
     check(t.property("cuesName") == "ai", "they are the AI subtitles")
-    words = " ".join(c[2].lower() for c in cues)
+    words = " ".join(c[2].lower().replace("\n", " ") for c in cues)
     check(all(w in words for w in ("refrata", "quick brown fox", "thank you")), "what was said", words)
     first = next(c for c in cues if "subtitles" in c[2].lower())
     _paused_at(int((first[0] + first[1]) / 2))
     pump(0.4)
     check("subtitles" in txt.property("text").lower(), "shown at its time", repr(txt.property("text")))
     check(txt.property("y") > H.parts.find("subOverlay").property("height") / 2, "at the bottom of the picture")
+    check(all(c[2].count("\n") <= 1 and len(c[2]) <= 2 * 42 + 8 for c in cues), "two lines at most, each short",
+          str([c[2] for c in cues]))
+    # resumed in the middle: the same subtitles at the same times (the sound used to be taken from
+    # the point with libVLC's start-time, and came out ~2 s off)
+    whole = {c[2]: c[0] for c in cues}
+    later = next((c for c in cues if c[0] > 4000), None)
     H.parts.settings.aiSubs = False
     wait(lambda: t.property("cues") == [], 5, "off: gone")
+    if later:
+        e.openFilesAt([path], 0, later[0] - 1500)
+        playing_media(video=True)
+        H.parts.settings.aiSubs = True
+        # the same sentence, matched by its last word (from the middle whisper may start the
+        # sentence's subtitle a word earlier or later, but it ends where the speech ends)
+        key = later[2].split()[-1].strip(".,!?").lower()
+
+        def match():
+            return next((c for c in t.property("cues") if c[2].split()
+                         and c[2].split()[-1].strip(".,!?").lower() == key), None)
+        try:
+            wait(lambda: match() is not None, 60, "the subtitles again, from the middle")
+        except Exception:
+            raise AssertionError(f"from the middle: {t.property('cues')} (looking for {later})")
+        again = match()
+        check(abs(again[1] - later[1]) < 300, "resumed in the middle: the same time",
+              f"ends at {again[1]} vs {later[1]} ms: {again[2]!r} / {later[2]!r}")
+        H.parts.settings.aiSubs = False
+        wait(lambda: t.property("cues") == [], 5, "off: gone")
 
 
 @scenario(timeout=180)
@@ -2170,6 +2601,110 @@ def feature_rtx_video_super_resolution():
     H.parts.settings.rtxVsr = False
     pump(0.4)
     check(not pipe.property("rtxOn") and H.parts.find("videoOutput").property("visible"), "off: the plain output again")
+
+
+@scenario(timeout=900, solo=True)
+def bench_real_videos():
+    """Optional (REFRATA_BENCH_DIR = a folder of real videos: 4K/8K HDR, 120 fps...): each one
+    played for a few seconds in the player; reported per file: pictures decoded and lost by the
+    decoder, hitches on screen (a picture later than 1.5 frame times), the 99th percentile picture
+    interval, and the process's CPU. Fails only when a file shows no picture at all."""
+    folder = os.environ.get("REFRATA_BENCH_DIR", "")
+    if not folder or not os.path.isdir(folder):
+        H.notes.append("REFRATA_BENCH_DIR not set: no real-video benchmark")
+        return
+    e = eng()
+    files = sorted(str(p) for p in Path(folder).iterdir() if p.suffix.lower() in (".mp4", ".mkv", ".ts", ".webm", ".mov"))
+    seconds = float(os.environ.get("REFRATA_BENCH_SECONDS", "8"))
+    for path in files:
+        e.openFiles([path])
+        playing_media(timeout=30, video=True)
+        # REFRATA_BENCH_HIDDEN: the player closed, so pictures are decoded but never drawn
+        # (tells the decoder's limits from the drawing's)
+        win().setProperty("playerOpen", not os.environ.get("REFRATA_BENCH_HIDDEN"))
+        pump(2.0)                                   # past the start (first pictures, pipeline built)
+        r = e._native()
+        info0 = e.mediaInfo()
+        c0, t0 = time.process_time(), time.perf_counter()
+        pump(seconds)
+        cpu = (time.process_time() - c0) / (time.perf_counter() - t0) * 100
+        info1 = e.mediaInfo()
+        # only the pictures of the measured seconds (the native path keeps the last 512 times)
+        times = [t for t in (list(r.out.recent_times()) if r else []) if t >= (r.out.recent_times()[-1] - seconds * 1e6)]
+        fps = e.videoFps or 0
+        gaps = [(b - a) / 1000 for a, b in zip(times, times[1:])]
+        frame = 1000 / fps if fps > 0 else 0
+        hitches = sum(1 for g in gaps if frame and g > frame * 1.5)
+        p99 = sorted(gaps)[int(len(gaps) * 0.99)] if gaps else 0
+        dec = info1["decoded"] - info0["decoded"]
+        lost = info1["lost"] - info0["lost"]
+        H.notes.append(f"{Path(path).name}: {e.videoWidth}x{e.videoHeight} {fps:.0f} fps, HDR {e.videoHdr or 'no'}: "
+                       f"{dec} decoded, {lost} lost; on screen {len(gaps)} intervals, {hitches} hitches, "
+                       f"p99 {p99:.1f} ms (frame {frame:.1f}); CPU {cpu:.0f}%")
+        check(dec > 0 or len(gaps) > 0, f"{Path(path).name}: pictures shown")
+
+
+@scenario(timeout=180, data={"hdrOutput": "auto"}, solo=True)
+def stress_picture_switches_while_playing():
+    """Every picture option switched on and off, in turn and together, with a video playing:
+    RTX Video, smooth motion, light and detail boost, and the window rebuilt for an HDR switch in
+    the middle (RTX Video must keep working on the new swapchain). Each step: the state the
+    pipeline says matches what was asked, frames keep coming, RTX makes pictures when it is on."""
+    s = H.parts.settings
+    ctl = H.parts.ctl
+    rtx_gpu = bool(ctl.property("nvidiaRtx"))
+    hdrout = H.parts.qml.rootContext().contextProperty("hdrout")
+    e = eng()
+    e.openFiles([str(H.fx["video"])])
+    playing_media(video=True)
+    win().setProperty("playerOpen", True)
+    pump(0.8)
+    pipe = H.parts.find("videoPipeline")
+    steps = [
+        ("all off", dict(rtxVsr=False, smoothMotion="off", lightBoost=0, detailBoost=0), "off"),
+        ("RTX VSR", dict(rtxVsr=True), "on"),
+        ("RTX + detail", dict(detailBoost=60), "on"),
+        ("RTX + smooth motion", dict(smoothMotion="60"), "motion"),
+        ("smooth motion max + light", dict(smoothMotion="max", lightBoost=50), "motion"),
+        ("smooth motion off again", dict(smoothMotion="off"), "on"),
+        ("HDR rebuild", None, "on"),
+        ("RTX off", dict(rtxVsr=False), "off"),
+        ("RTX on again", dict(rtxVsr=True), "on"),
+        ("everything off", dict(rtxVsr=False, smoothMotion="off", lightBoost=0, detailBoost=0), "off"),
+    ]
+    timings = []
+    for _round in range(2):
+        for name, change, rtx_state in steps:
+            t = time.perf_counter()
+            if change is None:
+                info = dict(hdrout.property("screenInfo").toVariant() if hasattr(hdrout.property("screenInfo"), "toVariant")
+                            else hdrout.property("screenInfo"))
+                n0 = hdrout.property("rebuilds")
+                hdrout._seen.emit(dict(info, hdr=not info.get("hdr"), sdr_white=240.0, max_nits=409.0))
+                wait(lambda: hdrout.property("rebuilds") == n0 + 1, 5, f"{name}: rebuilt")
+                pump(0.6)
+                hdrout._seen.emit(info)            # the real screen again (Qt kept the right format)
+            else:
+                for k, v in change.items():
+                    setattr(s, k, v)
+            f0 = e._frames_seen
+            wait(lambda: e._frames_seen > f0 + 8, 5, f"{name}: frames keep coming")
+            if rtx_gpu:
+                wait(lambda: pipe.property("rtxState") == rtx_state, 3,
+                     f"{name}: RTX state {rtx_state} (it is {pipe.property('rtxState')})")
+                if rtx_state == "on":
+                    # the item loaded now (a name search can find the one just unloaded, still
+                    # waiting for its deleteLater)
+                    rtx = pipe.property("rtxItem")
+                    n = rtx.property("frames")
+                    wait(lambda: rtx.property("frames") > n + 5, 5, f"{name}: the GPU's video processor makes pictures")
+            if (s.smoothMotion != "off"):
+                wait(lambda: pipe.property("interpolating"), 5, f"{name}: in-between frames")
+            check(e.state == "playing", f"{name}: still playing", e.state)
+            timings.append((name, (time.perf_counter() - t) * 1000))
+    worst = max(timings, key=lambda x: x[1])
+    H.notes.append(f"{len(timings)} picture switches while playing, all settled; slowest: {worst[0]} {worst[1]:.0f} ms"
+                   + ("" if rtx_gpu else " (no RTX GPU: RTX states not checked)"))
 
 
 @scenario(timeout=60)
@@ -3983,12 +4518,15 @@ def feature_player_side_controls_by_mouse():
     check(pv.property("panel") == "tracks", "Faixas opens the tracks panel")
     wait(lambda: len(e.audioDevices) > 1 or not getattr(e, "_devices_busy", False), 10)
     pump(0.4)
-    lst = H.parts.find("audioDevices")
-    check(lst.isVisible() and lst.property("count") == len(e.audioDevices), "the panel lists the audio outputs",
-          f"{lst.property('count')} vs {len(e.audioDevices)}")
+    drop = H.parts.find("audioDevices")         # a picker now (it was a list of four rows)
+    offered = drop.property("model").toVariant()
+    check(drop.isVisible() and len(offered) == len(e.audioDevices), "the panel offers the audio outputs",
+          f"{len(offered)} vs {len(e.audioDevices)}")
     if len(e.audioDevices) > 1:
         controls()
-        _click_on(H.parts.find("adev_1"), "second output")
+        _click_on(drop, "audio output picker")
+        wait(lambda: drop.property("opened"), 2, "the picker opens its list")
+        _click_on(_visible_item("adev_1"), "second output")
         wait(lambda: e.audioDevice == e.audioDevices[1]["id"], 2, "clicking an output selects it")
         e.setAudioDevice("")
     controls()

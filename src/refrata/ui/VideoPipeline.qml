@@ -56,6 +56,23 @@ Item {
     readonly property bool rtxHdrOn: rtxOn && rtxHdr && hdrOut
     readonly property int hdrIn: rtxHdrOn ? 1 : hdr
     readonly property var rtxItem: rtxLoader.item
+    // what RTX Video really does now, for the interface (Settings, the Picture panel): it used to
+    // stay off without a word for HDR video or with smooth motion on, and looked broken
+    //   off | on | refused | hdrVideo | motion | transform | noScreen | starting
+    readonly property string rtxState: {
+        if (!(rtxVsr || rtxHdr)) return "off"
+        if (hdr !== 0) return "hdrVideo"            // made for SDR video: HDR already is
+        if (smoothMotion) return "motion"           // one picture per frame: no in-betweens
+        if (orientation !== 0 || fillMode !== VideoOutput.PreserveAspectFit) return "transform"
+        if (!rtxVsr && rtxHdr && !hdrOut) return "noScreen"
+        if (!rtxOn || !rtxItem) return "starting"
+        var s = rtxItem.status || ""
+        if (s.indexOf("refused") >= 0 || s.indexOf("error") >= 0 || s.indexOf("unsupported") >= 0) return "refused"
+        return s === "" ? "starting" : "on"
+    }
+    // smooth motion: off | on (in-betweens drawn) | idle (the video is already as fast as the screen)
+    readonly property string motionState: !smoothMotion ? "off" : interpolating ? "on" : playing ? "idle" : "ready"
+    readonly property real motionTo: Math.min(displayHz, maxFps > 0 ? maxFps : 1e9)
     Loader {
         id: rtxLoader
         anchors.fill: parent
@@ -194,11 +211,14 @@ Item {
                 property variant source
                 property size srcPx: vp.srcPx
                 property real amount: vp.detail
+                // screen pixels per video pixel: the sharpening works on the video's own detail
+                property real radius: Math.max(1.0, Math.min(4.0, voA.contentRect.width * vp.dpr
+                                                                    / Math.max(1, voA.sourceRect.width)))
                 width: vp.width; height: vp.height
                 visible: vp.detail > 0.001
                 fragmentShader: "shaders/detail.frag.qsb"
             }
-            Detail { id: detA; source: capA }
+            Detail { id: detA; objectName: "detailA"; source: capA }
             Detail { id: detB; source: capB; visible: vp.detail > 0.001 && vp.pairing }
             ShaderEffectSource { id: sharpA; sourceItem: vp.detail > 0.001 ? detA : null; hideSource: true; mipmap: true; format: g.fmt; textureSize: vp.srcPx }
             ShaderEffectSource { id: sharpB; sourceItem: vp.detail > 0.001 && vp.pairing ? detB : null; hideSource: true; mipmap: true; format: g.fmt; textureSize: vp.srcPx }

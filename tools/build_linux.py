@@ -70,7 +70,7 @@ a = Analysis(
     pathex=[{r(ROOT)}],
     datas=[({r(ROOT / 'src' / 'refrata' / 'ui')}, 'ui'), ({r(ROOT / 'src' / 'refrata' / 'resources')}, 'resources'), ({r(ROOT / 'src' / 'refrata' / 'locales')}, 'locales')]
           + copy_metadata('yt-dlp'),
-    hiddenimports=['tests', 'tests.e2e', 'tests.fixtures', 'tests.robust', 'tests.formats', 'refrata._keys',
+    hiddenimports=['tests', 'tests.e2e', 'tests.fixtures', 'tests.winhdr', 'tests.robust', 'tests.formats', 'refrata._keys',
                    'refrata.mpris', 'refrata.mpris_wire', 'jeepney', 'jeepney.io.threading', 'PySide6.QtTest', 'PySide6.QtNetwork', 'PySide6.QtMultimedia',
                    'PySide6.QtQuickControls2', 'PySide6.QtWidgets', 'PySide6.QtDBus', 'yt_dlp'],
     excludes={EXCLUDES!r},

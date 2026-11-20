@@ -189,7 +189,7 @@ a = Analysis(
     pathex=[{r(ROOT / 'src')}, {r(ROOT)}],
     datas=[({r(SRC / 'ui')}, 'ui'), ({r(SRC / 'resources')}, 'resources'), ({r(SRC / 'locales')}, 'locales'), ({r(VENDOR)}, 'vlc')]
           + copy_metadata('yt-dlp'),   # refrata/ytdlp.py compares the bundled version with PyPI's
-    hiddenimports=['tests', 'tests.e2e', 'tests.fixtures', 'tests.windialogs', 'tests.robust', 'tests.formats',
+    hiddenimports=['tests', 'tests.e2e', 'tests.fixtures', 'tests.winhdr', 'tests.windialogs', 'tests.robust', 'tests.formats',
                    'PySide6.QtTest', 'PySide6.QtNetwork', 'PySide6.QtMultimedia', 'PySide6.QtQuickControls2',
                    'PySide6.QtWidgets', 'PySide6.QtAxContainer', 'refrata._keys', 'yt_dlp', 'refrata_native']
                   + collect_submodules('winrt'),

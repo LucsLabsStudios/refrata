@@ -1244,6 +1244,31 @@ def subtitles_read_by_the_app():
 
 
 @test
+def subtitles_from_speech_are_cut_like_subtitles():
+    from refrata import aisubs as A
+    # whisper's words with their times; "\n" marks where its own segment began
+    words = [(1000, 1300, "\nHello"), (1350, 1700, "everyone."), (1800, 2100, "This"), (2150, 2300, "is"),
+             (2350, 2600, "a"), (2650, 3100, "test"), (3150, 3500, "of"), (3550, 3900, "the"),
+             (3950, 4400, "subtitles."), (6000, 6300, "\nAfter"), (6350, 6600, "a"), (6650, 7000, "pause.")]
+    cues = A.build_cues(words)
+    texts = [c[2] for c in cues]
+    check(texts == ["Hello everyone.", "This is a test of the subtitles.", "After a pause."],
+          "cut at the end of each sentence and at a pause", str(texts))
+    check(cues[0][0] == 1000 and cues[1][0] == 1800 and cues[2][0] == 6000, "each starts with its first word",
+          str([c[0] for c in cues]))
+    check(all(a[1] < b[0] for a, b in zip(cues, cues[1:])), "never over the next one", str(cues))
+    check(all(c[1] - c[0] >= 200 for c in cues), "each long enough to read", str(cues))
+    # a long run with no punctuation: two lines of ~42 at most, then a new subtitle
+    long = [(i * 300, i * 300 + 250, w) for i, w in enumerate(("word " * 40).split())]
+    cues = A.build_cues(long)
+    check(all(len(line) <= A.LINE_CHARS + 6 for c in cues for line in c[2].split("\n")),
+          "lines of about 42 characters", str([c[2] for c in cues][:2]))
+    check(all(c[2].count("\n") <= 1 for c in cues), "two lines at most")
+    check(all(c[1] - c[0] <= A.CUE_MAX_MS + 300 for c in cues), "no subtitle stays too long")
+    check(A.pick_model.__defaults__ == (False,), "the model depends on translation")
+
+
+@test
 def clips_and_tools_helpers():
     from refrata import clips, tools
     check(clips._sout_path(r"C:\a b\it's.mp4") == r"C:\\a b\\it\'s.mp4", "sout path escaped")

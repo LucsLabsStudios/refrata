@@ -294,9 +294,10 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
     ctx.setContextProperty("i18n", i18n)
     ctx.setContextProperty("winassoc", assoc)
     ctx.setContextProperty("keys", keys)
-    # HDR screen: decided before the window exists, its swapchain format is fixed at creation
+    # HDR screen: the swapchain's format is read when Qt creates it; HdrOutput rebuilds it when the
+    # screen changes (Windows HDR switched, another monitor, the setting)
     from refrata.hdroutput import HdrOutput, wanted as hdr_wanted
-    hdrout = HdrOutput(hdr_wanted(settings), app)
+    hdrout = HdrOutput(hdr_wanted(settings), app, settings=settings)
     ctx.setContextProperty("hdrout", hdrout)
     # bookmarks, skip intro/outro, second subtitle, clips (refrata/tools.py); subtitles from the sound
     from refrata.tools import PlayerTools
@@ -333,6 +334,9 @@ def build(argv=None, page="", panel="", theme_name="", instance_name: str | None
     root = qml.rootObjects()[0]
     win = shiboken6.wrapInstance(shiboken6.getCppPointer(root)[0], QQuickWindow)
     hdrout.attach(win)
+    # "Reabrir em HDR" (hdroutput.needsReopen): a new process takes over where this one is
+    from refrata import reopen as _reopen  # noqa: PLC0415
+    hdrout.reopen_with(lambda: _reopen.relaunch(engine, win, app))
 
     if instance is None and instance_name is not None:
         instance = InstanceServer(instance_name or None, app)
@@ -436,6 +440,7 @@ def main():
     ap.add_argument("--log", default="")
     ap.add_argument("--new-window", action="store_true")
     ap.add_argument("--background", action="store_true")
+    ap.add_argument("--reopen", type=int, default=0)   # taking over from this pid (refrata/reopen.py)
     ap.add_argument("files", nargs="*")
     args, _ = ap.parse_known_args()
 
@@ -457,6 +462,11 @@ def main():
     files = _norm_args(args.files)
     single = not (args.screenshot or args.new_window)
     early = None
+    if args.reopen:
+        # reopened in place (HDR): the old process is quitting; claiming the single instance
+        # before it is gone would hand everything back to it
+        from refrata.reopen import wait_for  # noqa: PLC0415
+        wait_for(args.reopen)
     if single:
         # one Refrata per user: hand the files to the running one and leave, or become it and start
         # listening right away (requests wait until the window is ready; the QApplication is reused)
@@ -532,6 +542,24 @@ def main():
         QTimer.singleShot(4000, start_playing)
     elif files:
         parts.ctl.handOver(files)
+    if args.reopen:
+        from refrata import reopen  # noqa: PLC0415
+        state = reopen.load()
+        if state:
+            QTimer.singleShot(0, lambda: reopen.restore(state, engine, win))
+        report = os.environ.get("REFRATA_REOPEN_REPORT")
+        if report:
+            # tests: what the reopened process shows a few seconds later (tests/robust.py)
+            def write_report():
+                import json  # noqa: PLC0415
+                h = parts.qml.rootContext().contextProperty("hdrout")
+                Path(report).write_text(json.dumps({
+                    "restored": bool(state), "file": engine.currentPath, "index": engine.currentIndex,
+                    "ms": engine.time, "state": engine.state, "playerOpen": bool(win.property("playerOpen")),
+                    "visibility": int(win.visibility().value), "hdrActive": bool(h.property("active")),
+                    "screenHdr": bool(h.property("screenHdr")), "needsReopen": bool(h.property("needsReopen")),
+                    "expected": state}), encoding="utf8")
+            QTimer.singleShot(int(os.environ.get("REFRATA_REOPEN_REPORT_MS", "8000")), write_report)
 
     if args.screenshot:
         def shot():

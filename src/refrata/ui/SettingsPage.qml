@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import "Utils.js" as U
 
 Flickable {
     id: page
@@ -13,6 +14,11 @@ Flickable {
         { key: "library", text: qsTr("Biblioteca") }, { key: "system", text: qsTr("Sistema") },
         { key: "shortcuts", text: qsTr("Atalhos") }, { key: "about", text: qsTr("Sobre") }]
     onTabChanged: contentY = 0
+    // the player's picture right now (PlayerView.pictureStatus): each Imagem option says whether it
+    // is working on the video playing, or why not
+    property var pictureStatus: ({})
+    readonly property bool videoOn: !!pictureStatus.video
+    function rtxLine(wanted) { return U.rtxLine(wanted, videoOn, pictureStatus.rtx) }
     // the tab holding `item` (tests and showAbout open the right one before using a control)
     function reveal(item) {
         for (var p = item; p; p = p.parent)
@@ -40,6 +46,11 @@ Flickable {
     component SettingRow: Item {
         property string title: ""
         property string desc: ""
+        // what the option is doing right now (shown under the description): "on" green, "paused"
+        // amber with the reason, "idle" grey; "" = nothing to say
+        property string status: ""
+        property string statusKind: "idle"
+        property string statusKey: ""      // tests find the line by it (the title is translated)
         default property alias control: ctl.data
         width: parent ? parent.width : 0
         // grows with the text: some languages need two or three lines where Portuguese needs one
@@ -51,6 +62,26 @@ Flickable {
             spacing: 3
             Text { text: title; color: theme.text; font.pixelSize: 15; font.weight: Font.DemiBold; width: parent.width; wrapMode: Text.WordWrap }
             Text { text: desc; visible: desc !== ""; color: theme.textDim; font.pixelSize: 13; width: parent.width; wrapMode: Text.WordWrap }
+            Row {
+                visible: status !== ""
+                spacing: 8
+                topPadding: 4
+                width: parent.width
+                Rectangle {
+                    width: 8; height: 8; radius: 4
+                    anchors.verticalCenter: statusText.verticalCenter
+                    color: statusKind === "on" ? "#3ecf7a" : statusKind === "paused" ? "#f0b43c" : theme.textFaint
+                }
+                Text {
+                    id: statusText
+                    objectName: "status_" + statusKey
+                    width: parent.width - 16
+                    text: status
+                    color: statusKind === "on" ? theme.text : theme.textDim
+                    font.pixelSize: 13; font.weight: Font.DemiBold
+                    wrapMode: Text.WordWrap
+                }
+            }
         }
         Item { id: ctl; anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; width: childrenRect.width; height: childrenRect.height }
     }
@@ -174,6 +205,12 @@ Flickable {
                     value: settings.smoothMotion
                     onPicked: (v) => settings.smoothMotion = v
                 }
+                status: settings.smoothMotion === "off" ? "" : !page.videoOn ? qsTr("Entra em ação quando um vídeo estiver tocando.")
+                        : page.pictureStatus.motion === "on"
+                          ? qsTr("Ativo: %1 → %2 quadros por segundo.").arg(Math.round(page.pictureStatus.motionFrom)).arg(Math.round(page.pictureStatus.motionTo))
+                          : page.pictureStatus.motion === "idle" ? qsTr("Sem efeito neste vídeo: ele já tem quadros por segundo suficientes para a tela.")
+                          : qsTr("Pronto: começa quando o vídeo tocar.")
+                statusKind: page.pictureStatus.motion === "on" ? "on" : "idle"; statusKey: "motion"
             }
             SettingRow {
                 title: qsTr("Realce de luz"); desc: qsTr("Clareia as áreas escuras e realça o contraste local: um visual de HDR em vídeos comuns.")
@@ -201,24 +238,38 @@ Flickable {
                     if (typeof hdrout !== "undefined" && hdrout.screenHdr)
                         return qsTr("Ativo: vídeos HDR10, HDR10+ e HLG aparecem com o brilho real da sua tela (até %1 nits). A interface fica como no resto do Windows.").arg(nits)
                     if (s.hdr)
-                        return qsTr("O HDR do Windows está ligado nesta tela (até %1 nits). Vale ao reabrir o Refrata.").arg(nits)
+                        return settings.hdrOutput === "off"
+                            ? qsTr("O HDR do Windows está ligado nesta tela (até %1 nits). Ligue esta opção para ver vídeos HDR com o brilho real.").arg(nits)
+                            : hdrout.needsReopen
+                            ? qsTr("O HDR do Windows foi ligado depois que o Refrata abriu (até %1 nits): reabra o Refrata para usar o HDR real.").arg(nits)
+                            : qsTr("O HDR do Windows está ligado nesta tela (até %1 nits), mas o Windows não deixou a janela usar HDR. Atualize o driver de vídeo.").arg(nits)
                     if (nits > 0)
-                        return qsTr("Sua tela aceita HDR (até %1 nits): ligue \"Usar HDR\" nas configurações de vídeo do Windows. Sem isso, o HDR é convertido para a tela comum com as cores certas.").arg(nits)
+                        return qsTr("Sua tela aceita HDR (até %1 nits): ligue \"Usar HDR\" nas configurações de vídeo do Windows, sem fechar o Refrata. Sem isso, o HDR é convertido para a tela comum com as cores certas.").arg(nits)
                     return qsTr("Em telas comuns, vídeos HDR são convertidos com as cores e o brilho certos. Resoluções até 8K e acima.")
                 }
                 Toggle { objectName: "hdrOutputToggle"; checked: settings.hdrOutput !== "off"; onToggled: (on) => settings.hdrOutput = on ? "auto" : "off" }
+                status: settings.hdrOutput === "off" || !page.videoOn ? ""
+                        : page.pictureStatus.hdr > 0 && page.pictureStatus.hdrOut
+                          ? qsTr("Ativo: este vídeo HDR está saindo em HDR real (branco em %1 nits, realces até %2).").arg(Math.round(page.pictureStatus.outWhite)).arg(Math.round(page.pictureStatus.outPeak))
+                          : page.pictureStatus.hdr > 0 ? qsTr("Este vídeo é HDR, convertido para a tela comum.")
+                          : qsTr("O vídeo que está tocando é comum (SDR).")
+                statusKind: page.pictureStatus.hdr > 0 && page.pictureStatus.hdrOut ? "on" : "idle"; statusKey: "hdr"
             }
             SettingRow {
                 visible: appctl.nvidiaRtx
                 title: qsTr("RTX Video Super Resolution")
                 desc: qsTr("A placa NVIDIA RTX amplia vídeos de resolução menor para o tamanho da tela com IA: mais nitidez, menos serrilhado e blocos de compressão. Vale com o movimento suave desligado e com \"Super Resolution\" ligado no NVIDIA App (Aprimoramento de vídeo RTX).")
                 Toggle { objectName: "rtxVsrToggle"; checked: settings.rtxVsr; onToggled: (on) => settings.rtxVsr = on }
+                status: page.rtxLine(settings.rtxVsr)[0]
+                statusKind: page.rtxLine(settings.rtxVsr)[1]; statusKey: "rtxVsr"
             }
             SettingRow {
                 visible: appctl.nvidiaRtx
                 title: qsTr("RTX Video HDR")
                 desc: qsTr("Numa tela HDR, a placa NVIDIA RTX converte vídeos comuns (SDR) em HDR com IA: mais brilho e cor nos realces. Precisa de \"RTX Video HDR\" ligado no NVIDIA App.")
                 Toggle { objectName: "rtxHdrToggle"; checked: settings.rtxHdr; onToggled: (on) => settings.rtxHdr = on }
+                status: page.rtxLine(settings.rtxHdr)[0]
+                statusKind: page.rtxLine(settings.rtxHdr)[1]; statusKey: "rtxHdr"
             }
             SettingRow {
                 title: qsTr("Brilho por cena")

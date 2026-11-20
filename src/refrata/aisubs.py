@@ -32,7 +32,17 @@ MODELS = {
     # name: (file, bytes, sha256)
     "base": ("ggml-base-q8_0.bin", 81768585, "c577b9a86e7e048a0b7eada054f4dd79a56bbfa911fbdacf900ac5b567cbb7d9"),
     "turbo": ("ggml-large-v3-turbo-q5_0.bin", 574041195, "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2"),
+    # large-v3-turbo was trained without the translation task (OpenAI says so: it barely
+    # translates); for "translate into English" the medium model, which does
+    "medium": ("ggml-medium-q5_0.bin", 539212467, "19fea4b380c3a618ec4723c3eef2eb785ffba0d0538cf43f8f235e7b3b34220f"),
 }
+# how the words become subtitles (build_cues): the usual rules of subtitling
+LINE_CHARS = 42        # per line, two lines at most
+CUE_MAX_MS = 5500      # longest a subtitle stays
+CUE_MIN_MS = 1000      # shortest
+PAUSE_MS = 900         # a pause this long starts a new subtitle (pauses inside a sentence: 0.3-0.7 s)
+FINISH_MS = 1500       # a subtitle may stay this much longer to end its sentence (no lone "som.")
+SENTENCE_END = tuple(".?!…。！？")
 URL = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/"
 RATE = 16000
 CHUNK_S = 30
@@ -60,10 +70,62 @@ def native_ok() -> bool:
     return True
 
 
-def pick_model() -> str:
-    """turbo with a graphics card of 3 GB or more, base otherwise."""
+def pick_model(translate: bool = False) -> str:
+    """With a graphics card of 3 GB or more: turbo to transcribe, medium to translate (turbo
+    cannot); base otherwise."""
     from . import hdrdisplay
-    return "turbo" if any(g["vram_mb"] >= 3000 for g in hdrdisplay.gpus()) else "base"
+    big = any(g["vram_mb"] >= 3000 for g in hdrdisplay.gpus())
+    if not big:
+        return "base"
+    return "medium" if translate else "turbo"
+
+
+def _wrap(text: str) -> str:
+    """One line, or two of about the same length broken at a space."""
+    if len(text) <= LINE_CHARS:
+        return text
+    mid = len(text) // 2
+    spaces = [i for i, ch in enumerate(text) if ch == " "]
+    if not spaces:
+        return text
+    cut = min(spaces, key=lambda i: abs(i - mid))
+    return text[:cut] + "\n" + text[cut + 1:]
+
+
+def build_cues(words: list) -> list:
+    """Words with their times [(start ms, end ms, word)] -> subtitles [(start, end, text)].
+
+    A new subtitle at a sentence's end, at a pause, when two lines are full or after CUE_MAX_MS;
+    each shows from its first word to just after its last, never over the next one. (Whisper's
+    own segments are up to 30 s of text: shown as they came, a whole paragraph stood on screen
+    while the speech went on.)"""
+    cues, cur = [], []
+
+    def flush():
+        if cur:
+            cues.append([cur[0][0], cur[-1][1] + 250, _wrap(" ".join(w for _, _, w in cur))])
+            cur.clear()
+    for t0, t1, raw in words:
+        w = raw.strip()
+        if not w:
+            continue
+        if cur:
+            prev = cur[-1][2]
+            length = sum(len(x) + 1 for _, _, x in cur) + len(w)
+            # long enough already, unless this word ends the sentence a moment later
+            too_long = t1 - cur[0][0] > CUE_MAX_MS and not (
+                w.endswith(SENTENCE_END) and t1 - cur[0][0] <= CUE_MAX_MS + FINISH_MS)
+            if (t0 - cur[-1][1] > PAUSE_MS or too_long or length > 2 * LINE_CHARS
+                    or (prev.endswith(SENTENCE_END) and len(cur) >= 2)
+                    or (raw.startswith("\n") and prev.endswith(SENTENCE_END + (",", ";", ":")))):
+                flush()
+        cur.append((t0, t1, w))
+    flush()
+    for i, c in enumerate(cues):
+        c[1] = max(c[1], c[0] + CUE_MIN_MS)
+        if i + 1 < len(cues):
+            c[1] = max(c[0] + 200, min(c[1], cues[i + 1][0] - 40))
+    return [tuple(c) for c in cues]
 
 
 def model_path(name: str):
@@ -245,8 +307,11 @@ class AiSubs(QObject):
     # ------------------------------------------------------------ worker thread
     def _run(self, path, at_ms, stop):
         import wave
-        name = self._s.value("aiModel", "auto")  # auto | base | turbo
-        name = pick_model() if name not in MODELS else name
+        translate = bool(self._s.value("aiSubsTranslate", False))
+        name = self._s.value("aiModel", "auto")  # auto | base | turbo | medium
+        name = pick_model(translate) if name not in MODELS else name
+        if translate and name == "turbo":
+            name = "medium"                      # turbo does not translate (see MODELS)
         if not model_ready(name):
             self._status.emit(tr("Baixando o modelo de reconhecimento de fala…"), 0.0)
             ok = download_model(name, lambda f: self._status.emit(tr("Baixando o modelo de reconhecimento de fala…"), f), stop)
@@ -268,12 +333,14 @@ class AiSubs(QObject):
             print("aisubs:", exc)
             return
         wav = os.path.join(DATA_DIR, f"aisubs_{threading.get_ident()}.wav")
-        ex = threading.Thread(target=extract_audio, args=(path, at_ms, wav, stop), daemon=True)
+        # the sound from the file's start, always: started at a point (libVLC's start-time) the
+        # extracted sound came out up to ~2 s off, and every subtitle with it. The part before
+        # the point is skipped below (audio only: the extraction runs far faster than playback).
+        ex = threading.Thread(target=extract_audio, args=(path, 0, wav, stop), daemon=True)
         ex.start()
-        translate = bool(self._s.value("aiSubsTranslate", False))
         cues = [c for c in self._all if c[1] < at_ms]
         self._covered = (at_ms, at_ms)
-        pos = 0                                   # samples of the WAV consumed
+        pos = at_ms * RATE // 1000                # samples of the WAV consumed (or skipped)
         data_at = 0                               # where the samples start (after the header)
         lang = "auto"
         try:
@@ -294,7 +361,7 @@ class AiSubs(QObject):
                 if avail - pos <= RATE // 2 and done:
                     break
                 # far enough ahead of playback: wait
-                start_ms = at_ms + pos * 1000 // RATE
+                start_ms = pos * 1000 // RATE
                 if start_ms > self._e.time + AHEAD_S * 1000:
                     time.sleep(0.5)
                     continue
@@ -302,14 +369,14 @@ class AiSubs(QObject):
                 with open(wav, "rb") as f:
                     f.seek(data_at + pos * 2)
                     pcm = f.read(n * 2)
-                segs, detected = asr.transcribe(pcm, start_ms, lang, translate, 4)
+                words, detected = asr.transcribe_words(pcm, start_ms, lang, translate, 4)
                 if stop.is_set():
                     break                      # replaced while it ran: its cues are not wanted
                 if lang == "auto" and detected:
                     lang = detected            # the film's language, kept for the next pieces
-                cues = [c for c in cues if c[0] < start_ms] + [(a, b, t) for a, b, t in segs]
+                cues = [c for c in cues if c[0] < start_ms] + build_cues(words)
                 pos += n
-                self._covered = (at_ms, at_ms + pos * 1000 // RATE)
+                self._covered = (at_ms, pos * 1000 // RATE)
                 self._cues.emit(list(cues))
                 self._status.emit(tr("Legendas por IA: %1").replace("%1", detected or "…"), 1.0)
         finally:

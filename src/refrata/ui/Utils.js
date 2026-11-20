@@ -58,3 +58,19 @@ function baseName(p) {
     var s = p.replace(/\\/g, "/")
     return s.substring(s.lastIndexOf("/") + 1)
 }
+
+// What RTX Video is doing on the picture right now (VideoPipeline.rtxState), as [text, kind]:
+// kind "on" (working), "paused" (on, but not for this video: the reason), "idle" (nothing playing)
+function rtxLine(wanted, videoOn, state) {
+    if (!wanted) return ["", "idle"]
+    if (!videoOn) return [qsTr("Entra em ação quando um vídeo estiver tocando."), "idle"]
+    switch (state) {
+    case "on": return [qsTr("Ativo no vídeo que está tocando."), "on"]
+    case "hdrVideo": return [qsTr("Pausado: este vídeo já é HDR. O RTX Video trabalha em vídeos comuns (SDR)."), "paused"]
+    case "motion": return [qsTr("Pausado: o movimento suave está ligado. Os dois não funcionam juntos; desligue um deles."), "paused"]
+    case "transform": return [qsTr("Pausado: o vídeo está girado ou com proporção forçada."), "paused"]
+    case "noScreen": return [qsTr("Pausado: precisa de uma tela com o HDR do Windows ligado."), "paused"]
+    case "refused": return [qsTr("O driver da NVIDIA recusou o pedido. Ligue a opção também no NVIDIA App e atualize o driver."), "paused"]
+    default: return [qsTr("Preparando…"), "idle"]
+    }
+}

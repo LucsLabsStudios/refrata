@@ -19,7 +19,8 @@ Rectangle {
         id: ind
         visible: root.idx >= 0
         y: 4; height: root.height - 8; radius: height / 2
-        color: root.onMedia ? "white" : theme.inverse
+        // over the video, the accent like the player's other chosen chips (one colour for "on")
+        color: root.onMedia ? theme.accent : theme.inverse
         // rep.count dependency makes these re-evaluate once delegates exist
         readonly property Item target: rep.count > 0 && root.idx >= 0 ? rep.itemAt(root.idx) : null
         x: target ? target.x + 4 : 4
@@ -43,7 +44,7 @@ Rectangle {
                     anchors.centerIn: parent
                     text: modelData.text
                     font.pixelSize: 13; font.weight: Font.DemiBold
-                    color: index === root.idx ? (root.onMedia ? "#111" : theme.inverseText) : (root.onMedia ? "white" : theme.textDim)
+                    color: index === root.idx ? (root.onMedia ? "white" : theme.inverseText) : (root.onMedia ? Qt.rgba(1, 1, 1, 0.82) : theme.textDim)
                     Behavior on color { ColorAnimation { duration: 160; easing.type: Easing.OutCubic } }
                 }
                 MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.picked(modelData.value) }

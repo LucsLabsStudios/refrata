@@ -7,6 +7,44 @@ All notable changes to Refrata are listed here, newest first. Each version links
 The project follows [Semantic Versioning](https://semver.org/). Patch releases (`1.4.x`) can also
 ship updated components only (libVLC, yt-dlp, python-vlc) after passing the full test suite.
 
+## [2.0.1] - 2026-11-19
+### Changed
+- The player's Tracks, Tools and Adjust panels are redesigned: columns with dividers, named
+  sections with a one-line explanation each, labelled buttons with icons, the chosen track marked
+  with the accent colour, steppers that show "Reset" only when something changed, and an empty
+  state that says what to do. The audio output is a list instead of a row of buttons.
+- Settings › Playback › Picture now says, under each option, what it is doing to the video playing
+  and, when it is not working, why: smooth motion shows the rates (24 → 165 frames per second),
+  true HDR shows the white and peak brightness in use, and RTX Video says when it is paused (an
+  HDR video, smooth motion on, a rotated picture, no HDR screen, or the driver refused). The
+  Adjust panel shows the same for the video on screen.
+- Subtitles made from the sound are cut like real subtitles: words carry their own timestamps,
+  cues end at pauses and sentence ends, last 1 to 5.5 seconds and hold up to two lines of 42
+  characters, so a long passage no longer appears all at once or drifts from the speech.
+  Translation into English uses Whisper medium (514 MB, downloaded the first time), since the
+  turbo model cannot translate.
+- Detail boost is clearly visible: the sharpening works at the scale the video is shown at, on
+  brightness only, adapts to local contrast and never overshoots edges.
+
+### Fixed
+- True HDR follows Windows live: switching "Use HDR" on or off, moving the window to another
+  monitor or changing the setting takes effect while the video plays, in windowed and full
+  screen, without reopening Refrata (measured with real switches: settled 0.5 to 0.9 s after
+  Windows, one rebuild each, RTX Video HDR coming and going with it). Qt fixes a window's
+  swapchain format when it creates it, so the swapchain is rebuilt in place, keeping the GPU
+  device, the video and RTX Video. Qt 6.8 also asks DXGI whether the screen is in HDR through an
+  adapter that keeps the state from when the app started; that answer is now corrected with the
+  current one, as browsers do with a fresh DXGI factory. Should that ever fail, a banner offers
+  "Reabrir em HDR", which reopens the app on the same video, at the same point, in the same
+  window. The change is noticed from Windows' own display-change message, on a thread of its own,
+  instead of a check every 3 seconds on the interface thread.
+- True HDR on HDR screens: the film's reference white now follows the desktop's SDR white (for
+  example 240 nits), so HDR video is no longer dimmer than the interface around it.
+- Smooth motion on low frame-rate video (15 to 20 fps): where the motion search is unsure, the
+  picture blends the two real frames instead of drawing a warped one, removing most tearing
+  around moving edges.
+- Adding a subtitle file the player already remembers for that video no longer adds it twice.
+
 ## [2.0.0] - 2026-11-17
 ### Added
 - Smooth motion (Settings › Playback › Picture): in-between frames computed on the GPU, so 24 and
