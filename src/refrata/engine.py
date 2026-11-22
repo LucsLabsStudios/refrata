@@ -2018,6 +2018,8 @@ class Engine(QObject):
 
     def _on_switch_done(self):
         self._switching = max(0, self._switching - 1)
+        if not self._switching and abs(self._mp.get_rate() - self._rate) > 0.001:
+            self._mp.set_rate(self._rate)   # changed while the switch ran (_set_rate)
 
     def _halt(self, mp=None):
         """stop(). libVLC lets go of an item paused less than a second ago only once that second is
@@ -2218,6 +2220,8 @@ class Engine(QObject):
     @Slot()
     def frameStep(self):
         self._back_target = None
+        if self._switching:
+            return   # the item is still being switched: libVLC's player lock is held (see _tick)
         self._mp.next_frame()
 
     @Slot()
@@ -2755,7 +2759,11 @@ class Engine(QObject):
         r = round(max(0.25, min(4.0, float(r))), 2)
         if r != self._rate:
             self._rate = r
-            self._mp.set_rate(r)
+            # mid-switch the worker holds libVLC's player in set_media, and a set_rate from here
+            # waited on it forever (the picture it waits for is drawn on this thread): the switch
+            # applies the rate itself (_start_player), and _on_switch_done catches a later change
+            if not self._switching:
+                self._mp.set_rate(r)
             self.rateChanged.emit()
 
     rate = Property(float, _get_rate, _set_rate, notify=rateChanged)

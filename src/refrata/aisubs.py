@@ -449,6 +449,9 @@ class AiSubs(QObject):
         self._key = ""
         self._model = None                 # (name, Transcriber)
         self._vad = None
+        # one worker loads the models at a time: a quick change of file starts a new worker while
+        # the old one is still loading, and two whisper loads at once crash in native code
+        self._load_lock = threading.Lock()
         self._all: list = []               # the file's words [(start, end, word)], sorted
         self._done: list = []              # [[from, to]] ms transcribed
         self._lang = "auto"
@@ -640,6 +643,10 @@ class AiSubs(QObject):
 
     # ------------------------------------------------------------ worker thread
     def _load(self, name):
+        with self._load_lock:
+            return self._load_locked(name)
+
+    def _load_locked(self, name):
         import PySide6.QtMultimedia  # noqa: F401
         from refrata_native import Transcriber, Vad
         if self._model is None or self._model[0] != name:
@@ -675,6 +682,8 @@ class AiSubs(QObject):
             self._failed = key
             self._status.emit(tr("Legendas por IA indisponíveis neste computador"), 0)
             print("aisubs:", exc)
+            return
+        if stop.is_set():                          # replaced while waiting for the models
             return
         # greedy, with whisper's own temperature fallback when unsure: measured against beam search
         # (5) with these quantised models, beam got words wrong ("braw" for "brown") and dropped

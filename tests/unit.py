@@ -331,6 +331,40 @@ def media_types_and_page_links():
 
 
 @test
+def ai_subtitle_models_load_one_worker_at_a_time():
+    """A quick change of file starts a new worker while the old one still loads the model: two
+    whisper loads at once crashed the app (access violation). The loads must take turns."""
+    import types
+    from refrata import aisubs as A
+    state = {"in": 0, "overlap": False}
+
+    class Fake:
+        def __init__(self, *a):
+            state["in"] += 1
+            state["overlap"] |= state["in"] > 1
+            time.sleep(0.15)
+            state["in"] -= 1
+    saved = sys.modules.get("refrata_native")
+    sys.modules["refrata_native"] = types.SimpleNamespace(Transcriber=Fake, Vad=Fake)
+    try:
+        name = next(iter(A.DTW))
+        one = types.SimpleNamespace(_model=None, _vad=None, _load_lock=threading.Lock())
+        if hasattr(A.AiSubs, "_load_locked"):
+            one._load_locked = lambda n: A.AiSubs._load_locked(one, n)
+        ts = [threading.Thread(target=A.AiSubs._load, args=(one, name)) for _ in range(3)]   # 3 workers
+        for t in ts:
+            t.start()
+        for t in ts:
+            t.join()
+        check(not state["overlap"], "two model loads never run at the same time")
+    finally:
+        if saved is None:
+            sys.modules.pop("refrata_native", None)
+        else:
+            sys.modules["refrata_native"] = saved
+
+
+@test
 def page_link_sound_is_a_codec_libvlc_plays():
     """YouTube also offers IAMF sound in .m4a, codec unknown to yt-dlp: it must never be picked."""
     import yt_dlp

@@ -26,6 +26,11 @@ ship updated components only (libVLC, yt-dlp, python-vlc) after passing the full
 - Some YouTube videos (Big Buck Bunny among them) ended at 0:00: YouTube also offers IAMF
   (immersive) sound in .m4a, which yt-dlp cannot name and libVLC cannot play, and the format choice
   took any .m4a sound. The sound is now chosen by codec (AAC, then Opus).
+- A crash when files were changed quickly with AI subtitles on: a new transcription started while
+  the last one was still loading the speech model, and two loads at once failed in native code.
+  The loads now take turns.
+- Changing the speed or stepping a frame while the next file was being opened could freeze the app:
+  both now wait for the file to open (the speed asked for is applied then).
 
 ### Performance
 - Faster start: about 150 ms less of the main thread's work before the window shows (~9%). The
