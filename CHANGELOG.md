@@ -23,6 +23,9 @@ ship updated components only (libVLC, yt-dlp, python-vlc) after passing the full
   times); with DTW word times they start within ~0.1 s of the voice on average.
 - No more words or sentences cut in two where 30-second blocks met, and no sentences made up over
   silence or music.
+- Some YouTube videos (Big Buck Bunny among them) ended at 0:00: YouTube also offers IAMF
+  (immersive) sound in .m4a, which yt-dlp cannot name and libVLC cannot play, and the format choice
+  took any .m4a sound. The sound is now chosen by codec (AAC, then Opus).
 
 ### Performance
 - Faster start: about 150 ms less of the main thread's work before the window shows (~9%). The

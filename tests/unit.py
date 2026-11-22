@@ -331,6 +331,26 @@ def media_types_and_page_links():
 
 
 @test
+def page_link_sound_is_a_codec_libvlc_plays():
+    """YouTube also offers IAMF sound in .m4a, codec unknown to yt-dlp: it must never be picked."""
+    import yt_dlp
+    from refrata import websites as W
+
+    def f(fid, ext, v, a, h=None, abr=None, q=0):
+        return {"format_id": fid, "ext": ext, "vcodec": v, "acodec": a, "height": h, "abr": abr,
+                "quality": q, "url": "https://x/" + fid, "protocol": "https"}
+    sound = [f("140", "m4a", "none", "mp4a.40.2", abr=129, q=1), f("251", "webm", "none", "opus", abr=128, q=1),
+             f("773", "m4a", "none", None, q=3)]
+    picture = [f("137", "mp4", "avc1.640028", "none", h=1080, q=5), f("248", "webm", "vp9", "none", h=1080, q=5)]
+    y = yt_dlp.YoutubeDL({"quiet": True})
+    for fmts, want in ((sound + picture, ("137", "140")), ([sound[1], sound[2]] + picture, ("137", "251"))):
+        got = list(y.build_format_selector(W.FORMAT)({"formats": fmts, "has_merged_format": False,
+                                                       "incomplete_formats": False}))
+        ids = tuple(x["format_id"] for x in got[0].get("requested_formats", [got[0]]))
+        check(ids == want, "H.264 picture with sound in a codec libVLC plays (never IAMF)", f"{ids} (want {want})")
+
+
+@test
 def settings_survive_garbage_and_keep_types():
     from refrata import settings as St
     check(St._clean_history("nope") == [] and St._clean_history([1, None, {}, {"path": ""}]) == [], "a broken history is an empty one")

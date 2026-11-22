@@ -19,7 +19,11 @@ PAGE_HOSTS = (
     "twitter.com", "facebook.com", "fb.watch", "instagram.com", "reddit.com", "streamable.com", "rumble.com",
     "odysee.com", "kick.com", "mixcloud.com", "ted.com", "archive.org", "globoplay.globo.com",
 )
-FORMAT = "bv*[height<=1080][vcodec^=avc1]+ba[ext=m4a]/bv*[height<=1080]+ba/b[height<=1080]/b"
+# the sound by codec, never by container alone: YouTube also offers IAMF (immersive audio) in .m4a,
+# whose codec yt-dlp cannot name and libVLC cannot play (the video would end at 0:00)
+FORMAT = ("bv*[height<=1080][vcodec^=avc1]+ba[acodec^=mp4a]/bv*[height<=1080][vcodec^=avc1]+ba[acodec^=opus]"
+          "/bv*[height<=1080]+ba[acodec^=mp4a]/bv*[height<=1080]+ba[acodec^=opus]"
+          "/bv*[height<=1080]+ba/b[height<=1080]/b")
 FRESH_SECONDS = 3 * 3600
 
 
