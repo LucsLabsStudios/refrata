@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Refrata 2.0 · reproductor de vídeo y música para Windows</title>
   <meta name="description" content="Refrata es un reproductor de vídeo y música para Windows, gratuito y de código abierto, con el motor de VLC. La versión 2.0 trae HDR real en pantallas HDR, HDR10+ escena a escena, movimiento fluido, subtítulos con IA hechos en tu propio ordenador y RTX Video de NVIDIA.">
-  <meta name="theme-color" content="#0b0908">
+  <meta name="theme-color" content="#090807">
   <meta property="og:title" content="Refrata · reproduce todo lo que reproduce VLC, con otra cara">
   <meta property="og:description" content="Reproductor de vídeo y música para Windows, gratuito y de código abierto, hecho en Brasil.">
   <meta property="og:image" content="/img/og.jpg">
@@ -13,26 +13,25 @@
   <link rel="icon" href="/img/icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..800&family=Geist+Mono:wght@400..600&display=swap" rel="stylesheet">
+  <link rel="preload" as="image" href="/img/hero-art.webp" fetchpriority="high">
   <link rel="stylesheet" href="/styles.css">
   <link rel="alternate" hreflang="pt-BR" href="https://refrata.vercel.app/">
   <link rel="alternate" hreflang="en" href="https://refrata.vercel.app/en/">
   <link rel="alternate" hreflang="es" href="https://refrata.vercel.app/es/">
   <link rel="alternate" hreflang="x-default" href="https://refrata.vercel.app/en/">
+  <script>document.documentElement.classList.add("js");</script>
 </head>
 <body>
-  <div class="grain" aria-hidden="true"></div>
-
   <header class="nav" id="top">
     <a class="brand" href="#top" aria-label="Refrata, inicio">
-      <img src="/img/icon.png" alt="" width="34" height="34">
+      <img src="/img/icon.png" alt="" width="30" height="30">
       <span>Refrata</span>
     </a>
     <nav class="links" aria-label="Secciones">
-      <a href="#destaques">Destacados</a>
-      <a href="#video">Vídeo</a>
       <a href="#imagem">Imagen</a>
-      <a href="#rede">Enlaces y TV</a>
+      <a href="#video">Vídeo</a>
+      <a href="#ferramentas">Subtítulos</a>
       <a href="#musica">Música</a>
       <a href="#recursos">Funciones</a>
       <a href="#duvidas">Preguntas</a>
@@ -47,91 +46,134 @@
         <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38v-1.33c-2.23.48-2.7-1.07-2.7-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.06-.49.06-.49.8.06 1.23.83 1.23.83.72 1.22 1.88.87 2.34.66.07-.52.28-.87.5-1.07-1.78-.2-3.65-.89-3.65-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.19c0 .21.15.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
         <span>GitHub</span>
       </a>
-      <a class="pill accent" href="#download">Descargar</a>
+      <a class="pill light" href="#download">Descargar</a>
     </div>
   </header>
 
+  <!-- the page plays like a film: a scrubber at the bottom, with a mark for each chapter -->
+  <div class="scrub" aria-hidden="true">
+    <div class="scrub-track"><i class="scrub-fill"></i><span class="scrub-marks"></span><b class="scrub-tip"></b></div>
+    <span class="scrub-time">00:00</span>
+  </div>
+
   <main>
-    <!-- ======================================================= hero -->
-    <section class="hero">
-      <div class="hero-art" aria-hidden="true"></div>
-      <div class="hero-copy">
-        <p class="eyebrow">Nuevo: Refrata 2.0.1 · gratis y de código abierto</p>
-        <h1>Reproductor de vídeo y música<br><em>con HDR de verdad.</em></h1>
-        <p class="lead">Refrata abre casi cualquier archivo con el motor de VLC y muestra cada vídeo tal como se hizo: HDR con su brillo real, movimiento fluido a la frecuencia de tu monitor y subtítulos escritos por IA en tu propio ordenador.</p>
-        <div class="cta-row">
-          <a class="btn-orb" href="#download" data-download>
-            <span class="orb" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M12 3a1 1 0 0 1 1 1v9.59l3.3-3.3a1 1 0 1 1 1.4 1.42l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.42l3.3 3.3V4a1 1 0 0 1 1-1Zm-7 15a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"/></svg>
-            </span>
-            <span class="btn-text">
-              <strong>Descargar para Windows</strong>
-              <small data-version-line>Windows 10 y 11 · 64 bits</small>
-            </span>
-          </a>
-          <a class="pill ghost big" href="https://github.com/LucsLabsStudios/refrata" target="_blank" rel="noopener">Ver el código</a>
+    <!-- ======================================================= hero: the film, then the player around it -->
+    <section class="hero" data-hero>
+      <div class="hero-pin">
+        <div class="hero-film" aria-hidden="true"><div class="hero-light"></div></div>
+        <figure class="hero-player">
+          <img src="/img/es/video-player.webp" alt="Reproductor de vídeo de Refrata: el título de la película en letras grandes y controles de vidrio esmerilado sobre la imagen" width="1440" height="900">
+        </figure>
+        <div class="hero-copy">
+          <p class="eyebrow">Refrata <span data-version>2.0</span> · gratis y de código abierto</p>
+          <h1>Reproductor de vídeo y música<br><em>con HDR de verdad.</em></h1>
+          <p class="lead">Refrata abre casi cualquier archivo con el motor de VLC y muestra cada vídeo tal como se hizo: HDR con su brillo real, movimiento fluido a la frecuencia de tu monitor y subtítulos escritos por IA en tu propio ordenador.</p>
+          <div class="cta-row">
+            <a class="btn-main" href="#download" data-download>
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 3a1 1 0 0 1 1 1v9.59l3.3-3.3a1 1 0 1 1 1.4 1.42l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.42l3.3 3.3V4a1 1 0 0 1 1-1Zm-7 15a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"/></svg>
+              <span class="btn-text">
+                <strong>Descargar para Windows</strong>
+                <small data-version-line>Windows 10 y 11 · 64 bits</small>
+              </span>
+            </a>
+            <a class="pill ghost big" href="https://github.com/LucsLabsStudios/refrata" target="_blank" rel="noopener">Ver el código</a>
+          </div>
         </div>
-      </div>
-      <figure class="hero-shot">
-        <div class="window">
-          <div class="window-bar"><i></i><i></i><i></i><span>Refrata</span></div>
-          <img src="/img/es/video-player.webp" alt="Reproductor de vídeo de Refrata: el título de la película en letras grandes y controles de vidrio esmerilado sobre la imagen" width="1440" height="900" fetchpriority="high">
-        </div>
-        <div class="window mini-window" aria-hidden="true">
-          <img src="/img/es/music-player.webp" alt="" width="1440" height="900" loading="lazy">
-        </div>
-      </figure>
-    </section>
-
-    <!-- ======================================================= formats -->
-    <section class="formats" aria-label="Formatos compatibles">
-      <div class="marquee">
-        <div class="track">
-          <span>MKV</span><span>MP4</span><span>AVI</span><span>MOV</span><span>WEBM</span><span>FLAC</span><span>MP3</span><span>OPUS</span>
-          <span>M4A</span><span>WAV</span><span>HLS</span><span>RTSP</span><span>M3U</span><span>XSPF</span><span>SRT</span><span>ASS</span>
-          <span>MKV</span><span>MP4</span><span>AVI</span><span>MOV</span><span>WEBM</span><span>FLAC</span><span>MP3</span><span>OPUS</span>
-          <span>M4A</span><span>WAV</span><span>HLS</span><span>RTSP</span><span>M3U</span><span>XSPF</span><span>SRT</span><span>ASS</span>
-        </div>
+        <p class="hero-cue" aria-hidden="true"><span></span>desplázate para dar al play</p>
       </div>
     </section>
 
+    <!-- the numbers, big and still -->
+    <section class="facts" aria-label="En cifras">
+      <dl>
+        <div><dt>hasta</dt><dd>8K</dd><span>en resolución nativa</span></div>
+        <div><dt>hasta</dt><dd>120<small>fps</small></dd><span>de movimiento fluido</span></div>
+        <div><dt>en</dt><dd>14</dd><span>idiomas</span></div>
+        <div><dt>recopilación de datos</dt><dd>0</dd><span>sin anuncios ni cuenta</span></div>
+      </dl>
+      <p class="formats">
+        <span>MKV</span><span>MP4</span><span>AVI</span><span>MOV</span><span>WEBM</span><span>FLAC</span><span>MP3</span><span>OPUS</span>
+        <span>M4A</span><span>WAV</span><span>HLS</span><span>RTSP</span><span>M3U</span><span>XSPF</span><span>SRT</span><span>ASS</span>
+      </p>
+    </section>
 
-    <!-- ======================================================= highlights -->
-    <section class="section" id="destaques">
-      <p class="eyebrow">Destacados</p>
-      <h2>El motor de VLC, con todo lo que le faltaba alrededor.</h2>
-      <div class="hl-grid">
-        <a class="card hl" href="#rapido">
-          <span class="tag">Explorador</span>
-          <h3>Vista previa con Espacio</h3> <p>Selecciona un vídeo o una canción en el Explorador y pulsa Espacio. La vista previa aparece al instante, sin abrir ningún programa.</p> <span class="go">Ver cómo funciona</span>
-        </a>
-        <a class="card hl" href="#rede">
-          <span class="tag">Enlaces</span>
-          <h3>YouTube en el reproductor</h3> <p>Pega un enlace de YouTube, Vimeo, Twitch y otros sitios y míralo en Refrata, con la mejor calidad disponible.</p> <span class="go">Enlaces y TV</span>
-        </a>
-        <a class="card hl" href="#imagem">
-          <span class="tag">Nuevo</span>
-          <h3>HDR de verdad</h3> <p>En una pantalla HDR, el vídeo HDR se ve con su brillo real, escena a escena. ¿Activaste el HDR de Windows con un vídeo en marcha? La imagen se adapta al momento.</p> <span class="go">Ver la imagen</span>
-        </a>
-        <a class="card hl" href="#rede">
-          <span class="tag">TV</span>
-          <h3>Chromecast</h3> <p>Envía el vídeo a la tele del salón con un clic. El PC se convierte en el mando: pausar, saltar y el volumen siguen en la aplicación.</p> <span class="go">Enlaces y TV</span>
-        </a>
-        <a class="card hl" href="#ferramentas">
-          <span class="tag">Novo</span>
-          <h3>Subtítulos con IA</h3> <p>¿Ese vídeo no tiene subtítulos? Refrata los escribe a partir del habla, en tu tarjeta gráfica, sin enviar nada a internet.</p> <span class="go">Ver las herramientas</span>
-        </a>
-        <a class="card hl" href="#musica">
-          <span class="tag">Música</span>
-          <h3>Un modo música de verdad</h3> <p>Carrusel de portadas, fondo con los colores del disco y las teclas multimedia del teclado funcionando con la aplicación minimizada.</p> <span class="go">Ver el modo música</span>
-        </a>
+    <!-- ======================================================= 01 picture: one frame, four passes -->
+    <section class="chapter" id="imagem" data-chapter="Imagen">
+      <header class="ch-head">
+        <p class="eyebrow"><span class="ch-n">01</span>Imagen</p>
+        <h2>La imagen que la película debía tener.</h2>
+        <p class="lead">Refrata lee cómo se masterizó cada vídeo y ajusta la imagen a tu pantalla, fotograma a fotograma, en la tarjeta gráfica. Nada que configurar: todo viene activado en su punto.</p>
+      </header>
+
+      <div class="reel" data-reel>
+        <div class="reel-stage">
+          <figure class="frame" data-step="1">
+            <img class="f-sd" src="/img/stage-sd.webp" alt="" width="1600" height="900" loading="lazy">
+            <img class="f-base" src="/img/stage.webp" alt="" width="1600" height="900" loading="lazy">
+            <div class="f-hdr" aria-hidden="true"><img src="/img/stage.webp" alt="" width="1600" height="900" loading="lazy"></div>
+            <span class="f-handle" aria-hidden="true"></span>
+            <input class="f-range" type="range" min="0" max="100" value="50" aria-label="Arrastra para comparar la imagen en SDR y en HDR">
+            <span class="f-tag left" aria-hidden="true">SDR</span>
+            <span class="f-tag right" aria-hidden="true">HDR</span>
+            <div class="hud" aria-hidden="true">
+              <span>HEVC Main 10</span><span>3840 × 2160</span><span class="hud-hi">HDR10+</span>
+              <span class="hud-nits"><b data-nits>1000</b> nits</span>
+              <i class="hud-bar"><i data-nitbar></i></i>
+              <span class="hud-scene">escena <b data-scene-n>214</b></span>
+            </div>
+            <div class="fps" aria-hidden="true">
+              <div class="lane"><span class="lane-tag">24 fps</span><i class="dot d24"></i></div>
+              <div class="lane"><span class="lane-tag">60+ fps</span><i class="dot d60"></i></div>
+            </div>
+            <button class="sr-toggle" type="button" aria-pressed="true">
+              <span class="sw" aria-hidden="true"></span>Super Resolution
+            </button>
+            <figcaption class="f-cap">Foto: Unsplash. El antes y el después es una ilustración.</figcaption>
+          </figure>
+          <ol class="reel-dots" aria-hidden="true"><li></li><li></li><li></li><li></li></ol>
+        </div>
+
+        <div class="reel-steps">
+          <article data-go="1">
+            <p class="step-n">01 / 04</p>
+            <h3>HDR real en pantallas HDR</h3>
+            <p>Con el HDR de Windows activado, el vídeo HDR se ve con su brillo real, hasta el máximo de tu pantalla, y la interfaz mantiene su brillo de siempre. Activa o desactiva el HDR con el vídeo en marcha: la imagen te sigue en menos de un segundo.</p>
+            <p class="hint-drag">Arrastra el divisor para comparar.</p>
+          </article>
+          <article data-go="2">
+            <p class="step-n">02 / 04</p>
+            <h3>HDR10+ escena a escena</h3>
+            <p>HDR10, HDR10+ y HLG con los colores correctos. Se siguen los metadatos de cada escena y el brillo se mide en cada fotograma: las escenas oscuras no se apagan.</p>
+          </article>
+          <article data-go="3">
+            <p class="step-n">03 / 04</p>
+            <h3>Movimiento fluido</h3>
+            <p>El vídeo a 24 o 30 fotogramas pasa a 60, 120 o a la frecuencia de tu monitor, con fotogramas intermedios calculados en la GPU. Sin límite de resolución.</p>
+          </article>
+          <article data-go="4">
+            <p class="step-n">04 / 04</p>
+            <h3>RTX Video de NVIDIA</h3>
+            <p>En tarjetas RTX, Super Resolution deja nítidos los vídeos de baja resolución a pantalla completa, y RTX Video HDR convierte el vídeo normal en HDR. Cada opción te dice si está actuando sobre el vídeo y, si no, por qué.</p>
+          </article>
+        </div>
+      </div>
+
+      <div class="specs two">
+        <article>
+          <h3>Hasta 8K nativo</h3>
+          <p>4K, 8K y 8K de cine en su resolución original, con la decodificación y la conversión de color hechas por la tarjeta gráfica.</p>
+        </article>
+        <article>
+          <h3>Realce de luz y de detalle</h3>
+          <p>Da más vida al vídeo normal: sombras y luces más abiertas y una nitidez que se adapta a la imagen, sin halos.</p>
+        </article>
       </div>
     </section>
 
-    <!-- ======================================================= video -->
-    <section class="section split" id="video">
+    <!-- ======================================================= 02 video -->
+    <section class="chapter split bleed" id="video" data-chapter="Vídeo">
       <div class="split-copy">
-        <p class="eyebrow">Vídeo</p>
+        <p class="eyebrow"><span class="ch-n">02</span>Vídeo</p>
         <h2>La película a pantalla completa y los controles solo cuando mueves el ratón.</h2>
         <p class="lead">Deja quieto el ratón y todo desaparece: solo queda la película. Muévelo y los controles de vidrio esmerilado vuelven sin tapar la imagen. La barra de tiempo te muestra adónde vas antes de hacer clic.</p>
         <ul class="ticks">
@@ -142,229 +184,158 @@
           <li>Velocidad de 0,25× a 4×, fotograma a fotograma hacia delante y hacia atrás, y capturas</li>
         </ul>
       </div>
-      <figure class="split-shot">
+      <figure class="split-shot reveal-img">
         <img src="/img/es/video-adjust.webp" alt="Panel Imagen abierto sobre el vídeo, con brillo, contraste, saturación, gamma, tono y encuadre" width="1440" height="900" loading="lazy">
       </figure>
     </section>
 
-    <!-- ======================================================= picture quality -->
-    <section class="section" id="imagem">
-      <p class="eyebrow">Imagen</p>
-      <h2>La imagen que la película debía tener.<br><span class="dim">HDR real, movimiento fluido y el reescalador de NVIDIA.</span></h2>
-      <p class="lead section-lead">Refrata lee cómo se masterizó cada vídeo y ajusta la imagen a tu pantalla, fotograma a fotograma, en la tarjeta gráfica. Nada que configurar: todo viene activado en su punto.</p>
-      <div class="grid">
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M12 3v2 M12 19v2 M3 12h2 M19 12h2 M12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8" /></svg></div>
-          <h3>HDR real en pantallas HDR</h3>
-          <p>Con el HDR de Windows activado, el vídeo HDR se ve con su brillo real, hasta el máximo de tu pantalla, y la interfaz mantiene su brillo de siempre. Activa o desactiva el HDR con el vídeo en marcha y la imagen se adapta en menos de un segundo.</p>
-        </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M3 18h18 M5 18V9 M10 18V5 M15 18v-7 M20 18V8" /></svg></div>
-          <h3>HDR10+ escena a escena</h3>
-          <p>HDR10, HDR10+ y HLG con los colores correctos. Se siguen los metadatos de cada escena y el brillo se mide en cada fotograma: las escenas oscuras no se apagan.</p>
-        </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M3 12h4 M9 12h3 M14 12h7 M17 8l4 4-4 4" /></svg></div>
-          <h3>Movimiento fluido</h3>
-          <p>El vídeo a 24 o 30 fotogramas pasa a 60, 120 o a la frecuencia de tu monitor, con fotogramas intermedios calculados en la GPU. Sin límite de resolución.</p>
-        </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M4 7h7v7H4z M13 4h7v16h-7z M7 17v3 M4 20h6" /></svg></div>
-          <h3>RTX Video de NVIDIA</h3>
-          <p>En tarjetas RTX, Super Resolution deja nítidos los vídeos de baja resolución a pantalla completa, y RTX Video HDR convierte el vídeo normal en HDR. Cada opción dice si está actuando en el vídeo y, si no, por qué.</p>
-        </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M3 5h18v14H3z M7 9v6 M7 12h3 M10 9v6 M14 9v6 M14 12l3-3 M14 12l3 3" /></svg></div>
-          <h3>Hasta 8K nativo</h3>
-          <p>4K, 8K y 8K de cine en su resolución original, con la decodificación y la conversión de color hechas por la tarjeta gráfica.</p>
-        </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M12 4l2 5 5 .5-4 3.5 1.5 5L12 15l-4.5 3 1.5-5-4-3.5 5-.5z" /></svg></div>
-          <h3>Realce de luz y de detalle</h3>
-          <p>Da más vida al vídeo normal: sombras y luces más abiertas y una nitidez que se adapta a la imagen, sin halos.</p>
-        </article>
+    <!-- three Windows moments in one stage: Space preview, picture-in-picture, links + TV -->
+    <section class="chapter moments" id="rapido" aria-label="Atajos de Windows">
+      <header class="ch-head">
+        <p class="eyebrow">En Windows</p>
+        <h2>Tres atajos que cambian cómo ves.</h2>
+      </header>
+      <div class="tabs" role="tablist" aria-label="Atajos de Windows">
+        <button role="tab" id="tab-rapido" aria-controls="pane-rapido" aria-selected="true">Vista previa al instante</button>
+        <button role="tab" id="tab-pip" aria-controls="pane-pip" aria-selected="false" tabindex="-1">Imagen en imagen</button>
+        <button role="tab" id="tab-rede" aria-controls="pane-rede" aria-selected="false" tabindex="-1">Enlaces y TV</button>
+        <span class="tab-ink" aria-hidden="true"></span>
       </div>
-    </section>
 
-    <!-- ======================================================= picture-in-picture -->
-    <section class="section split reverse" id="pip">
-      <div class="split-copy">
-        <p class="eyebrow">Imagen en imagen</p>
-        <h2>Imagen en imagen para ver mientras trabajas.</h2>
-        <p class="lead">Pulsa <kbd>Ctrl</kbd>+<kbd>P</kbd> o el botón de arriba del reproductor. Refrata se aparta y el vídeo sigue, en el mismo segundo, en una ventanita que siempre queda encima de las demás.</p>
-        <ul class="ticks">
-          <li>Arrástrala a cualquier esquina y cambia el tamaño desde el borde</li>
-          <li>Pausa, retrocede y avanza 10 s y la barra de progreso en la propia ventanita</li>
-          <li>Doble clic o <kbd>Esc</kbd> vuelve a la aplicación completa, en el mismo punto del vídeo</li>
-        </ul>
-      </div>
-      <figure class="split-shot pip-scene">
-        <div class="workwin" aria-hidden="true">
-          <div class="bar"><i></i><i></i><i></i></div>
-          <div class="doc"><span class="h"></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-        </div>
-        <img class="pip-card" src="/img/pip.webp" alt="Ventanita de imagen en imagen de Refrata con el vídeo en pausa, los botones de volver a la aplicación y cerrar y la barra de progreso" width="640" height="360" loading="lazy">
-      </figure>
-    </section>
-
-    <!-- ======================================================= quick -->
-    <section class="section split" id="rapido">
-      <div class="split-copy">
-        <p class="eyebrow">Vista previa al instante</p>
-        <h2>Pulsa <span class="keycap">Espacio</span>.<br><span class="dim">Míralo antes de abrirlo.</span></h2>
-        <p class="lead">En el Explorador de archivos o en el escritorio, selecciona un vídeo o una canción y pulsa Espacio. La vista previa aparece flotando al instante, y Espacio otra vez la cierra. Las flechas recorren los demás archivos de la carpeta, como quien hojea un álbum.</p>
-        <ul class="ticks">
-          <li>El doble clic abre directo en el reproductor completo, en menos de medio segundo con Refrata abierto</li>
-          <li>¿Quieres pantalla completa? <kbd>Intro</kbd> lo lleva a la aplicación completa, en el mismo segundo</li>
-          <li>Deja Refrata en la bandeja y arrancando con Windows, y todo se abre sin esperas</li>
-        </ul>
-      </div>
-      <figure class="split-shot quick-shot">
-        <div class="desk" aria-hidden="true">
-          <div class="desk-files">
-            <span class="file"></span><span class="file sel"></span><span class="file"></span><span class="file"></span>
+      <div class="panes">
+        <div class="pane split" role="tabpanel" id="pane-rapido" aria-labelledby="tab-rapido">
+          <div class="split-copy">
+            <h3 class="pane-title">Pulsa <span class="keycap">Espacio</span>.<br><span class="dim">Míralo antes de abrirlo.</span></h3>
+            <p class="lead">En el Explorador de archivos o en el escritorio, selecciona un vídeo o una canción y pulsa Espacio. La vista previa aparece flotando al instante, y Espacio otra vez la cierra. Las flechas recorren los demás archivos de la carpeta, como quien hojea un álbum.</p>
+            <ul class="ticks">
+              <li>El doble clic abre directo en el reproductor completo, en menos de medio segundo con Refrata abierto</li>
+              <li>¿Quieres pantalla completa? <kbd>Intro</kbd> lo lleva a la aplicación completa, en el mismo segundo</li>
+              <li>Deja Refrata en la bandeja y arrancando con Windows, y todo se abre sin esperas</li>
+            </ul>
           </div>
-          <span class="keycap big press">Espacio</span>
+          <figure class="split-shot scene quick-shot">
+            <div class="desk" aria-hidden="true">
+              <div class="desk-files">
+                <span class="file"><i></i>viaje-2025.mkv</span><span class="file sel"><i></i>neon-noturno.mkv</span><span class="file"><i></i>concierto.mp4</span><span class="file"><i></i>banda-sonora.flac</span>
+              </div>
+              <span class="keycap big press">Espacio</span>
+            </div>
+            <img class="quick-card" src="/img/es/quick-preview.webp" alt="Ventana de vista previa de Refrata flotando con un vídeo, el nombre del archivo y 3 de 4 en la carpeta" width="1280" height="720" loading="lazy">
+          </figure>
         </div>
-        <img class="quick-card" src="/img/es/quick-preview.webp" alt="Ventana de vista previa de Refrata flotando con un vídeo, el nombre del archivo y 3 de 4 en la carpeta" width="1280" height="720" loading="lazy">
-      </figure>
-    </section>
 
-    <!-- ======================================================= links + TV -->
-    <section class="section split reverse" id="rede">
-      <div class="split-copy">
-        <p class="eyebrow">Enlaces y TV</p>
-        <h2>Enlaces de YouTube en el reproductor y el vídeo en la tele con Chromecast.</h2>
-        <p class="lead">En la página Streams, pega un enlace de YouTube, Vimeo o Twitch, o una dirección HLS, RTSP o RTMP. Refrata encuentra la mejor calidad y muestra lo que hace mientras abre.</p>
-        <ul class="ticks">
-          <li>Más de 20 sitios: YouTube, Vimeo, Twitch, SoundCloud, Dailymotion, TikTok y otros</li>
-          <li>Chromecast en la misma red Wi-Fi, con el PC como mando a distancia</li>
-          <li>Subtítulos de OpenSubtitles directamente en el reproductor, encontrados por el propio archivo</li>
-        </ul>
+        <div class="pane split" role="tabpanel" id="pane-pip" aria-labelledby="tab-pip" hidden>
+          <div class="split-copy">
+            <h3 class="pane-title">Imagen en imagen para ver mientras trabajas.</h3>
+            <p class="lead">Pulsa <kbd>Ctrl</kbd>+<kbd>P</kbd> o el botón de arriba del reproductor. Refrata se aparta y el vídeo sigue, en el mismo segundo, en una ventanita que siempre queda encima de las demás.</p>
+            <ul class="ticks">
+              <li>Arrástrala a cualquier esquina y cambia el tamaño desde el borde</li>
+              <li>Pausa, retrocede y avanza 10 s y la barra de progreso en la propia ventanita</li>
+              <li>Doble clic o <kbd>Esc</kbd> vuelve a la aplicación completa, en el mismo punto del vídeo</li>
+            </ul>
+          </div>
+          <figure class="split-shot scene pip-scene">
+            <div class="workwin" aria-hidden="true">
+              <div class="bar"><i></i><i></i><i></i></div>
+              <div class="doc"><span class="h"></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+            </div>
+            <img class="pip-card" src="/img/pip.webp" alt="Ventanita de imagen en imagen de Refrata con el vídeo en pausa, los botones de volver a la aplicación y cerrar y la barra de progreso" width="640" height="360" loading="lazy">
+          </figure>
+        </div>
+
+        <div class="pane split" role="tabpanel" id="pane-rede" aria-labelledby="tab-rede" hidden>
+          <div class="split-copy">
+            <h3 class="pane-title">Enlaces de YouTube en el reproductor y el vídeo en la tele con Chromecast.</h3>
+            <p class="lead">En la página Streams, pega un enlace de YouTube, Vimeo o Twitch, o una dirección HLS, RTSP o RTMP. Refrata encuentra la mejor calidad y muestra lo que hace mientras abre.</p>
+            <ul class="ticks">
+              <li>Más de 20 sitios: YouTube, Vimeo, Twitch, SoundCloud, Dailymotion, TikTok y otros</li>
+              <li>Chromecast en la misma red Wi-Fi, con el PC como mando a distancia</li>
+              <li>Subtítulos de OpenSubtitles directamente en el reproductor, encontrados por el propio archivo</li>
+            </ul>
+          </div>
+          <figure class="split-shot scene link-scene" aria-hidden="true">
+            <div class="urlbar">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M4 12h16 M12 4c2.5 2.5 2.5 13.5 0 16 M12 4c-2.5 2.5-2.5 13.5 0 16"/></svg>
+              <span class="url"><span>youtube.com/watch?v=refrata</span></span>
+              <span class="play">Reproducir</span>
+            </div>
+            <div class="screen">
+              <span class="cast-chip"><svg viewBox="0 0 24 24"><path d="M3 18a3 3 0 0 1 3 3 M3 14a7 7 0 0 1 7 7 M3 10a11 11 0 0 1 11 11 M3 7V5a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4"/></svg>Salón</span>
+              <span class="spin"></span>
+              <strong>Abriendo enlace de YouTube…</strong> <small>Buscando la mejor calidad. Tarda unos segundos.</small>
+            </div>
+          </figure>
+        </div>
       </div>
-      <figure class="split-shot link-scene" aria-hidden="true">
-        <div class="urlbar">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M4 12h16 M12 4c2.5 2.5 2.5 13.5 0 16 M12 4c-2.5 2.5-2.5 13.5 0 16"/></svg>
-          <span class="url">youtube.com/watch?v=refrata</span>
-          <span class="play">Reproducir</span>
-        </div>
-        <div class="screen">
-          <span class="cast-chip"><svg viewBox="0 0 24 24"><path d="M3 18a3 3 0 0 1 3 3 M3 14a7 7 0 0 1 7 7 M3 10a11 11 0 0 1 11 11 M3 7V5a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4"/></svg>Salón</span>
-          <span class="spin"></span>
-          <strong>Abriendo enlace de YouTube…</strong> <small>Buscando la mejor calidad. Tarda unos segundos.</small>
-        </div>
-      </figure>
     </section>
 
-    <!-- ======================================================= library -->
-    <section class="section" id="biblioteca">
-      <p class="eyebrow">Biblioteca</p>
-      <h2>Tus vídeos y tu música,<br><span class="dim">ordenados sin que muevas un dedo.</span></h2>
-      <p class="lead section-lead">La primera vez que se abre, Refrata lee tus carpetas de Vídeos y Música y monta la biblioteca con miniaturas, duraciones y lo que estabas viendo. No copia ni envía nada a ningún sitio: solo lee los archivos donde ya están.</p>
-      <div class="duo">
-        <img src="/img/es/home-videos.webp" alt="Pantalla de inicio de Refrata con el destacado Visto recientemente y el minirreproductor" width="1440" height="900" loading="lazy">
-        <img src="/img/es/videos-grid.webp" alt="Cuadrícula de vídeos de la biblioteca con miniaturas y duración" width="1440" height="900" loading="lazy">
-      </div>
+    <!-- ======================================================= 03 AI subtitles + tools -->
+    <section class="chapter" id="ferramentas" data-chapter="Subtítulos">
+      <header class="ch-head">
+        <p class="eyebrow"><span class="ch-n">03</span>Herramientas</p>
+        <h2>Subtítulos que se escriben solos y las herramientas de quien ve mucho.</h2>
+      </header>
     </section>
 
-    <!-- ======================================================= tools -->
-    <section class="section" id="ferramentas">
-      <p class="eyebrow">Herramientas</p>
-      <h2>Subtítulos que se escriben solos y las herramientas de quien ve mucho.</h2>
-      <div class="grid">
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M9 4a3 3 0 0 1 6 0v6a3 3 0 0 1-6 0z M5 10a7 7 0 0 0 14 0 M12 17v3 M4 21h16" /></svg></div>
+    <figure class="cinema" data-subs aria-hidden="true">
+      <img src="/img/scene-rain.webp" alt="" width="1600" height="900" loading="lazy">
+      <span class="listen"><span class="wave"><i></i><i></i><i></i><i></i><i></i></span>IA escuchando · en tu ordenador</span>
+      <p class="sub-line">
+        <span data-line>— ¿Has oído eso?</span>
+        <span data-line>— Solo era la lluvia.</span>
+        <span data-line>— Entonces, ¿por qué sigue la luz encendida?</span>
+      </p>
+    </figure>
+
+    <section class="chapter tools">
+      <div class="specs three">
+        <article>
+          <p class="keys" aria-hidden="true"><span class="ai-mark">IA</span></p>
           <h3>Subtítulos con IA</h3> <p>Refrata escucha el vídeo y escribe los subtítulos con Whisper, en tu tarjeta gráfica, en frases cortas al ritmo de quien habla, y puede traducirlos al inglés. Nada sale del ordenador.</p>
         </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z M7 7h10 M7 17h4 M13 17h4" /></svg></div>
+        <article>
+          <p class="keys" aria-hidden="true"><span class="two-subs"><i></i><i></i></span></p>
           <h3>Dos subtítulos a la vez</h3>
           <p>Uno arriba y otro abajo: el original y la traducción a la vez. Lee SRT, WebVTT y ASS.</p>
         </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M5 5v14 M19 6l-9 6 9 6z" /></svg></div>
+        <article>
+          <p class="keys" aria-hidden="true"><kbd>Shift</kbd><kbd>E</kbd></p>
           <h3>Un fotograma atrás</h3>
           <p>Además de avanzar fotograma a fotograma con <kbd>E</kbd>, retrocede uno con <kbd>Shift</kbd>+<kbd>E</kbd> para encontrar el momento exacto.</p>
         </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M7 3h10v18l-5-4-5 4z" /></svg></div>
+        <article>
+          <p class="keys" aria-hidden="true"><kbd>B</kbd></p>
           <h3>Marcadores en el vídeo</h3>
           <p>Pulsa <kbd>B</kbd> para marcar una escena. Las marcas se quedan en la barra de tiempo de cada archivo, y un clic te lleva de vuelta.</p>
         </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M4 6l7 6-7 6z M12 6l7 6-7 6z M21 5v14" /></svg></div>
+        <article>
+          <p class="keys" aria-hidden="true"><span class="skip-bar"><i></i><i></i></span></p>
           <h3>Saltar intro y créditos</h3>
           <p>Marca una vez dónde termina la intro y dónde empiezan los créditos. Vale para todos los episodios de la carpeta.</p>
         </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z M8 5v14 M16 5v14 M4 9h4 M4 15h4 M16 9h4 M16 15h4" /></svg></div>
+        <article>
+          <p class="keys" aria-hidden="true"><span class="ab-mark">A<i></i>B</span></p>
           <h3>Fragmento en MP4 o GIF</h3>
           <p>Guarda el fragmento marcado de A a B como vídeo, sin perder calidad y manteniendo el HDR, o como GIF animado para enviarlo.</p>
         </article>
       </div>
     </section>
 
-    <!-- ======================================================= features -->
-    <section class="section" id="recursos">
-      <p class="eyebrow">Funciones</p>
-      <h2>Todo lo que necesita un reproductor completo, a mano y fuera de submenús.</h2>
-      <div class="grid">
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H4z M8 20h8" /></svg></div>
-          <h3>Abre casi de todo</h3>
-          <p>MKV, MP4, AVI, HEVC, FLAC, Opus y streams HLS y RTSP, con el motor de VLC integrado. Sin paquetes de códecs que instalar.</p>
-        </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M5 9v6 M9 6v12 M13 9v6 M17 4v16 M21 10v4" /></svg></div>
-          <h3>Ecualizador de 10 bandas</h3>
-          <p>18 preajustes, preamplificador, volumen hasta el 150 % y normalizador para diálogos bajos y explosiones fuertes. Elige también dónde suena: altavoces, auriculares o TV.</p>
-        </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M4 6h16v12H4z M7 14h4 M13 14h4" /></svg></div>
-          <h3>Subtítulos a su tiempo</h3>
-          <p>Busca subtítulos en OpenSubtitles sin salir del reproductor, arrastra un .srt a la ventana, ajusta tamaño y color y corrige el retraso cuando se desincronice.</p>
-        </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M4 7h11 M4 12h11 M4 17h7 M18 14v6 M15 17h6" /></svg></div>
-          <h3>Cola y listas</h3>
-          <p>Reproducir a continuación, aleatorio y repetir. Abre listas M3U, PLS y XSPF, y repite un fragmento A-B con una tecla.</p>
-        </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z M16 9a4 4 0 0 1 0 6 M19 6a8 8 0 0 1 0 12" /></svg></div>
-          <h3>Sonido directo al receptor</h3>
-          <p>Dolby y DTS, y también TrueHD, DTS-HD y Atmos, llegan al receptor o a la barra de sonido tal como están en el archivo.</p>
-        </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M3 15h18 M7 12v6 M12 12v6 M17 12v6 M5 7h6 M13 7h6" /></svg></div>
-          <h3>Capítulos</h3>
-          <p>Marcas en la barra de tiempo con el nombre de cada capítulo, una lista para saltar directo y los atajos <kbd>Shift</kbd>+<kbd>N</kbd> y <kbd>Shift</kbd>+<kbd>P</kbd>.</p>
-        </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M12 4v4 M12 16v4 M4 12h4 M16 12h4 M7 7l2 2 M15 15l2 2 M17 7l-2 2 M9 15l-2 2" /></svg></div>
-          <h3>Sigue donde lo dejaste</h3>
-          <p>Películas, pódcasts y audiolibros vuelven al punto donde paraste. Las canciones cortas empiezan desde el principio, como debe ser.</p>
-        </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M3 8h18v10H3z M7 13h2 M11 13h2 M15 13h2 M8 4l4 4 4-4" /></svg></div>
-          <h3>Teclas multimedia del teclado</h3>
-          <p>Reproduce, pausa y salta desde el teclado, incluso con Refrata minimizado. Aparece en el panel multimedia de Windows con título y portada.</p>
-        </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M3 7h18v11H3z M6 10h2 M10 10h2 M14 10h2 M18 10h0 M7 14h10" /></svg></div>
-          <h3>Atajos a tu manera</h3>
-          <p>Cada atajo de teclado se puede cambiar en Ajustes: haz clic en la tecla y pulsa la nueva. Un botón lo devuelve todo a lo predeterminado.</p>
-        </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M4 6h9 M8.5 4v2 M6 6c1 4 4 7 7 8 M11 6c-1 4-4 7-7 8 M13 20l4-9 4 9 M14.5 17h5" /></svg></div>
-          <h3>En 14 idiomas</h3>
-          <p>Español, portugués, inglés, francés, alemán, japonés, hindi y siete más. Sigue el idioma de Windows, y puedes cambiarlo en Ajustes.</p>
-        </article>
+    <!-- ======================================================= 04 library + music -->
+    <section class="chapter" id="biblioteca" data-chapter="Biblioteca">
+      <header class="ch-head">
+        <p class="eyebrow"><span class="ch-n">04</span>Biblioteca</p>
+        <h2>Tus vídeos y tu música, ordenados sin que muevas un dedo.</h2>
+        <p class="lead">La primera vez que se abre, Refrata lee tus carpetas de Vídeos y Música y monta la biblioteca con miniaturas, duraciones y lo que estabas viendo. No copia ni envía nada a ningún sitio: solo lee los archivos donde ya están.</p>
+      </header>
+      <div class="wall" data-wall>
+        <img src="/img/es/home-videos.webp" alt="Pantalla de inicio de Refrata con el destacado Visto recientemente y el minirreproductor" width="1440" height="900" loading="lazy">
+        <img src="/img/es/videos-grid.webp" alt="Cuadrícula de vídeos de la biblioteca con miniaturas y duración" width="1440" height="900" loading="lazy">
       </div>
     </section>
 
-    <!-- ======================================================= music -->
-    <section class="section music" id="musica">
-      <div class="music-copy">
+    <section class="chapter split music" id="musica" data-chapter="Música">
+      <div class="split-copy">
         <p class="eyebrow">Modo música</p>
         <h2>Un reproductor de música completo, dentro de la misma aplicación.</h2>
         <p class="lead">Un clic reproduce, otro pausa. La cola se convierte en un carrusel de portadas, el fondo toma los colores del disco y el progreso corre alrededor del botón de reproducir.</p>
@@ -374,66 +345,102 @@
           <li>Minirreproductor que te acompaña por toda la aplicación</li>
         </ul>
       </div>
-      <div class="music-visual">
-        <div class="ring-demo" aria-hidden="true">
-          <svg viewBox="0 0 200 200">
-            <defs>
-              <linearGradient id="arc" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="#ffd2a3"/><stop offset="1" stop-color="#ff6a1f"/>
-              </linearGradient>
-            </defs>
-            <circle class="ring-track" cx="100" cy="100" r="88"/>
-            <circle class="ring-arc" cx="100" cy="100" r="88"/>
-          </svg>
-          <div class="ring-orb"><svg viewBox="0 0 24 24" width="34" height="34"><path fill="currentColor" d="M7 5h3v14H7zm7 0h3v14h-3z"/></svg></div>
-        </div>
-        <img class="lib-shot" src="/img/es/music-library.webp" alt="Biblioteca de música de Refrata con portadas, artistas y duración" width="1440" height="900" loading="lazy">
-      </div>
+      <figure class="split-shot music-stack">
+        <img class="reveal-img" src="/img/es/music-player.webp" alt="Reproductor de música de Refrata con la portada del disco, el fondo en sus colores y el carrusel de la cola" width="1440" height="900" loading="lazy">
+        <img class="reveal-img float" src="/img/es/music-library.webp" alt="Biblioteca de música de Refrata con portadas, artistas y duración" width="1440" height="900" loading="lazy">
+      </figure>
+    </section>
+
+    <!-- ======================================================= 05 features: a spec sheet -->
+    <section class="chapter" id="recursos" data-chapter="Funciones">
+      <header class="ch-head">
+        <p class="eyebrow"><span class="ch-n">05</span>Funciones</p>
+        <h2>Todo lo que necesita un reproductor completo, a mano y fuera de submenús.</h2>
+      </header>
+      <ol class="sheet">
+        <li>
+          <h3>Abre casi de todo</h3>
+          <p>MKV, MP4, AVI, HEVC, FLAC, Opus y streams HLS y RTSP, con el motor de VLC integrado. Sin paquetes de códecs que instalar.</p>
+        </li>
+        <li>
+          <h3>Ecualizador de 10 bandas</h3>
+          <p>18 preajustes, preamplificador, volumen hasta el 150 % y normalizador para diálogos bajos y explosiones fuertes. Elige también dónde suena: altavoces, auriculares o TV.</p>
+        </li>
+        <li>
+          <h3>Subtítulos a su tiempo</h3>
+          <p>Busca subtítulos en OpenSubtitles sin salir del reproductor, arrastra un .srt a la ventana, ajusta tamaño y color y corrige el retraso cuando se desincronice.</p>
+        </li>
+        <li>
+          <h3>Cola y listas</h3>
+          <p>Reproducir a continuación, aleatorio y repetir. Abre listas M3U, PLS y XSPF, y repite un fragmento A-B con una tecla.</p>
+        </li>
+        <li>
+          <h3>Sonido directo al receptor</h3>
+          <p>Dolby y DTS, y también TrueHD, DTS-HD y Atmos, llegan al receptor o a la barra de sonido tal como están en el archivo.</p>
+        </li>
+        <li>
+          <h3>Capítulos</h3>
+          <p>Marcas en la barra de tiempo con el nombre de cada capítulo, una lista para saltar directo y los atajos <kbd>Shift</kbd>+<kbd>N</kbd> y <kbd>Shift</kbd>+<kbd>P</kbd>.</p>
+        </li>
+        <li>
+          <h3>Sigue donde lo dejaste</h3>
+          <p>Películas, pódcasts y audiolibros vuelven al punto donde paraste. Las canciones cortas empiezan desde el principio, como debe ser.</p>
+        </li>
+        <li>
+          <h3>Teclas multimedia del teclado</h3>
+          <p>Reproduce, pausa y salta desde el teclado, incluso con Refrata minimizado. Aparece en el panel multimedia de Windows con título y portada.</p>
+        </li>
+        <li>
+          <h3>Atajos a tu manera</h3>
+          <p>Cada atajo de teclado se puede cambiar en Ajustes: haz clic en la tecla y pulsa la nueva. Un botón lo devuelve todo a lo predeterminado.</p>
+        </li>
+        <li>
+          <h3>En 14 idiomas</h3>
+          <p>Español, portugués, inglés, francés, alemán, japonés, hindi y siete más. Sigue el idioma de Windows, y puedes cambiarlo en Ajustes.</p>
+        </li>
+      </ol>
     </section>
 
     <!-- ======================================================= updates -->
-    <section class="section" id="atualizacoes">
-      <p class="eyebrow">Actualizaciones</p>
-      <h2>Actualizaciones desde la propia aplicación, comprobadas antes de instalar.</h2>
-      <ol class="steps">
-        <li class="card">
+    <section class="chapter" id="atualizacoes">
+      <header class="ch-head">
+        <p class="eyebrow">Actualizaciones</p>
+        <h2>Actualizaciones desde la propia aplicación, comprobadas antes de instalar.</h2>
+      </header>
+      <ol class="steps" data-scene>
+        <li>
           <span class="num">1</span>
           <h3>Un aviso discreto</h3>
           <p>Al abrirse, Refrata comprueba si hay una versión nueva y te avisa. No se descarga nada sin tu clic.</p>
         </li>
-        <li class="card">
+        <li>
           <span class="num">2</span>
           <h3>Descarga verificada</h3>
           <p>En <b>Actualizar</b>, descarga el instalador y compara su SHA-256 con el publicado en la versión. Si no coincide, no lo instala.</p>
         </li>
-        <li class="card">
+        <li>
           <span class="num">3</span>
           <h3>Vuelve ya actualizado</h3>
           <p>La instalación se hace en segundo plano y la aplicación se vuelve a abrir en la versión nueva, con tu biblioteca y tus ajustes tal como estaban.</p>
         </li>
       </ol>
-      <div class="card engine-note">
-        <div class="knob"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6 M20 4v4h-4 M9 12l2 2 4-4" /></svg></div>
-        <div>
-          <h3>Un motor siempre al día</h3>
-          <p>Cada semana el proyecto comprueba si VideoLAN publicó un VLC nuevo y si yt-dlp, que abre los enlaces de sitios, tiene versión nueva. Cada actualización del motor pasa por más de cien escenarios de prueba automáticos antes de llegar a ti. Y yt-dlp además se actualiza solo dentro de la aplicación cuando un sitio cambia y un enlace deja de abrir.</p>
-        </div>
+      <div class="engine-note">
+        <h3>Un motor siempre al día</h3>
+        <p>Cada semana el proyecto comprueba si VideoLAN publicó un VLC nuevo y si yt-dlp, que abre los enlaces de sitios, tiene versión nueva. Cada actualización del motor pasa por más de cien escenarios de prueba automáticos antes de llegar a ti. Y yt-dlp además se actualiza solo dentro de la aplicación cuando un sitio cambia y un enlace deja de abrir.</p>
       </div>
     </section>
 
-    <!-- ======================================================= download -->
-    <section class="section" id="download">
+    <!-- ======================================================= download: the light comes back -->
+    <section class="finale" id="download" data-chapter="Descarga">
+      <div class="finale-art" aria-hidden="true"></div>
       <div class="download">
-        <div class="dl-glow" aria-hidden="true"></div>
         <div class="dl-copy">
           <p class="eyebrow">Descarga</p>
           <h2>Refrata <span data-version>para Windows</span></h2>
           <p class="lead">Gratis, sin anuncios, sin cuenta y sin recopilar datos. El motor de VLC ya viene dentro, así que no hace falta instalar nada más.</p>
           <div class="cta-row">
-            <a class="btn-orb" href="https://github.com/LucsLabsStudios/refrata/releases/latest" data-download>
-              <span class="orb" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M12 3a1 1 0 0 1 1 1v9.59l3.3-3.3a1 1 0 1 1 1.4 1.42l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.42l3.3 3.3V4a1 1 0 0 1 1-1Zm-7 15a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"/></svg>
-              </span>
+            <a class="btn-main" href="https://github.com/LucsLabsStudios/refrata/releases/latest" data-download>
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 3a1 1 0 0 1 1 1v9.59l3.3-3.3a1 1 0 1 1 1.4 1.42l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.42l3.3 3.3V4a1 1 0 0 1 1-1Zm-7 15a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"/></svg>
               <span class="btn-text"><strong>Instalador</strong><small data-size>recomendado</small></span>
             </a>
             <a class="pill ghost big" href="https://github.com/LucsLabsStudios/refrata/releases/latest" data-portable>Versión portátil (.zip)</a>
@@ -442,7 +449,7 @@
           <p class="fine">Windows 10 u 11, 64 bits · Linux: Ubuntu 24.04, Debian 13, Mint 22 o más recientes, con <code>sudo apt install ./refrata_*.deb</code> ·<a href="https://github.com/LucsLabsStudios/refrata/releases" target="_blank" rel="noopener">todas las versiones</a> · <a href="#code-signing-policy">Code signing policy</a>
             <span data-sha></span></p>
         </div>
-        <div class="dl-help card">
+        <div class="dl-help">
           <h3>Si Windows desconfía</h3>
           <p>Refrata todavía no tiene firma digital, que solo se concede a proyectos con más recorrido. Por eso el navegador y Windows pueden avisar de que el archivo se descarga poco.</p>
           <ol>
@@ -455,68 +462,70 @@
     </section>
 
     <!-- ======================================================= faq -->
-    <section class="section" id="duvidas">
-      <p class="eyebrow">Preguntas</p>
-      <h2>Preguntas frecuentes</h2>
+    <section class="chapter faq-wrap" id="duvidas" data-chapter="Preguntas">
+      <header class="ch-head">
+        <p class="eyebrow">Preguntas</p>
+        <h2>Preguntas frecuentes</h2>
+      </header>
       <div class="faq">
-        <details class="card">
+        <details>
           <summary>¿Necesito tener VLC instalado?</summary>
           <p>No. El motor de VLC ya viene dentro de Refrata. Si tienes VLC instalado, los dos conviven sin problema, cada uno con su configuración.</p>
         </details>
-        <details class="card">
+        <details>
           <summary>¿De verdad es gratis? ¿Dónde está el truco?</summary>
           <p>Ninguna. Refrata es software libre, bajo la licencia GPL 3.0: sin anuncios, sin cuenta, sin versión de pago y sin recopilar datos. Todo el código está en GitHub para quien quiera comprobarlo.</p>
         </details>
-        <details class="card">
+        <details>
           <summary>¿Por qué Windows avisa de que el archivo puede ser peligroso?</summary>
           <p>Porque el instalador todavía no tiene firma digital, y Windows desconfía de cualquier programa nuevo sin ella. El aviso no indica un virus. Para comprobarlo, compara el SHA-256 del archivo con el publicado en la versión, o genera tú mismo el instalador a partir del código.</p>
         </details>
-        <details class="card">
+        <details>
           <summary>¿Qué necesito para ver HDR real?</summary>
-          <p>Una pantalla HDR con la opción <b>Usar HDR</b> activada en la configuración de pantalla de Windows. Refrata lo detecta solo y muestra el vídeo HDR con su brillo real, también si activas el HDR con la app ya abierta. En una pantalla normal, el mismo vídeo se convierte a SDR con los colores correctos.</p>
+          <p>Una pantalla HDR con la opción <b>Usar HDR</b> activada en la configuración de pantalla de Windows. Refrata lo detecta solo y muestra el vídeo HDR con su brillo real, incluso si activas el HDR con la aplicación ya abierta. En una pantalla normal, el mismo vídeo se convierte a SDR con los colores correctos.</p>
         </details>
-        <details class="card">
+        <details>
           <summary>¿Cómo funcionan los subtítulos con IA?</summary>
           <p>En <b>Pistas › Más subtítulos</b>, activa <b>Subtítulos con IA</b>. La primera vez, Refrata descarga el modelo de voz de Whisper (82 MB, o 574 MB en tarjetas con 3 GB de memoria o más; 539 MB para traducir) y comprueba el archivo. Después, el audio se transcribe en tu tarjeta gráfica, sin internet, hasta dos minutos y medio por delante de lo que ves.</p>
         </details>
-        <details class="card">
+        <details>
           <summary>¿Necesito una tarjeta NVIDIA?</summary>
           <p>No. El HDR, el movimiento fluido y los subtítulos con IA funcionan con tarjetas de cualquier marca. Solo RTX Video Super Resolution y RTX Video HDR necesitan una tarjeta NVIDIA RTX, con la opción correspondiente activada también en la NVIDIA App.</p>
         </details>
-        <details class="card">
+        <details>
           <summary>¿Las novedades de la 2.0 funcionan en Linux?</summary>
           <p>Casi todas. La salida HDR real, RTX Video y los subtítulos con IA son, por ahora, solo de Windows. El movimiento fluido, el HDR convertido para pantallas normales, el segundo subtítulo y las herramientas funcionan en los dos.</p>
         </details>
-        <details class="card">
+        <details>
           <summary>¿Puedo ver vídeos de YouTube?</summary>
           <p>Sí. Copia el enlace del vídeo, abre la página Streams (<kbd>Ctrl</kbd>+<kbd>L</kbd>), pégalo y pulsa Reproducir. También funciona con Vimeo, Twitch, SoundCloud, Dailymotion y otros sitios. Refrata elige la mejor calidad disponible, y algunos vídeos tardan unos segundos en abrir.</p>
         </details>
-        <details class="card">
+        <details>
           <summary>¿Funciona con Chromecast?</summary>
           <p>Sí. Con el PC y el Chromecast en la misma red Wi-Fi, haz clic en el botón de transmitir de arriba del reproductor y elige la tele. Pausar, saltar y el volumen siguen en Refrata, que se convierte en el mando.</p>
         </details>
-        <details class="card">
+        <details>
           <summary>¿El motor de VLC dentro de Refrata se queda desactualizado?</summary>
           <p>No. El proyecto comprueba cada semana si VideoLAN publicó una versión nueva de VLC. Cuando sale, se prueba y entra en una actualización de Refrata, que llega por la propia aplicación.</p>
         </details>
-        <details class="card">
+        <details>
           <summary>¿Cómo pongo Refrata como reproductor predeterminado?</summary>
           <p>En <b>Ajustes › Apertura rápida</b>, pulsa <b>Hacer predeterminada</b>: Refrata se registra para los formatos de vídeo, música y listas (también la versión portátil) y abre la página de Aplicaciones predeterminadas de Windows, donde eliges Refrata.</p>
         </details>
-        <details class="card">
+        <details>
           <summary>¿Qué diferencia hay entre el instalador y la versión portátil?</summary>
           <p>El instalador crea los accesos directos, registra los formatos de archivo y permite actualizar desde la propia app. La versión portátil solo se descomprime y se abre, ideal para probar sin instalar nada; para que aparezca en <b>Abrir con</b>, usa <b>Hacer predeterminada</b> en Ajustes.</p>
         </details>
-        <details class="card">
+        <details>
           <summary>¿En qué idiomas está la aplicación?</summary>
           <p>Catorce: español, inglés, portugués, francés, alemán, italiano, ruso, polaco, turco, indonesio, hindi, chino, japonés y coreano. Sigue el idioma de Windows, y puedes cambiarlo en Configuración.</p>
         </details>
-        <details class="card">
+        <details>
           <summary>He encontrado un error. ¿Cómo aviso?</summary>
           <p>Abre un informe en <a href="https://github.com/LucsLabsStudios/refrata/issues" target="_blank" rel="noopener">GitHub Issues</a>
             o escribe a <a href="mailto:lucslabs.studios@gmail.com">lucslabs.studios@gmail.com</a>. Cuéntanos qué hiciste, qué esperabas y qué pasó; si puedes, añade una captura y la versión, que aparece en Configuración.</p>
         </details>
-        <details class="card">
+        <details>
           <summary>¿Cómo lo desinstalo?</summary>
           <p>En Configuración de Windows, ve a <b>Aplicaciones</b>, busca Refrata y haz clic en <b>Desinstalar</b>. También quita el inicio con Windows, si estaba activado.</p>
         </details>
@@ -524,10 +533,12 @@
     </section>
 
     <!-- ======================================================= security -->
-    <section class="section" id="seguranca">
-      <p class="eyebrow">Transparencia</p>
-      <h2>Código abierto y ningún dato recopilado.</h2>
-      <div class="policy card">
+    <section class="chapter" id="seguranca">
+      <header class="ch-head">
+        <p class="eyebrow">Transparencia</p>
+        <h2>Código abierto y ningún dato recopilado.</h2>
+      </header>
+      <div class="policy">
         <div>
           <h3>Código abierto</h3>
           <p>Todo el código está en

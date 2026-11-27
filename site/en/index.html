@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Refrata 2.0 · video and music player for Windows</title>
   <meta name="description" content="Refrata is a free, open-source video and music player for Windows, built on the VLC engine. Version 2.0 brings true HDR on HDR screens, scene-by-scene HDR10+, smooth motion, AI subtitles made on your own computer and NVIDIA RTX Video.">
-  <meta name="theme-color" content="#0b0908">
+  <meta name="theme-color" content="#090807">
   <meta property="og:title" content="Refrata · plays everything VLC plays, with a fresh face">
   <meta property="og:description" content="A free, open-source video and music player for Windows, made in Brazil.">
   <meta property="og:image" content="/img/og.jpg">
@@ -13,26 +13,25 @@
   <link rel="icon" href="/img/icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..800&family=Geist+Mono:wght@400..600&display=swap" rel="stylesheet">
+  <link rel="preload" as="image" href="/img/hero-art.webp" fetchpriority="high">
   <link rel="stylesheet" href="/styles.css">
   <link rel="alternate" hreflang="pt-BR" href="https://refrata.vercel.app/">
   <link rel="alternate" hreflang="en" href="https://refrata.vercel.app/en/">
   <link rel="alternate" hreflang="es" href="https://refrata.vercel.app/es/">
   <link rel="alternate" hreflang="x-default" href="https://refrata.vercel.app/en/">
+  <script>document.documentElement.classList.add("js");</script>
 </head>
 <body>
-  <div class="grain" aria-hidden="true"></div>
-
   <header class="nav" id="top">
     <a class="brand" href="#top" aria-label="Refrata, home">
-      <img src="/img/icon.png" alt="" width="34" height="34">
+      <img src="/img/icon.png" alt="" width="30" height="30">
       <span>Refrata</span>
     </a>
     <nav class="links" aria-label="Sections">
-      <a href="#destaques">Highlights</a>
-      <a href="#video">Video</a>
       <a href="#imagem">Picture</a>
-      <a href="#rede">Links &amp; TV</a>
+      <a href="#video">Video</a>
+      <a href="#ferramentas">Subtitles</a>
       <a href="#musica">Music</a>
       <a href="#recursos">Features</a>
       <a href="#duvidas">FAQ</a>
@@ -47,91 +46,134 @@
         <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38v-1.33c-2.23.48-2.7-1.07-2.7-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.06-.49.06-.49.8.06 1.23.83 1.23.83.72 1.22 1.88.87 2.34.66.07-.52.28-.87.5-1.07-1.78-.2-3.65-.89-3.65-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.19c0 .21.15.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
         <span>GitHub</span>
       </a>
-      <a class="pill accent" href="#download">Download</a>
+      <a class="pill light" href="#download">Download</a>
     </div>
   </header>
 
+  <!-- the page plays like a film: a scrubber at the bottom, with a mark for each chapter -->
+  <div class="scrub" aria-hidden="true">
+    <div class="scrub-track"><i class="scrub-fill"></i><span class="scrub-marks"></span><b class="scrub-tip"></b></div>
+    <span class="scrub-time">00:00</span>
+  </div>
+
   <main>
-    <!-- ======================================================= hero -->
-    <section class="hero">
-      <div class="hero-art" aria-hidden="true"></div>
-      <div class="hero-copy">
-        <p class="eyebrow">New: Refrata 2.0.1 · free and open source</p>
-        <h1>Video and music player<br><em>with true HDR.</em></h1>
-        <p class="lead">Refrata opens almost any file with the VLC engine and shows each video the way it was made: HDR at its real brightness, smooth motion at your monitor’s refresh rate and subtitles written by AI on your own computer.</p>
-        <div class="cta-row">
-          <a class="btn-orb" href="#download" data-download>
-            <span class="orb" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M12 3a1 1 0 0 1 1 1v9.59l3.3-3.3a1 1 0 1 1 1.4 1.42l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.42l3.3 3.3V4a1 1 0 0 1 1-1Zm-7 15a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"/></svg>
-            </span>
-            <span class="btn-text">
-              <strong>Download for Windows</strong>
-              <small data-version-line>Windows 10 and 11 · 64-bit</small>
-            </span>
-          </a>
-          <a class="pill ghost big" href="https://github.com/LucsLabsStudios/refrata" target="_blank" rel="noopener">View the code</a>
+    <!-- ======================================================= hero: the film, then the player around it -->
+    <section class="hero" data-hero>
+      <div class="hero-pin">
+        <div class="hero-film" aria-hidden="true"><div class="hero-light"></div></div>
+        <figure class="hero-player">
+          <img src="/img/en/video-player.webp" alt="Refrata video player: the movie title in large type and frosted-glass controls over the picture" width="1440" height="900">
+        </figure>
+        <div class="hero-copy">
+          <p class="eyebrow">Refrata <span data-version>2.0</span> · free and open source</p>
+          <h1>Video and music player<br><em>with true HDR.</em></h1>
+          <p class="lead">Refrata opens almost any file with the VLC engine and shows each video the way it was made: HDR at its real brightness, smooth motion at your monitor’s refresh rate and subtitles written by AI on your own computer.</p>
+          <div class="cta-row">
+            <a class="btn-main" href="#download" data-download>
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 3a1 1 0 0 1 1 1v9.59l3.3-3.3a1 1 0 1 1 1.4 1.42l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.42l3.3 3.3V4a1 1 0 0 1 1-1Zm-7 15a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"/></svg>
+              <span class="btn-text">
+                <strong>Download for Windows</strong>
+                <small data-version-line>Windows 10 and 11 · 64-bit</small>
+              </span>
+            </a>
+            <a class="pill ghost big" href="https://github.com/LucsLabsStudios/refrata" target="_blank" rel="noopener">View the code</a>
+          </div>
         </div>
-      </div>
-      <figure class="hero-shot">
-        <div class="window">
-          <div class="window-bar"><i></i><i></i><i></i><span>Refrata</span></div>
-          <img src="/img/en/video-player.webp" alt="Refrata video player: the movie title in large type and frosted-glass controls over the picture" width="1440" height="900" fetchpriority="high">
-        </div>
-        <div class="window mini-window" aria-hidden="true">
-          <img src="/img/en/music-player.webp" alt="" width="1440" height="900" loading="lazy">
-        </div>
-      </figure>
-    </section>
-
-    <!-- ======================================================= formats -->
-    <section class="formats" aria-label="Supported formats">
-      <div class="marquee">
-        <div class="track">
-          <span>MKV</span><span>MP4</span><span>AVI</span><span>MOV</span><span>WEBM</span><span>FLAC</span><span>MP3</span><span>OPUS</span>
-          <span>M4A</span><span>WAV</span><span>HLS</span><span>RTSP</span><span>M3U</span><span>XSPF</span><span>SRT</span><span>ASS</span>
-          <span>MKV</span><span>MP4</span><span>AVI</span><span>MOV</span><span>WEBM</span><span>FLAC</span><span>MP3</span><span>OPUS</span>
-          <span>M4A</span><span>WAV</span><span>HLS</span><span>RTSP</span><span>M3U</span><span>XSPF</span><span>SRT</span><span>ASS</span>
-        </div>
+        <p class="hero-cue" aria-hidden="true"><span></span>scroll to press play</p>
       </div>
     </section>
 
+    <!-- the numbers, big and still -->
+    <section class="facts" aria-label="In numbers">
+      <dl>
+        <div><dt>up to</dt><dd>8K</dd><span>at native resolution</span></div>
+        <div><dt>up to</dt><dd>120<small>fps</small></dd><span>of smooth motion</span></div>
+        <div><dt>in</dt><dd>14</dd><span>languages</span></div>
+        <div><dt>data collection</dt><dd>0</dd><span>no ads, no account</span></div>
+      </dl>
+      <p class="formats">
+        <span>MKV</span><span>MP4</span><span>AVI</span><span>MOV</span><span>WEBM</span><span>FLAC</span><span>MP3</span><span>OPUS</span>
+        <span>M4A</span><span>WAV</span><span>HLS</span><span>RTSP</span><span>M3U</span><span>XSPF</span><span>SRT</span><span>ASS</span>
+      </p>
+    </section>
 
-    <!-- ======================================================= highlights -->
-    <section class="section" id="destaques">
-      <p class="eyebrow">Highlights</p>
-      <h2>The VLC engine, with everything it was missing around it.</h2>
-      <div class="hl-grid">
-        <a class="card hl" href="#rapido">
-          <span class="tag">File Explorer</span>
-          <h3>Preview with Space</h3> <p>Select a video or a song in File Explorer and press Space. The preview shows up instantly, without opening any app.</p> <span class="go">See how it works</span>
-        </a>
-        <a class="card hl" href="#rede">
-          <span class="tag">Links</span>
-          <h3>YouTube in the player</h3> <p>Paste a link from YouTube, Vimeo, Twitch and other sites and watch it in Refrata, in the best quality available.</p> <span class="go">Links &amp; TV</span>
-        </a>
-        <a class="card hl" href="#imagem">
-          <span class="tag">New</span>
-          <h3>Real HDR</h3> <p>On an HDR screen, HDR video shows at its real brightness, scene by scene. Turned Windows HDR on with a video playing? The picture follows at once.</p> <span class="go">See the picture</span>
-        </a>
-        <a class="card hl" href="#rede">
-          <span class="tag">TV</span>
-          <h3>Chromecast</h3> <p>Send the video to the living-room TV in one click. The PC becomes the remote: pause, skip and volume stay in the app.</p> <span class="go">Links &amp; TV</span>
-        </a>
-        <a class="card hl" href="#ferramentas">
-          <span class="tag">Novo</span>
-          <h3>AI subtitles</h3> <p>No subtitles for that video? Refrata writes them from the speech, on your graphics card, without sending anything online.</p> <span class="go">See the tools</span>
-        </a>
-        <a class="card hl" href="#musica">
-          <span class="tag">Music</span>
-          <h3>A real music mode</h3> <p>A carousel of covers, a background in the album’s colours and your keyboard’s media keys working with the app minimised.</p> <span class="go">See music mode</span>
-        </a>
+    <!-- ======================================================= 01 picture: one frame, four passes -->
+    <section class="chapter" id="imagem" data-chapter="Picture">
+      <header class="ch-head">
+        <p class="eyebrow"><span class="ch-n">01</span>Picture</p>
+        <h2>The picture the film was made to have.</h2>
+        <p class="lead">Refrata reads how each video was mastered and fits the picture to your screen, frame by frame, on the graphics card. Nothing to set up: it all comes on, tuned right.</p>
+      </header>
+
+      <div class="reel" data-reel>
+        <div class="reel-stage">
+          <figure class="frame" data-step="1">
+            <img class="f-sd" src="/img/stage-sd.webp" alt="" width="1600" height="900" loading="lazy">
+            <img class="f-base" src="/img/stage.webp" alt="" width="1600" height="900" loading="lazy">
+            <div class="f-hdr" aria-hidden="true"><img src="/img/stage.webp" alt="" width="1600" height="900" loading="lazy"></div>
+            <span class="f-handle" aria-hidden="true"></span>
+            <input class="f-range" type="range" min="0" max="100" value="50" aria-label="Drag to compare the picture in SDR and HDR">
+            <span class="f-tag left" aria-hidden="true">SDR</span>
+            <span class="f-tag right" aria-hidden="true">HDR</span>
+            <div class="hud" aria-hidden="true">
+              <span>HEVC Main 10</span><span>3840 × 2160</span><span class="hud-hi">HDR10+</span>
+              <span class="hud-nits"><b data-nits>1000</b> nits</span>
+              <i class="hud-bar"><i data-nitbar></i></i>
+              <span class="hud-scene">scene <b data-scene-n>214</b></span>
+            </div>
+            <div class="fps" aria-hidden="true">
+              <div class="lane"><span class="lane-tag">24 fps</span><i class="dot d24"></i></div>
+              <div class="lane"><span class="lane-tag">60+ fps</span><i class="dot d60"></i></div>
+            </div>
+            <button class="sr-toggle" type="button" aria-pressed="true">
+              <span class="sw" aria-hidden="true"></span>Super Resolution
+            </button>
+            <figcaption class="f-cap">Photo: Unsplash. The before and after is an illustration.</figcaption>
+          </figure>
+          <ol class="reel-dots" aria-hidden="true"><li></li><li></li><li></li><li></li></ol>
+        </div>
+
+        <div class="reel-steps">
+          <article data-go="1">
+            <p class="step-n">01 / 04</p>
+            <h3>True HDR on HDR screens</h3>
+            <p>With Windows HDR on, HDR video shows at its real brightness, up to your screen’s peak, while the interface keeps its usual brightness. Turn HDR on or off while the video plays: the picture follows in under a second.</p>
+            <p class="hint-drag">Drag the divider to compare.</p>
+          </article>
+          <article data-go="2">
+            <p class="step-n">02 / 04</p>
+            <h3>HDR10+ scene by scene</h3>
+            <p>HDR10, HDR10+ and HLG with the right colors. Each scene’s metadata is followed and brightness is measured every frame, so dark scenes are not dimmed.</p>
+          </article>
+          <article data-go="3">
+            <p class="step-n">03 / 04</p>
+            <h3>Smooth motion</h3>
+            <p>24 or 30 fps video plays at 60, 120 or your monitor’s own refresh rate, with in-between frames computed on the GPU. No resolution limit.</p>
+          </article>
+          <article data-go="4">
+            <p class="step-n">04 / 04</p>
+            <h3>NVIDIA RTX Video</h3>
+            <p>On RTX cards, Super Resolution makes low-resolution video sharp at full screen, and RTX Video HDR turns ordinary video into HDR. Each option tells you whether it is working on the video and, if not, why.</p>
+          </article>
+        </div>
+      </div>
+
+      <div class="specs two">
+        <article>
+          <h3>Native up to 8K</h3>
+          <p>4K, 8K and cinema 8K at their original resolution, with decoding and color conversion done by the graphics card.</p>
+        </article>
+        <article>
+          <h3>Light and detail boost</h3>
+          <p>Brings ordinary video to life: more open shadows and highlights, and sharpening that adapts to the picture without halos.</p>
+        </article>
       </div>
     </section>
 
-    <!-- ======================================================= video -->
-    <section class="section split" id="video">
+    <!-- ======================================================= 02 video -->
+    <section class="chapter split bleed" id="video" data-chapter="Video">
       <div class="split-copy">
-        <p class="eyebrow">Video</p>
+        <p class="eyebrow"><span class="ch-n">02</span>Video</p>
         <h2>The film fills the screen, and the controls show only when you move the mouse.</h2>
         <p class="lead">Stop moving the mouse and everything fades, leaving just the movie. Move it and the frosted-glass controls return without covering the picture. The timeline shows where you’ll land before you click.</p>
         <ul class="ticks">
@@ -142,229 +184,158 @@
           <li>Speed from 0.25× to 4×, frame-by-frame stepping forwards and backwards, and snapshots</li>
         </ul>
       </div>
-      <figure class="split-shot">
+      <figure class="split-shot reveal-img">
         <img src="/img/en/video-adjust.webp" alt="Picture panel open over the video, with brightness, contrast, saturation, gamma, hue and framing" width="1440" height="900" loading="lazy">
       </figure>
     </section>
 
-    <!-- ======================================================= picture quality -->
-    <section class="section" id="imagem">
-      <p class="eyebrow">Picture</p>
-      <h2>The picture the film was made to have.<br><span class="dim">True HDR, smooth motion and NVIDIA’s upscaler.</span></h2>
-      <p class="lead section-lead">Refrata reads how each video was mastered and fits the picture to your screen, frame by frame, on the graphics card. Nothing to set up: it all comes on, tuned right.</p>
-      <div class="grid">
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M12 3v2 M12 19v2 M3 12h2 M19 12h2 M12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8" /></svg></div>
-          <h3>True HDR on HDR screens</h3>
-          <p>With Windows HDR on, HDR video shows at its real brightness, up to your screen’s peak, while the interface keeps its usual brightness. Switch HDR on or off with a video playing and the picture follows in under a second.</p>
-        </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M3 18h18 M5 18V9 M10 18V5 M15 18v-7 M20 18V8" /></svg></div>
-          <h3>HDR10+ scene by scene</h3>
-          <p>HDR10, HDR10+ and HLG with the right colours. Each scene’s metadata is followed and brightness is measured every frame, so dark scenes are not dimmed.</p>
-        </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M3 12h4 M9 12h3 M14 12h7 M17 8l4 4-4 4" /></svg></div>
-          <h3>Smooth motion</h3>
-          <p>24 or 30 fps video plays at 60, 120 or your monitor’s own refresh rate, with in-between frames computed on the GPU. No resolution limit.</p>
-        </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M4 7h7v7H4z M13 4h7v16h-7z M7 17v3 M4 20h6" /></svg></div>
-          <h3>NVIDIA RTX Video</h3>
-          <p>On RTX cards, Super Resolution makes low-resolution video sharp at full screen, and RTX Video HDR turns ordinary video into HDR. Each option says whether it is working on the video and, if not, why.</p>
-        </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M3 5h18v14H3z M7 9v6 M7 12h3 M10 9v6 M14 9v6 M14 12l3-3 M14 12l3 3" /></svg></div>
-          <h3>Native up to 8K</h3>
-          <p>4K, 8K and cinema 8K at their original resolution, with decoding and colour conversion done by the graphics card.</p>
-        </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M12 4l2 5 5 .5-4 3.5 1.5 5L12 15l-4.5 3 1.5-5-4-3.5 5-.5z" /></svg></div>
-          <h3>Light and detail boost</h3>
-          <p>Brings ordinary video to life: more open shadows and highlights, and sharpening that adapts to the picture without halos.</p>
-        </article>
+    <!-- three Windows moments in one stage: Space preview, picture-in-picture, links + TV -->
+    <section class="chapter moments" id="rapido" aria-label="Windows shortcuts">
+      <header class="ch-head">
+        <p class="eyebrow">On Windows</p>
+        <h2>Three shortcuts that change how you watch.</h2>
+      </header>
+      <div class="tabs" role="tablist" aria-label="Windows shortcuts">
+        <button role="tab" id="tab-rapido" aria-controls="pane-rapido" aria-selected="true">Instant preview</button>
+        <button role="tab" id="tab-pip" aria-controls="pane-pip" aria-selected="false" tabindex="-1">Picture-in-picture</button>
+        <button role="tab" id="tab-rede" aria-controls="pane-rede" aria-selected="false" tabindex="-1">Links &amp; TV</button>
+        <span class="tab-ink" aria-hidden="true"></span>
       </div>
-    </section>
 
-    <!-- ======================================================= picture-in-picture -->
-    <section class="section split reverse" id="pip">
-      <div class="split-copy">
-        <p class="eyebrow">Picture-in-picture</p>
-        <h2>Picture-in-picture to watch while you work.</h2>
-        <p class="lead">Press <kbd>Ctrl</kbd>+<kbd>P</kbd> or the button at the top of the player. Refrata steps aside and the video carries on, from the same second, in a small window that always stays on top.</p>
-        <ul class="ticks">
-          <li>Drag it to any corner and resize it from the edge</li>
-          <li>Pause, back and forward 10 s and the progress bar right in the small window</li>
-          <li>Double-click or <kbd>Esc</kbd> takes you back to the full app, at the same point in the video</li>
-        </ul>
-      </div>
-      <figure class="split-shot pip-scene">
-        <div class="workwin" aria-hidden="true">
-          <div class="bar"><i></i><i></i><i></i></div>
-          <div class="doc"><span class="h"></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-        </div>
-        <img class="pip-card" src="/img/pip.webp" alt="Refrata’s picture-in-picture window with the video paused, the back-to-app and close buttons and the progress bar" width="640" height="360" loading="lazy">
-      </figure>
-    </section>
-
-    <!-- ======================================================= quick -->
-    <section class="section split" id="rapido">
-      <div class="split-copy">
-        <p class="eyebrow">Instant preview</p>
-        <h2>Press <span class="keycap">Space</span>.<br><span class="dim">See it before you open it.</span></h2>
-        <p class="lead">In File Explorer or on the desktop, select a video or a song and press Space. A floating preview appears instantly; press Space again to close it. The arrow keys flip through the rest of the folder, like leafing through an album.</p>
-        <ul class="ticks">
-          <li>Double-click opens straight in the full player, in under half a second with Refrata open</li>
-          <li>Want the big screen? <kbd>Enter</kbd> takes it to the full app, at the same second</li>
-          <li>Keep Refrata in the tray and starting with Windows, and everything opens with no wait</li>
-        </ul>
-      </div>
-      <figure class="split-shot quick-shot">
-        <div class="desk" aria-hidden="true">
-          <div class="desk-files">
-            <span class="file"></span><span class="file sel"></span><span class="file"></span><span class="file"></span>
+      <div class="panes">
+        <div class="pane split" role="tabpanel" id="pane-rapido" aria-labelledby="tab-rapido">
+          <div class="split-copy">
+            <h3 class="pane-title">Press <span class="keycap">Space</span>.<br><span class="dim">See it before you open it.</span></h3>
+            <p class="lead">In File Explorer or on the desktop, select a video or a song and press Space. A floating preview appears instantly; press Space again to close it. The arrow keys flip through the rest of the folder, like leafing through an album.</p>
+            <ul class="ticks">
+              <li>Double-click opens straight in the full player, in under half a second with Refrata open</li>
+              <li>Want the big screen? <kbd>Enter</kbd> takes it to the full app, at the same second</li>
+              <li>Keep Refrata in the tray and starting with Windows, and everything opens with no wait</li>
+            </ul>
           </div>
-          <span class="keycap big press">Space</span>
+          <figure class="split-shot scene quick-shot">
+            <div class="desk" aria-hidden="true">
+              <div class="desk-files">
+                <span class="file"><i></i>trip-2025.mkv</span><span class="file sel"><i></i>neon-noturno.mkv</span><span class="file"><i></i>live-show.mp4</span><span class="file"><i></i>soundtrack.flac</span>
+              </div>
+              <span class="keycap big press">Space</span>
+            </div>
+            <img class="quick-card" src="/img/en/quick-preview.webp" alt="Refrata preview window floating with a video, the file name and 3 of 4 in the folder" width="1280" height="720" loading="lazy">
+          </figure>
         </div>
-        <img class="quick-card" src="/img/en/quick-preview.webp" alt="Refrata preview window floating with a video, the file name and 3 of 4 in the folder" width="1280" height="720" loading="lazy">
-      </figure>
-    </section>
 
-    <!-- ======================================================= links + TV -->
-    <section class="section split reverse" id="rede">
-      <div class="split-copy">
-        <p class="eyebrow">Links &amp; TV</p>
-        <h2>YouTube links in the player, and the video on your TV with Chromecast.</h2>
-        <p class="lead">On the Streams page, paste a YouTube, Vimeo or Twitch link, or an HLS, RTSP or RTMP address. Refrata finds the best quality and shows what it’s doing while it opens.</p>
-        <ul class="ticks">
-          <li>Over 20 sites: YouTube, Vimeo, Twitch, SoundCloud, Dailymotion, TikTok and more</li>
-          <li>Chromecast on the same Wi-Fi network, with the PC as the remote</li>
-          <li>OpenSubtitles subtitles right in the player, found from the file itself</li>
-        </ul>
+        <div class="pane split" role="tabpanel" id="pane-pip" aria-labelledby="tab-pip" hidden>
+          <div class="split-copy">
+            <h3 class="pane-title">Picture-in-picture to watch while you work.</h3>
+            <p class="lead">Press <kbd>Ctrl</kbd>+<kbd>P</kbd> or the button at the top of the player. Refrata steps aside and the video carries on, from the same second, in a small window that always stays on top.</p>
+            <ul class="ticks">
+              <li>Drag it to any corner and resize it from the edge</li>
+              <li>Pause, back and forward 10 s and the progress bar right in the small window</li>
+              <li>Double-click or <kbd>Esc</kbd> takes you back to the full app, at the same point in the video</li>
+            </ul>
+          </div>
+          <figure class="split-shot scene pip-scene">
+            <div class="workwin" aria-hidden="true">
+              <div class="bar"><i></i><i></i><i></i></div>
+              <div class="doc"><span class="h"></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+            </div>
+            <img class="pip-card" src="/img/pip.webp" alt="Refrata’s picture-in-picture window with the video paused, the back-to-app and close buttons and the progress bar" width="640" height="360" loading="lazy">
+          </figure>
+        </div>
+
+        <div class="pane split" role="tabpanel" id="pane-rede" aria-labelledby="tab-rede" hidden>
+          <div class="split-copy">
+            <h3 class="pane-title">YouTube links in the player, and the video on your TV with Chromecast.</h3>
+            <p class="lead">On the Streams page, paste a YouTube, Vimeo or Twitch link, or an HLS, RTSP or RTMP address. Refrata finds the best quality and shows what it’s doing while it opens.</p>
+            <ul class="ticks">
+              <li>Over 20 sites: YouTube, Vimeo, Twitch, SoundCloud, Dailymotion, TikTok and more</li>
+              <li>Chromecast on the same Wi-Fi network, with the PC as the remote</li>
+              <li>OpenSubtitles subtitles right in the player, found from the file itself</li>
+            </ul>
+          </div>
+          <figure class="split-shot scene link-scene" aria-hidden="true">
+            <div class="urlbar">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M4 12h16 M12 4c2.5 2.5 2.5 13.5 0 16 M12 4c-2.5 2.5-2.5 13.5 0 16"/></svg>
+              <span class="url"><span>youtube.com/watch?v=refrata</span></span>
+              <span class="play">Play</span>
+            </div>
+            <div class="screen">
+              <span class="cast-chip"><svg viewBox="0 0 24 24"><path d="M3 18a3 3 0 0 1 3 3 M3 14a7 7 0 0 1 7 7 M3 10a11 11 0 0 1 11 11 M3 7V5a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4"/></svg>Living room</span>
+              <span class="spin"></span>
+              <strong>Opening YouTube link…</strong> <small>Finding the best quality. This takes a few seconds.</small>
+            </div>
+          </figure>
+        </div>
       </div>
-      <figure class="split-shot link-scene" aria-hidden="true">
-        <div class="urlbar">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M4 12h16 M12 4c2.5 2.5 2.5 13.5 0 16 M12 4c-2.5 2.5-2.5 13.5 0 16"/></svg>
-          <span class="url">youtube.com/watch?v=refrata</span>
-          <span class="play">Play</span>
-        </div>
-        <div class="screen">
-          <span class="cast-chip"><svg viewBox="0 0 24 24"><path d="M3 18a3 3 0 0 1 3 3 M3 14a7 7 0 0 1 7 7 M3 10a11 11 0 0 1 11 11 M3 7V5a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4"/></svg>Living room</span>
-          <span class="spin"></span>
-          <strong>Opening YouTube link…</strong> <small>Finding the best quality. This takes a few seconds.</small>
-        </div>
-      </figure>
     </section>
 
-    <!-- ======================================================= library -->
-    <section class="section" id="biblioteca">
-      <p class="eyebrow">Library</p>
-      <h2>Your videos and music,<br><span class="dim">organized without lifting a finger.</span></h2>
-      <p class="lead section-lead">The first time it opens, Refrata reads your Videos and Music folders and builds the library with thumbnails, lengths and what you were watching. Nothing is copied or sent anywhere: it just reads the files where they already are.</p>
-      <div class="duo">
-        <img src="/img/en/home-videos.webp" alt="Refrata home screen with the Recently watched highlight and the mini player" width="1440" height="900" loading="lazy">
-        <img src="/img/en/videos-grid.webp" alt="Library video grid with thumbnails and lengths" width="1440" height="900" loading="lazy">
-      </div>
+    <!-- ======================================================= 03 AI subtitles + tools -->
+    <section class="chapter" id="ferramentas" data-chapter="Subtitles">
+      <header class="ch-head">
+        <p class="eyebrow"><span class="ch-n">03</span>Tools</p>
+        <h2>Subtitles that write themselves, and the tools heavy watchers ask for.</h2>
+      </header>
     </section>
 
-    <!-- ======================================================= tools -->
-    <section class="section" id="ferramentas">
-      <p class="eyebrow">Tools</p>
-      <h2>Subtitles that write themselves, and the tools heavy watchers ask for.</h2>
-      <div class="grid">
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M9 4a3 3 0 0 1 6 0v6a3 3 0 0 1-6 0z M5 10a7 7 0 0 0 14 0 M12 17v3 M4 21h16" /></svg></div>
+    <figure class="cinema" data-subs aria-hidden="true">
+      <img src="/img/scene-rain.webp" alt="" width="1600" height="900" loading="lazy">
+      <span class="listen"><span class="wave"><i></i><i></i><i></i><i></i><i></i></span>AI listening · on your computer</span>
+      <p class="sub-line">
+        <span data-line>— Did you hear that?</span>
+        <span data-line>— It was just the rain.</span>
+        <span data-line>— Then why is the light still on?</span>
+      </p>
+    </figure>
+
+    <section class="chapter tools">
+      <div class="specs three">
+        <article>
+          <p class="keys" aria-hidden="true"><span class="ai-mark">AI</span></p>
           <h3>AI subtitles</h3> <p>Refrata listens to the video and writes the subtitles with Whisper, on your graphics card, in short lines timed to the speaker, and can translate them into English. Nothing leaves the computer.</p>
         </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z M7 7h10 M7 17h4 M13 17h4" /></svg></div>
+        <article>
+          <p class="keys" aria-hidden="true"><span class="two-subs"><i></i><i></i></span></p>
           <h3>Two subtitles at once</h3>
           <p>One at the top, one at the bottom: the original and the translation together. Reads SRT, WebVTT and ASS.</p>
         </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M5 5v14 M19 6l-9 6 9 6z" /></svg></div>
+        <article>
+          <p class="keys" aria-hidden="true"><kbd>Shift</kbd><kbd>E</kbd></p>
           <h3>One frame back</h3>
           <p>Besides stepping forward with <kbd>E</kbd>, go back one frame with <kbd>Shift</kbd>+<kbd>E</kbd> to find the exact moment.</p>
         </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M7 3h10v18l-5-4-5 4z" /></svg></div>
+        <article>
+          <p class="keys" aria-hidden="true"><kbd>B</kbd></p>
           <h3>Bookmarks in the video</h3>
           <p>Press <kbd>B</kbd> to mark a scene. The marks stay on each file’s timeline, and one click takes you back to them.</p>
         </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M4 6l7 6-7 6z M12 6l7 6-7 6z M21 5v14" /></svg></div>
+        <article>
+          <p class="keys" aria-hidden="true"><span class="skip-bar"><i></i><i></i></span></p>
           <h3>Skip intros and credits</h3>
           <p>Mark once where the intro ends and where the credits start. It applies to every episode in the folder.</p>
         </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z M8 5v14 M16 5v14 M4 9h4 M4 15h4 M16 9h4 M16 15h4" /></svg></div>
+        <article>
+          <p class="keys" aria-hidden="true"><span class="ab-mark">A<i></i>B</span></p>
           <h3>Clip to MP4 or GIF</h3>
           <p>Save the A-B section as a video, with no quality lost and HDR kept, or as an animated GIF to send to someone.</p>
         </article>
       </div>
     </section>
 
-    <!-- ======================================================= features -->
-    <section class="section" id="recursos">
-      <p class="eyebrow">Features</p>
-      <h2>Everything a complete player needs, at hand and out of submenus.</h2>
-      <div class="grid">
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H4z M8 20h8" /></svg></div>
-          <h3>Opens almost anything</h3>
-          <p>MKV, MP4, AVI, HEVC, FLAC, Opus and HLS or RTSP streams, with the VLC engine built in. No codec packs to install.</p>
-        </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M5 9v6 M9 6v12 M13 9v6 M17 4v16 M21 10v4" /></svg></div>
-          <h3>10-band equalizer</h3>
-          <p>18 presets, a preamp, volume up to 150% and a leveller for quiet dialogue and loud explosions. Pick where the sound plays, too: speakers, headphones or TV.</p>
-        </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M4 6h16v12H4z M7 14h4 M13 14h4" /></svg></div>
-          <h3>Subtitles right on time</h3>
-          <p>Find subtitles on OpenSubtitles without leaving the player, drag an .srt onto the window, set size and color and fix the delay when it drifts.</p>
-        </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M4 7h11 M4 12h11 M4 17h7 M18 14v6 M15 17h6" /></svg></div>
-          <h3>Queue and playlists</h3>
-          <p>Play next, shuffle and repeat. Opens M3U, PLS and XSPF playlists, and loops an A-B section with one key.</p>
-        </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z M16 9a4 4 0 0 1 0 6 M19 6a8 8 0 0 1 0 12" /></svg></div>
-          <h3>Sound straight to the receiver</h3>
-          <p>Dolby and DTS, and also TrueHD, DTS-HD and Atmos, go to the receiver or soundbar exactly as they are in the file.</p>
-        </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M3 15h18 M7 12v6 M12 12v6 M17 12v6 M5 7h6 M13 7h6" /></svg></div>
-          <h3>Chapters</h3>
-          <p>Marks on the timeline with each chapter's name, a list to jump straight to one, and the <kbd>Shift</kbd>+<kbd>N</kbd> and <kbd>Shift</kbd>+<kbd>P</kbd> shortcuts.</p>
-        </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M12 4v4 M12 16v4 M4 12h4 M16 12h4 M7 7l2 2 M15 15l2 2 M17 7l-2 2 M9 15l-2 2" /></svg></div>
-          <h3>Picks up where you left off</h3>
-          <p>Movies, podcasts and audiobooks return to where you stopped. Short songs start from the top, as they should.</p>
-        </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M3 8h18v10H3z M7 13h2 M11 13h2 M15 13h2 M8 4l4 4 4-4" /></svg></div>
-          <h3>Keyboard media keys</h3>
-          <p>Play, pause and skip from the keyboard, even with Refrata minimized. It shows up in the Windows media flyout with title and cover.</p>
-        </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M3 7h18v11H3z M6 10h2 M10 10h2 M14 10h2 M18 10h0 M7 14h10" /></svg></div>
-          <h3>Shortcuts your way</h3>
-          <p>Every keyboard shortcut can be changed in Settings: click the key and press the new one. One button puts everything back.</p>
-        </article>
-        <article class="card">
-          <div class="knob"><svg viewBox="0 0 24 24"><path d="M4 6h9 M8.5 4v2 M6 6c1 4 4 7 7 8 M11 6c-1 4-4 7-7 8 M13 20l4-9 4 9 M14.5 17h5" /></svg></div>
-          <h3>In 14 languages</h3>
-          <p>English, Portuguese, Spanish, French, German, Japanese, Hindi and seven more. It follows your Windows language, and you can switch it in Settings.</p>
-        </article>
+    <!-- ======================================================= 04 library + music -->
+    <section class="chapter" id="biblioteca" data-chapter="Library">
+      <header class="ch-head">
+        <p class="eyebrow"><span class="ch-n">04</span>Library</p>
+        <h2>Your videos and music, organized without lifting a finger.</h2>
+        <p class="lead">The first time it opens, Refrata reads your Videos and Music folders and builds the library with thumbnails, lengths and what you were watching. Nothing is copied or sent anywhere: it just reads the files where they already are.</p>
+      </header>
+      <div class="wall" data-wall>
+        <img src="/img/en/home-videos.webp" alt="Refrata home screen with the Recently watched highlight and the mini player" width="1440" height="900" loading="lazy">
+        <img src="/img/en/videos-grid.webp" alt="Library video grid with thumbnails and lengths" width="1440" height="900" loading="lazy">
       </div>
     </section>
 
-    <!-- ======================================================= music -->
-    <section class="section music" id="musica">
-      <div class="music-copy">
+    <section class="chapter split music" id="musica" data-chapter="Music">
+      <div class="split-copy">
         <p class="eyebrow">Music mode</p>
         <h2>A complete music player, inside the same app.</h2>
         <p class="lead">One click plays, another pauses. The queue becomes a carousel of covers, the background takes on the album’s colors and progress runs around the play button.</p>
@@ -374,66 +345,102 @@
           <li>A mini player that follows you through the app</li>
         </ul>
       </div>
-      <div class="music-visual">
-        <div class="ring-demo" aria-hidden="true">
-          <svg viewBox="0 0 200 200">
-            <defs>
-              <linearGradient id="arc" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="#ffd2a3"/><stop offset="1" stop-color="#ff6a1f"/>
-              </linearGradient>
-            </defs>
-            <circle class="ring-track" cx="100" cy="100" r="88"/>
-            <circle class="ring-arc" cx="100" cy="100" r="88"/>
-          </svg>
-          <div class="ring-orb"><svg viewBox="0 0 24 24" width="34" height="34"><path fill="currentColor" d="M7 5h3v14H7zm7 0h3v14h-3z"/></svg></div>
-        </div>
-        <img class="lib-shot" src="/img/en/music-library.webp" alt="Refrata music library with covers, artists and lengths" width="1440" height="900" loading="lazy">
-      </div>
+      <figure class="split-shot music-stack">
+        <img class="reveal-img" src="/img/en/music-player.webp" alt="Refrata music player with the album cover, the background in its colors and the queue carousel" width="1440" height="900" loading="lazy">
+        <img class="reveal-img float" src="/img/en/music-library.webp" alt="Refrata music library with covers, artists and lengths" width="1440" height="900" loading="lazy">
+      </figure>
+    </section>
+
+    <!-- ======================================================= 05 features: a spec sheet -->
+    <section class="chapter" id="recursos" data-chapter="Features">
+      <header class="ch-head">
+        <p class="eyebrow"><span class="ch-n">05</span>Features</p>
+        <h2>Everything a complete player needs, at hand and out of submenus.</h2>
+      </header>
+      <ol class="sheet">
+        <li>
+          <h3>Opens almost anything</h3>
+          <p>MKV, MP4, AVI, HEVC, FLAC, Opus and HLS or RTSP streams, with the VLC engine built in. No codec packs to install.</p>
+        </li>
+        <li>
+          <h3>10-band equalizer</h3>
+          <p>18 presets, a preamp, volume up to 150% and a leveller for quiet dialogue and loud explosions. Pick where the sound plays, too: speakers, headphones or TV.</p>
+        </li>
+        <li>
+          <h3>Subtitles right on time</h3>
+          <p>Find subtitles on OpenSubtitles without leaving the player, drag an .srt onto the window, set size and color and fix the delay when it drifts.</p>
+        </li>
+        <li>
+          <h3>Queue and playlists</h3>
+          <p>Play next, shuffle and repeat. Opens M3U, PLS and XSPF playlists, and loops an A-B section with one key.</p>
+        </li>
+        <li>
+          <h3>Sound straight to the receiver</h3>
+          <p>Dolby and DTS, and also TrueHD, DTS-HD and Atmos, go to the receiver or soundbar exactly as they are in the file.</p>
+        </li>
+        <li>
+          <h3>Chapters</h3>
+          <p>Marks on the timeline with each chapter's name, a list to jump straight to one, and the <kbd>Shift</kbd>+<kbd>N</kbd> and <kbd>Shift</kbd>+<kbd>P</kbd> shortcuts.</p>
+        </li>
+        <li>
+          <h3>Picks up where you left off</h3>
+          <p>Movies, podcasts and audiobooks return to where you stopped. Short songs start from the top, as they should.</p>
+        </li>
+        <li>
+          <h3>Keyboard media keys</h3>
+          <p>Play, pause and skip from the keyboard, even with Refrata minimized. It shows up in the Windows media flyout with title and cover.</p>
+        </li>
+        <li>
+          <h3>Shortcuts your way</h3>
+          <p>Every keyboard shortcut can be changed in Settings: click the key and press the new one. One button puts everything back.</p>
+        </li>
+        <li>
+          <h3>In 14 languages</h3>
+          <p>English, Portuguese, Spanish, French, German, Japanese, Hindi and seven more. It follows your Windows language, and you can switch it in Settings.</p>
+        </li>
+      </ol>
     </section>
 
     <!-- ======================================================= updates -->
-    <section class="section" id="atualizacoes">
-      <p class="eyebrow">Updates</p>
-      <h2>Updates through the app itself, checked before they install.</h2>
-      <ol class="steps">
-        <li class="card">
+    <section class="chapter" id="atualizacoes">
+      <header class="ch-head">
+        <p class="eyebrow">Updates</p>
+        <h2>Updates through the app itself, checked before they install.</h2>
+      </header>
+      <ol class="steps" data-scene>
+        <li>
           <span class="num">1</span>
           <h3>A quiet heads-up</h3>
           <p>When it opens, Refrata checks for a new version and lets you know. Nothing downloads until you click.</p>
         </li>
-        <li class="card">
+        <li>
           <span class="num">2</span>
           <h3>Verified download</h3>
           <p>Under <b>Update</b>, it downloads the installer and checks its SHA-256 against the one published with the release. If they don’t match, it won’t install.</p>
         </li>
-        <li class="card">
+        <li>
           <span class="num">3</span>
           <h3>Back, already updated</h3>
           <p>The install runs in the background and the app reopens on the new version, with your library and settings just as they were.</p>
         </li>
       </ol>
-      <div class="card engine-note">
-        <div class="knob"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6 M20 4v4h-4 M9 12l2 2 4-4" /></svg></div>
-        <div>
-          <h3>An engine that stays current</h3>
-          <p>Every week the project checks whether VideoLAN has released a new VLC and whether yt-dlp, which opens links from sites, has a new version. Every engine update goes through more than a hundred automated test scenarios before it reaches you. And yt-dlp also updates itself inside the app when a site changes and a link stops opening.</p>
-        </div>
+      <div class="engine-note">
+        <h3>An engine that stays current</h3>
+        <p>Every week the project checks whether VideoLAN has released a new VLC and whether yt-dlp, which opens links from sites, has a new version. Every engine update goes through more than a hundred automated test scenarios before it reaches you. And yt-dlp also updates itself inside the app when a site changes and a link stops opening.</p>
       </div>
     </section>
 
-    <!-- ======================================================= download -->
-    <section class="section" id="download">
+    <!-- ======================================================= download: the light comes back -->
+    <section class="finale" id="download" data-chapter="Download">
+      <div class="finale-art" aria-hidden="true"></div>
       <div class="download">
-        <div class="dl-glow" aria-hidden="true"></div>
         <div class="dl-copy">
           <p class="eyebrow">Download</p>
           <h2>Refrata <span data-version>for Windows</span></h2>
           <p class="lead">Free, with no ads, no account and no data collection. The VLC engine comes built in, so there is nothing else to install.</p>
           <div class="cta-row">
-            <a class="btn-orb" href="https://github.com/LucsLabsStudios/refrata/releases/latest" data-download>
-              <span class="orb" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M12 3a1 1 0 0 1 1 1v9.59l3.3-3.3a1 1 0 1 1 1.4 1.42l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.42l3.3 3.3V4a1 1 0 0 1 1-1Zm-7 15a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"/></svg>
-              </span>
+            <a class="btn-main" href="https://github.com/LucsLabsStudios/refrata/releases/latest" data-download>
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 3a1 1 0 0 1 1 1v9.59l3.3-3.3a1 1 0 1 1 1.4 1.42l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.42l3.3 3.3V4a1 1 0 0 1 1-1Zm-7 15a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"/></svg>
               <span class="btn-text"><strong>Installer</strong><small data-size>recommended</small></span>
             </a>
             <a class="pill ghost big" href="https://github.com/LucsLabsStudios/refrata/releases/latest" data-portable>Portable version (.zip)</a>
@@ -442,7 +449,7 @@
           <p class="fine">Windows 10 or 11, 64-bit · Linux: Ubuntu 24.04, Debian 13, Mint 22 or newer, with <code>sudo apt install ./refrata_*.deb</code> ·<a href="https://github.com/LucsLabsStudios/refrata/releases" target="_blank" rel="noopener">all versions</a> · <a href="#code-signing-policy">Code signing policy</a>
             <span data-sha></span></p>
         </div>
-        <div class="dl-help card">
+        <div class="dl-help">
           <h3>If Windows gets suspicious</h3>
           <p>Refrata isn’t digitally signed yet; signing is granted to projects with a longer track record. That’s why your browser and Windows may warn that the file is rarely downloaded.</p>
           <ol>
@@ -455,68 +462,70 @@
     </section>
 
     <!-- ======================================================= faq -->
-    <section class="section" id="duvidas">
-      <p class="eyebrow">FAQ</p>
-      <h2>Frequently asked questions</h2>
+    <section class="chapter faq-wrap" id="duvidas" data-chapter="FAQ">
+      <header class="ch-head">
+        <p class="eyebrow">FAQ</p>
+        <h2>Frequently asked questions</h2>
+      </header>
       <div class="faq">
-        <details class="card">
+        <details>
           <summary>Do I need VLC installed?</summary>
           <p>No. The VLC engine ships inside Refrata. If you do have VLC installed, the two get along fine, each with its own settings.</p>
         </details>
-        <details class="card">
+        <details>
           <summary>Is it really free? What’s the catch?</summary>
           <p>None. Refrata is free software under the GPL 3.0 license: no ads, no account, no paid tier and no data collection. All the code is on GitHub for anyone to check.</p>
         </details>
-        <details class="card">
+        <details>
           <summary>Why does Windows warn that the file might be dangerous?</summary>
           <p>Because the installer isn’t digitally signed yet, and Windows is wary of any new program without a signature. The warning doesn’t mean there’s a virus. To check, compare the file’s SHA-256 with the one published with the release, or build the installer yourself from the code.</p>
         </details>
-        <details class="card">
+        <details>
           <summary>What do I need for true HDR?</summary>
-          <p>An HDR screen with <b>Use HDR</b> turned on in the Windows display settings. Refrata notices on its own and shows HDR video at its real brightness, also when you turn HDR on with the app already open. On an ordinary screen, the same video is converted to SDR with the right colours.</p>
+          <p>An HDR screen with <b>Use HDR</b> turned on in the Windows display settings. Refrata notices on its own and shows HDR video at its real brightness, even if you turn HDR on with the app already open. On an ordinary screen, the same video is converted to SDR with the right colors.</p>
         </details>
-        <details class="card">
+        <details>
           <summary>How do AI subtitles work?</summary>
-          <p>In <b>Tracks › More subtitles</b>, turn on <b>AI subtitles</b>. The first time, Refrata downloads Whisper’s speech model (82 MB, or 574 MB on cards with 3 GB of memory or more; 539 MB to translate) and checks the file. From then on, the sound is transcribed on your graphics card, offline, up to two and a half minutes ahead of what you are watching.</p>
+          <p>In <b>Tracks › More subtitles</b>, turn on <b>AI subtitles</b>. The first time, Refrata downloads Whisper’s speech model (82 MB, or 574 MB on cards with 3 GB of memory or more; 539 MB for translating) and checks the file. From then on, the sound is transcribed on your graphics card, offline, up to two and a half minutes ahead of what you are watching.</p>
         </details>
-        <details class="card">
+        <details>
           <summary>Do I need an NVIDIA card?</summary>
           <p>No. HDR, smooth motion and AI subtitles work with cards from any brand. Only RTX Video Super Resolution and RTX Video HDR need an NVIDIA RTX card, with the matching option also turned on in the NVIDIA App.</p>
         </details>
-        <details class="card">
+        <details>
           <summary>Does what is new in 2.0 work on Linux?</summary>
           <p>Almost all of it. True HDR output, RTX Video and AI subtitles are Windows-only for now. Smooth motion, HDR converted for ordinary screens, the second subtitle and the tools work on both.</p>
         </details>
-        <details class="card">
+        <details>
           <summary>Can I watch YouTube videos?</summary>
           <p>Yes. Copy the video’s link, open the Streams page (<kbd>Ctrl</kbd>+<kbd>L</kbd>), paste it and press Play. It also works with Vimeo, Twitch, SoundCloud, Dailymotion and other sites. Refrata picks the best quality available, and some videos take a few seconds to open.</p>
         </details>
-        <details class="card">
+        <details>
           <summary>Does it work with Chromecast?</summary>
           <p>Yes. With the PC and the Chromecast on the same Wi-Fi network, click the cast button at the top of the player and pick the TV. Pause, skip and volume stay in Refrata, which becomes the remote.</p>
         </details>
-        <details class="card">
+        <details>
           <summary>Does the VLC engine inside Refrata get out of date?</summary>
           <p>No. The project checks every week whether VideoLAN has published a new VLC. When one comes out, it is tested and goes into a Refrata update, which arrives through the app itself.</p>
         </details>
-        <details class="card">
+        <details>
           <summary>How do I make Refrata my default player?</summary>
           <p>In <b>Settings › Quick open</b>, press <b>Make default</b>: Refrata registers itself for video, music and playlist formats (the portable version too) and opens Windows’ Default apps page, where you pick Refrata.</p>
         </details>
-        <details class="card">
+        <details>
           <summary>What’s the difference between the installer and the portable version?</summary>
           <p>The installer creates shortcuts, registers file formats and lets you update from inside the app. The portable version just unzips and runs, handy for trying it without installing anything; to have it in <b>Open with</b>, use <b>Make default</b> in Settings.</p>
         </details>
-        <details class="card">
+        <details>
           <summary>What languages does the app speak?</summary>
           <p>Fourteen: English, Spanish, Portuguese, French, German, Italian, Russian, Polish, Turkish, Indonesian, Hindi, Chinese, Japanese and Korean. It follows your Windows language, and you can switch in Settings.</p>
         </details>
-        <details class="card">
+        <details>
           <summary>I found a bug. How do I report it?</summary>
           <p>Open a report on <a href="https://github.com/LucsLabsStudios/refrata/issues" target="_blank" rel="noopener">GitHub Issues</a>
             or write to <a href="mailto:lucslabs.studios@gmail.com">lucslabs.studios@gmail.com</a>. Tell us what you did, what you expected and what happened; if you can, add a screenshot and the version, shown in Settings.</p>
         </details>
-        <details class="card">
+        <details>
           <summary>How do I uninstall it?</summary>
           <p>In Windows Settings, go to <b>Apps</b>, find Refrata and click <b>Uninstall</b>. That also removes the start-with-Windows option if it was on.</p>
         </details>
@@ -524,10 +533,12 @@
     </section>
 
     <!-- ======================================================= security -->
-    <section class="section" id="seguranca">
-      <p class="eyebrow">Transparency</p>
-      <h2>Open source, with no data collected.</h2>
-      <div class="policy card">
+    <section class="chapter" id="seguranca">
+      <header class="ch-head">
+        <p class="eyebrow">Transparency</p>
+        <h2>Open source, with no data collected.</h2>
+      </header>
+      <div class="policy">
         <div>
           <h3>Open source</h3>
           <p>All the code is at
