@@ -55,6 +55,9 @@ def vendor_vlc(zip_path: str | None, system: bool = False):
     # vendor/vlc made from this very zip already: nothing to do (a new libVLC is another zip)
     stamp_file = BUILD / "vendor-vlc.stamp"     # outside vendor/vlc: that folder ships whole
     stamp = f"{Path(zip_path).name} {Path(zip_path).stat().st_size}" if zip_path else f"system {SYSTEM_VLC}"
+    # the plugins' fixed time is part of it: a vendor/vlc cached before them gets made again
+    from refrata.vlcpath import PLUGIN_MTIME
+    stamp += f" plugin-mtime {PLUGIN_MTIME}"
     try:
         if (VENDOR / "libvlc.dll").exists() and (VENDOR / "plugins" / "plugins.dat").exists() \
                 and stamp_file.read_text(encoding="utf8") == stamp:
