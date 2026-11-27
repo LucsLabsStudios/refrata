@@ -5,6 +5,7 @@ import time
 from pathlib import Path
 
 from PySide6.QtCore import Property, QAbstractListModel, QModelIndex, QObject, Qt, QTimer, QUrl, Signal, Slot
+from PySide6.QtQml import QJSValue
 
 _LOCAL = Path(os.environ.get("LOCALAPPDATA", Path.home()))
 DATA_DIR = Path(os.environ.get("REFRATA_DATA") or _LOCAL / "Refrata")
@@ -17,7 +18,7 @@ def _migrate_legacy():
         return
     import shutil
     try:
-        shutil.copytree(LEGACY_DIR, DATA_DIR, ignore=shutil.ignore_patterns("*.log"))
+        shutil.copytree(LEGACY_DIR, DATA_DIR, ignore=shutil.ignore_patterns("*.log", "*.lock", "updates"))
     except OSError:
         shutil.rmtree(DATA_DIR, ignore_errors=True)  # start clean rather than half-copied
 
@@ -38,10 +39,19 @@ DEFAULTS = {
     "background": False,      # close to the tray
     "language": "auto",       # auto (Windows language) or a code from refrata/i18n.py
     "shortcuts": {},          # action -> key, only the ones changed in Ajustes (refrata/shortcuts.py)
-    "smoothMotion": "off",    # in-between frames (ui/VideoPipeline.qml): off | 60 | 120 | max (display rate)
+    "smoothMotion": "off",    # in-between frames (ui/VideoPipeline.qml): off | 2x | 60 | 120 | max (display rate)
+    "motionFallback": "real", # motion not found, no cut: real (nearest real frame) | blend (frames mixed)
     "lightBoost": 0,          # 0..100: local brightening of dark areas, an "HDR look" on SDR video
     "detailBoost": 0,         # 0..100: adaptive sharpening
-    "hdrOutput": "auto",      # auto: real HDR on a screen with Windows HDR on (refrata/hdroutput.py) | off
+    "uiScale": 100,           # 70 | 80 | 90 | 100: the whole interface, applied at start (__main__._ui_scale)
+    # the player's Picture panel (ui/PlayerView.qml): the user's own presets, and the strength
+    # each switch goes back to when turned on again
+    "picturePresets": [],     # [{name, motion, light, detail}]
+    "smoothMotionLast": "60",
+    "lightBoostLast": 30,
+    "detailBoostLast": 40,
+    # SDR video in the scRGB window is decoded once (ui/shaders/srgbencode.frag); it came out dark before
+    "hdrOutput": "auto",       # auto: real HDR on a screen with Windows HDR on (refrata/hdroutput.py) | off
     "hdrDynamic": True,       # HDR10: tone map each scene by its measured brightness (shaders/peak.frag)
     "bookmarks": {},          # path -> [ms, ...]: marked points (refrata/tools.py)
     "skipMarks": {},          # folder -> {"intro": ms, "outro": ms}: openings/endings to skip (tools.py)
@@ -66,7 +76,7 @@ def _valid(key, v) -> bool:
     if key == "volume":
         return isinstance(v, int) and not isinstance(v, bool) and 0 <= v <= 150
     if key == "smoothMotion":
-        return v in ("off", "60", "120", "max")
+        return v in ("off", "2x", "60", "120", "max")
     if key == "hdrOutput":
         return v in ("auto", "off")
     if key == "passthrough":
@@ -77,7 +87,15 @@ def _valid(key, v) -> bool:
         return isinstance(v, dict) and all(isinstance(k, str) and isinstance(x, list) for k, x in v.items())
     if key == "skipMarks":
         return isinstance(v, dict) and all(isinstance(k, str) and isinstance(x, dict) for k, x in v.items())
-    if key in ("lightBoost", "detailBoost"):
+    if key == "uiScale":
+        return v in (70, 80, 90, 100)
+    if key == "motionFallback":
+        return v in ("real", "blend")
+    if key == "smoothMotionLast":
+        return v in ("2x", "60", "120", "max")
+    if key == "picturePresets":
+        return isinstance(v, list) and all(isinstance(x, dict) and isinstance(x.get("name"), str) for x in v)
+    if key in ("lightBoost", "detailBoost", "lightBoostLast", "detailBoostLast"):
         return isinstance(v, int) and not isinstance(v, bool) and 0 <= v <= 100
     if key == "folders":
         return isinstance(v, list) and all(isinstance(x, str) for x in v)
@@ -213,6 +231,8 @@ class Settings(QObject):
 
     @Slot(str, "QVariant")
     def setValue(self, key, value):
+        if isinstance(value, QJSValue):     # a JS array or object from QML (the picture presets)
+            value = value.toVariant()
         if self._data.get(key) != value:
             self._data[key] = value
             self._dirty()
@@ -235,8 +255,10 @@ class Settings(QObject):
     hwdec = _mk("hwdec", bool)
     folders = _mk("folders", list)
     smoothMotion = _mk("smoothMotion", str)
+    motionFallback = _mk("motionFallback", str)
     lightBoost = _mk("lightBoost", int)
     detailBoost = _mk("detailBoost", int)
+    uiScale = _mk("uiScale", int)
     hdrOutput = _mk("hdrOutput", str)
     hdrDynamic = _mk("hdrDynamic", bool)
     rtxVsr = _mk("rtxVsr", bool)

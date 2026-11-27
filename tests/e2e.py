@@ -1244,6 +1244,47 @@ def t33_player_controls_by_mouse():
     ui_click(pop, "seg_2"); poke()
     check(pv.property("fillMode") == 2, "fill mode segmented")
     ui_click(pop, "seg_1"); poke()
+    # picture panel (Realces): presets, switches that remember their strength, G / V / Shift+V
+    s = C.parts.settings
+    keep = (s.smoothMotion, s.lightBoost, s.detailBoost)
+    ui_click(pop, "adjOpenPicture"); poke()
+    wait(lambda: find_under(pop, "pictureMotionSeg") is not None and find_under(pop, "pictureMotionSeg").isVisible(), 2,
+         "the adjust panel's chip opens the picture panel")
+    ui_click(pop, "preset_1"); poke()        # Filme
+    check((s.smoothMotion, s.lightBoost, s.detailBoost) == ("60", 15, 25), "preset chip sets motion and boosts",
+          str((s.smoothMotion, s.lightBoost, s.detailBoost)))
+    check(pv.property("pictureLabel").endswith("p"), "the picture button names the output rate (60p)",
+          pv.property("pictureLabel"))
+    ui_click(find_under(pop, "pictureMotionSeg"), "seg_2x"); poke()
+    check(s.smoothMotion == "2x" and s.value("smoothMotionLast") == "2x", "2x from the picture panel", s.smoothMotion)
+    check(C.parts.find("videoPipeline").property("doubleRate") is True, "2x reaches the video pipeline")
+    key(C.parts, Qt.Key.Key_V)
+    check(s.smoothMotion == "off", "V turns smooth motion off", s.smoothMotion)
+    key(C.parts, Qt.Key.Key_V)
+    check(s.smoothMotion == "2x", "V turns it back on at the strength it had", s.smoothMotion)
+    before = pv.property("presetIndex")
+    key(C.parts, Qt.Key.Key_V, Qt.KeyboardModifier.ShiftModifier)
+    check(pv.property("presetIndex") == (before + 1) % pv.property("allPresets").property("length").toInt(), "Shift+V moves to the next preset",
+          f"{before} -> {pv.property('presetIndex')}")
+    s.detailBoost = 33                       # values no preset has
+    poke()
+    ui_click(pop, "presetSave"); poke()
+    n = len(s.value("picturePresets") or [])
+    check(n == 1 and pv.property("presetIndex") >= 4, "save keeps the current picture as a preset", f"{n} idx={pv.property('presetIndex')} all={pv.property('allPresets').property('length').toInt()} saved={s.value('picturePresets')} now={(s.smoothMotion, s.lightBoost, s.detailBoost)}")
+    import json as _json
+    saved = s.value("picturePresets")
+    check(isinstance(saved, list) and _json.dumps(saved) and saved[0]["motion"] == s.smoothMotion,
+          "the saved preset is plain data settings.json can hold", repr(saved)[:120])
+    ui_click(pop, "presetRemove"); poke()
+    check(len(s.value("picturePresets") or []) == 0, "remove deletes the user's preset")
+    key(C.parts, Qt.Key.Key_G)
+    wait(lambda: pop.property("opacity") < 0.05, 2, "G closes the picture panel")
+    key(C.parts, Qt.Key.Key_G)
+    wait(lambda: pop.property("opacity") > 0.95, 2, "G opens the picture panel")
+    key(C.parts, Qt.Key.Key_G)
+    s.smoothMotion, s.lightBoost, s.detailBoost = keep
+    s.setValue("picturePresets", [])
+    poke()
     # sleep panel
     ui_click("pvSleep"); poke()
     wait(lambda: pop.property("opacity") > 0.95, 2)
@@ -1396,6 +1437,9 @@ def t35_pages_by_mouse():
     check(s.theme == "light", "theme segmented → light")
     ui_click(find_under(sp, "themeSeg"), "seg_dark")
     check(s.theme == "dark", "theme segmented → dark")
+    for v in (80, 100):
+        ui_click(find_under(sp, "uiScaleSeg"), "seg_" + str(v))
+        check(s.uiScale == v, f"interface size → {v}%", str(s.uiScale))
     ui_click(sp, "accent_2")
     check(s.accent.lower() == "#3e91ff", "accent swatch click", s.accent)
     ui_click(sp, "accent_0")
@@ -1407,7 +1451,7 @@ def t35_pages_by_mouse():
         check(s.value(key) == v, f"{name} switch back")
     # picture: smooth motion, light and detail boost
     check(find_under(sp, "pictureCard").isVisible(), "the picture settings card shows")
-    for v in ("60", "120", "max", "off"):
+    for v in ("2x", "60", "120", "max", "off"):
         ui_click(find_under(sp, "smoothMotionSeg"), "seg_" + v)
         check(s.smoothMotion == v, f"smooth motion segmented → {v}", s.smoothMotion)
     for name, key in (("lightBoostSlider", "lightBoost"), ("detailBoostSlider", "detailBoost")):

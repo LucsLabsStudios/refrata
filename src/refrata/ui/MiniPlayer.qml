@@ -47,6 +47,7 @@ Item {
             VideoPipeline {
                 id: vo
                 outputName: "miniVideoOutput"
+                linearOut: typeof hdrout !== "undefined" && hdrout.active
                 anchors.fill: parent
                 fillMode: VideoOutput.PreserveAspectCrop
                 visible: !player.isAudio

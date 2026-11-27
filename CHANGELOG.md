@@ -7,6 +7,28 @@ All notable changes to Refrata are listed here, newest first. Each version links
 The project follows [Semantic Versioning](https://semver.org/). Patch releases (`1.4.x`) can also
 ship updated components only (libVLC, yt-dlp, python-vlc) after passing the full test suite.
 
+## [2.1.0] - 2026-11-26
+Brought over from [Cine60](https://github.com/adrianobbarcelos/Cine60), a fork of Refrata by
+adrianobbarcelos (GPL-3.0).
+### Added
+- Enhance panel in the player (G): smooth motion, detail and light boost with switches that remember
+  their strength, built-in presets (Default, Movie, Anime, Sports) and your own; V turns smooth motion
+  on and off, Shift+V moves to the next preset. The button shows the output rate ("60p").
+- Smooth motion **2x**: the real frames and the pictures halfway between them. A setting blends the two
+  frames where motion is not found, instead of showing the nearest real one.
+- HDR badge next to the resolution (green in real HDR, grey when converted), and the real-HDR switch in
+  the player's Picture panel.
+- Settings › Interface size (70 to 100 %), applied at the next start.
+### Fixed
+- First start on a computer in another time zone: libVLC's plugin cache stays valid (it reloaded all
+  358 plugins, about 34 s instead of 2 s).
+- The start window fits the work area (at most 75 %): on a 4K screen at 250 % it opened behind the taskbar.
+- The player controls go away while the cursor rests beside the title or under them as they slide in.
+- SDR video no longer looks dark with crushed blacks when Windows HDR is on.
+- Smooth motion: in-betweens timed by when libVLC displayed each frame, no picture skipped, no run at
+  2x speed when libVLC drops a late picture; 60 on a 60 Hz screen shows ~45 new pictures a second
+  instead of ~34; full screen works at the video's resolution; scene cuts between dark shots are found.
+
 ## [2.0.2] - 2026-11-20
 ### Removed
 - Settings › "Open files in the quick player" (off by default since 1.3.1). It did what the Space

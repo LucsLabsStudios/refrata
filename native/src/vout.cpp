@@ -5,14 +5,17 @@
 // QAbstractVideoBuffer that gives the memory back to the pool when Qt is done with it: no copy, no
 // allocation per frame) and reaches the QVideoSinks of the screen without any Python:
 //
-//   decoder thread  rv_deliver: newest frame stored, one event posted to the Router (if none is
-//                   pending already: a busy interface skips to the newest picture, never queues)
+//   decoder thread  rv_deliver: the frame and the time it was displayed (wall clock, ms: the same
+//                   clock as QML's Date.now()) queued, one event posted to the Router (if none is
+//                   pending already). A busy interface takes the queue in order (up to 3 pictures):
+//                   smooth motion needs every picture, a skipped one made it interpolate across two
 //   UI thread       Router::event: the frame goes to every sink, or, with smooth motion, to the
 //                   two sinks in turn, and VideoPipeline.frameArrived(slot) is called
 //
 // Sinks and the pipeline item are only ever touched on the UI thread, where QML deletes them, so a
 // sink that goes away is simply skipped (QPointer).
 #include <QtCore/QCoreApplication>
+#include <QtCore/QDateTime>
 #include <QtCore/QEvent>
 #include <QtCore/QMetaObject>
 #include <QtCore/QMutex>
@@ -30,6 +33,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <deque>
 #include <memory>
 #include <vector>
 
@@ -72,12 +76,14 @@ const QEvent::Type FrameEvent = QEvent::Type(QEvent::User + 0x5246);
 
 class Router : public QObject {
 public:
-    QMutex lock;                       // guards format, latest, pending
+    QMutex lock;                       // guards format, queue, pending
     QVideoFrameFormat format;
-    QVideoFrame latest;
+    struct Stamped { QVideoFrame frame; double ms; };
+    std::deque<Stamped> queue;         // displayed by libVLC, not yet shown (oldest first)
+    static constexpr size_t QueueMax = 3;
     bool pending = false;
     std::atomic<unsigned long long> delivered{0};   // pictures handed to the sinks (UI thread)
-    std::atomic<unsigned long long> skipped{0};     // replaced by a newer one before the UI took them
+    std::atomic<unsigned long long> skipped{0};     // dropped: the queue was full before the UI took them
 
     // UI thread only
     std::vector<QPointer<QVideoSink>> sinks;
@@ -95,19 +101,19 @@ public:
     bool event(QEvent *e) override {
         if (e->type() != FrameEvent)
             return QObject::event(e);
-        QVideoFrame f;
+        std::deque<Stamped> got;
         {
             QMutexLocker l(&lock);
-            f = latest;
-            latest = QVideoFrame();
+            got.swap(queue);
             pending = false;
         }
-        if (f.isValid())
-            show(f);
+        for (const auto &g : got)
+            if (g.frame.isValid())
+                show(g.frame, g.ms);
         return true;
     }
 
-    void show(const QVideoFrame &f) {
+    void show(const QVideoFrame &f, double ms) {
         last = f;
         ++seq;
         for (auto &v : viewers)
@@ -118,8 +124,12 @@ public:
             (s ? pairB : pairA)->setVideoFrame(f);
             slot = s ^ 1;
             recent[recentCount++ % 32] = s;
-            if (pipeline)
+            if (pipeline) {
+                // the stamp as a property, the call with one argument: a second QVariant argument
+                // never reached the QML function (frameArrived was not called at all)
+                pipeline->setProperty("frameStamp", ms);
                 QMetaObject::invokeMethod(pipeline.data(), "frameArrived", Q_ARG(QVariant, QVariant(s)));
+            }
         }
         for (auto &k : sinks)
             if (k && k != pairA && k != pairB)
@@ -179,14 +189,16 @@ int rv_deliver(void *r, void *pool, unsigned long long handle, int planes, unsig
             return 0;
         }
         QVideoFrame f(std::make_unique<PoolBuffer>(pool, handle, p, rt->format));
-        if (rt->latest.isValid())
+        while (rt->queue.size() >= Router::QueueMax) {
+            rt->queue.pop_front();
             rt->skipped.fetch_add(1, std::memory_order_relaxed);
-        rt->latest = f;
+        }
+        rt->queue.push_back({f, double(QDateTime::currentMSecsSinceEpoch())});
         post = !rt->pending;
         rt->pending = true;
     }
     if (post)
-        QCoreApplication::postEvent(rt, new QEvent(FrameEvent));
+        QCoreApplication::postEvent(rt, new QEvent(FrameEvent), Qt::HighEventPriority);
     return 1;
 }
 
@@ -215,8 +227,10 @@ void rv_set_pair(void *r, void *a, void *b, void *pipeline) {
         rt->pairA->setVideoFrame(rt->last);
         rt->pairB->setVideoFrame(rt->last);
         rt->slot = 1;
-        if (rt->pipeline)
+        if (rt->pipeline) {
+            rt->pipeline->setProperty("frameStamp", double(QDateTime::currentMSecsSinceEpoch()));
             QMetaObject::invokeMethod(rt->pipeline.data(), "frameArrived", Q_ARG(QVariant, QVariant(0)));
+        }
     }
 }
 
@@ -227,7 +241,7 @@ void rv_clear(void *r) {
     auto *rt = static_cast<Router *>(r);
     rt->last = QVideoFrame();
     QMutexLocker l(&rt->lock);
-    rt->latest = QVideoFrame();
+    rt->queue.clear();
 }
 
 // UI thread: a copy of the picture on screen (delete with rv_frame_free), or null

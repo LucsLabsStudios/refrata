@@ -740,6 +740,9 @@ class Engine(QObject):
             self._stop_cast_discovery()
             self._cast_ptr = None
         self._vlc_args = self._instance_args()
+        if old is None:
+            from .vlcpath import restore_plugin_times
+            restore_plugin_times()
         self._vlc = vlc.Instance(self._vlc_args)
         if self._vlc is None:   # an option this libVLC build does not know: play without extras
             print("libVLC refused", self._vlc_args)
@@ -1406,8 +1409,15 @@ class Engine(QObject):
                 try:
                     vo = a.parent()
                     item = vo.parentItem() if vo is not None and hasattr(vo, "parentItem") else None
-                    if item is not None and item.metaObject().indexOfMethod("frameArrived(QVariant)") >= 0:
-                        self._pair_item = item
+                    for _ in range(4):      # the VideoOutput may sit in a wrapper
+                        if item is None or item.metaObject().indexOfMethod("frameArrived(QVariant)") >= 0:
+                            break
+                        item = item.parentItem()
+                    else:
+                        item = None
+                    self._pair_item = item
+                    if item is None:        # half the pictures would show, ~12 a second, with no other sign
+                        print("smooth motion: no VideoPipeline.frameArrived(slot) above the sink")
                 except RuntimeError:
                     pass
                 self._sync_sinks()

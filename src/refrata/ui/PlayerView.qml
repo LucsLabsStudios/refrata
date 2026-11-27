@@ -38,11 +38,102 @@ Item {
 
     // music mode keeps its dock on screen; video hides the chrome while playing
     readonly property bool idleHide: player.playing && !player.isAudio && panel === "" && !queueOpen && !pinned
-    property bool pinned: false        // mouse over controls
+    // mouse over the controls (time bar, button rows): they stay. Not the title block or the empty
+    // width of the bottom block: a cursor resting beside the title still lets them go
+    readonly property bool pinned: seekPin.engaged || leftPin.engaged || rightPin.engaged || musicPinned
+    property bool musicPinned: false   // the mouse over the music dock (MusicStage.qml)
     // the timer only looks once: hiding allowed again (a panel closed, the mouse left the bar) counts anew
     onIdleHideChanged: if (idleHide) hideTimer.restart()
     function poke() { controlsVisible = true; hideTimer.restart() }
     function togglePanel(name) { panel = (panel === name ? "" : name); poke() }
+
+    // ------------------------------------------------ Picture: presets and quick toggles
+    // smooth motion, light boost and detail boost, set from the player (Splash's Picture²);
+    // the same settings as Ajustes › Reprodução › Imagem. Presets: built in + the user's own,
+    // kept in settings.json under "picturePresets" (settings.setValue keeps unknown keys).
+    readonly property var builtinPresets: [
+        { name: qsTr("Padrão"), motion: "off", light: 0, detail: 0, builtin: true },
+        { name: qsTr("Filme"), motion: "60", light: 15, detail: 25, builtin: true },
+        { name: qsTr("Anime"), motion: "max", light: 0, detail: 45, builtin: true },
+        { name: qsTr("Esporte"), motion: "max", light: 10, detail: 30, builtin: true }
+    ]
+    property var userPresets: []
+    function loadUserPresets() {
+        var v = settings.value("picturePresets")
+        // a list from Python reaches QML as a sequence, not a JS Array (Array.isArray is false)
+        var out = []
+        for (var i = 0; v && i < v.length; i++)
+            if (v[i] && typeof v[i].name === "string") out.push(v[i])
+        userPresets = out
+    }
+    Component.onCompleted: loadUserPresets()
+    Connections { target: settings; function onChanged(key) { if (key === "picturePresets") pv.loadUserPresets() } }
+    readonly property var allPresets: builtinPresets.concat(userPresets)
+    // the preset the picture matches right now (-1: none, values set by hand)
+    readonly property int presetIndex: {
+        for (var i = 0; i < allPresets.length; i++) {
+            var x = allPresets[i]
+            if (x.motion === settings.smoothMotion && x.light === settings.lightBoost && x.detail === settings.detailBoost) return i
+        }
+        return -1
+    }
+    function applyPreset(i) {
+        var x = allPresets[i]
+        if (!x) return
+        settings.smoothMotion = x.motion; settings.lightBoost = x.light; settings.detailBoost = x.detail
+        if (x.motion !== "off") settings.setValue("smoothMotionLast", x.motion)
+        if (x.light > 0) settings.setValue("lightBoostLast", x.light)
+        if (x.detail > 0) settings.setValue("detailBoostLast", x.detail)
+    }
+    function cyclePreset() {
+        var i = (presetIndex + 1) % allPresets.length
+        applyPreset(i)
+        pictureToast(qsTr("Predefinição: %1").arg(allPresets[i].name))
+    }
+    function saveUserPreset() {
+        var list = userPresets.slice()
+        var n = list.length + 1
+        var names = list.map(function (x) { return x.name })
+        while (names.indexOf(qsTr("Minha %1").arg(n)) >= 0) n++
+        list.push({ name: qsTr("Minha %1").arg(n), motion: settings.smoothMotion, light: settings.lightBoost, detail: settings.detailBoost })
+        settings.setValue("picturePresets", list)
+    }
+    function removeUserPreset(i) {
+        var k = i - builtinPresets.length
+        if (k < 0 || k >= userPresets.length) return
+        var list = userPresets.slice(); list.splice(k, 1)
+        settings.setValue("picturePresets", list)
+    }
+    // the switches remember the strength they had, like Splash's check boxes
+    function setMotionOn(on) {
+        if (on) settings.smoothMotion = settings.value("smoothMotionLast") || "60"
+        else { if (settings.smoothMotion !== "off") settings.setValue("smoothMotionLast", settings.smoothMotion); settings.smoothMotion = "off" }
+    }
+    function setLightOn(on) {
+        if (on) settings.lightBoost = settings.value("lightBoostLast") || 30
+        else { if (settings.lightBoost > 0) settings.setValue("lightBoostLast", settings.lightBoost); settings.lightBoost = 0 }
+    }
+    function setDetailOn(on) {
+        if (on) settings.detailBoost = settings.value("detailBoostLast") || 40
+        else { if (settings.detailBoost > 0) settings.setValue("detailBoostLast", settings.detailBoost); settings.detailBoost = 0 }
+    }
+    function pictureToast(t) { if (typeof toast !== "undefined" && toast.show) toast.show(t) }
+    // what the Picture button says: the frame rate going out while smooth motion works
+    readonly property string pictureLabel: settings.smoothMotion === "off" ? qsTr("Realces")
+        : pictureStatus.motion === "on" && pictureStatus.motionTo > 0 ? Math.round(pictureStatus.motionTo) + "p"
+        : settings.smoothMotion === "max" ? qsTr("Máx") : settings.smoothMotion === "2x" ? "2x" : settings.smoothMotion + "p"
+
+    readonly property bool shortcutsOn: visible && !warm && !player.isAudio
+    Shortcut { sequence: "G"; enabled: pv.shortcutsOn; onActivated: pv.togglePanel("picture") }
+    Shortcut {
+        sequence: "V"; enabled: pv.shortcutsOn
+        onActivated: {
+            pv.setMotionOn(settings.smoothMotion === "off")
+            pv.pictureToast(settings.smoothMotion === "off" ? qsTr("Movimento suave desligado") : qsTr("Movimento suave: %1").arg(settings.smoothMotion === "max" ? qsTr("taxa da tela") : settings.smoothMotion === "2x" ? "2x" : settings.smoothMotion + " fps"))
+            pv.poke()
+        }
+    }
+    Shortcut { sequence: "Shift+V"; enabled: pv.shortcutsOn; onActivated: { pv.cyclePreset(); pv.poke() } }
     onWidthChanged: Qt.callLater(function () { pv.glassTick++ })
     onHeightChanged: Qt.callLater(function () { pv.glassTick++ })
     onVisibleChanged: if (visible && !warm) { poke(); Qt.callLater(function () { pv.glassTick++ }) }
@@ -88,7 +179,9 @@ Item {
         property point last: Qt.point(-1, -1)
         onHoveredChanged: if (hovered) leaveTimer.stop(); else if (pv.visible) leaveTimer.restart()
         onPointChanged: {
-            var p = point.scenePosition
+            // on the screen, not in the window: the window going full screen or maximized moves
+            // the scene under a parked cursor, and that is not the user moving the mouse
+            var p = pv.mapToGlobal(point.position)
             if (Math.abs(p.x - last.x) + Math.abs(p.y - last.y) >= 2) {
                 last = Qt.point(p.x, p.y)
                 if (pv.visible) {
@@ -136,11 +229,14 @@ Item {
                 }
                 smoothMotion: settings.smoothMotion !== "off" && !player.isAudio && player.castingTo === ""
                 maxFps: settings.smoothMotion === "60" ? 60 : settings.smoothMotion === "120" ? 120 : 0
+                doubleRate: settings.smoothMotion === "2x"
+                softFallback: settings.motionFallback === "blend"
                 hdr: player.videoHdr === "pq" ? 1 : player.videoHdr === "hlg" ? 2 : 0
                 srcPeak: player.videoPeak
                 scene: player.hdrScene
                 measure: settings.hdrDynamic
                 hdrOut: typeof hdrout !== "undefined" && hdrout.screenHdr
+                linearOut: typeof hdrout !== "undefined" && hdrout.active
                 outWhite: typeof hdrout !== "undefined" ? hdrout.sdrWhite : 80
                 outPeak: typeof hdrout !== "undefined" ? hdrout.peak : 0
                 rtxVsr: settings.rtxVsr && appctl.nvidiaRtx
@@ -423,7 +519,6 @@ Item {
             anchors.bottomMargin: 36
             spacing: 18
             Behavior on anchors.rightMargin { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
-            HoverHandler { onHoveredChanged: pv.pinned = hovered }
             readonly property bool compact: width < 1180
 
             // title block fades out while a popover panel covers it
@@ -449,27 +544,42 @@ Item {
                 wrapMode: Text.WordWrap
                 lineHeight: 0.95
             }
-            Text {
-                text: {
-                    var parts = []
-                    if (player.artist) parts.push(player.artist)
-                    if (player.album) parts.push(player.album)
-                    var p = player.currentPath
-                    if (p && p.indexOf("://") < 0) parts.push(p.split(".").pop().toUpperCase())
-                    if (player.videoWidth > 0 && !player.isAudio) parts.push(player.videoWidth + " × " + player.videoHeight)
-                    if (player.queueCount > 1) parts.push(qsTr("%1 de %2").arg(player.currentIndex + 1).arg(player.queueCount))
-                    return parts.join("   ·   ")
+            Row {
+                spacing: 12
+                Text {
+                    text: {
+                        var parts = []
+                        if (player.artist) parts.push(player.artist)
+                        if (player.album) parts.push(player.album)
+                        var p = player.currentPath
+                        if (p && p.indexOf("://") < 0) parts.push(p.split(".").pop().toUpperCase())
+                        if (player.videoWidth > 0 && !player.isAudio) parts.push(player.videoWidth + " × " + player.videoHeight)
+                        if (player.queueCount > 1) parts.push(qsTr("%1 de %2").arg(player.currentIndex + 1).arg(player.queueCount))
+                        return parts.join("   ·   ")
+                    }
+                    color: Qt.rgba(1, 1, 1, 0.7)
+                    font.pixelSize: 15
+                    opacity: pv.panel === "" ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
                 }
-                color: Qt.rgba(1, 1, 1, 0.7)
-                font.pixelSize: 15
-                opacity: pv.panel === "" ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                // an HDR video: green when it is shown in real HDR, grey when converted to SDR
+                Rectangle {
+                    objectName: "pvHdrBadge"
+                    readonly property bool real: pv.pictureStatus.hdrOut
+                    visible: pv.pictureStatus.video && pv.pictureStatus.hdr > 0
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: hdrText.implicitWidth + 16; height: 22; radius: 11
+                    opacity: pv.panel === "" ? 1 : 0
+                    color: real ? "#3ecf7a" : Qt.rgba(1, 1, 1, 0.18)
+                    Text { id: hdrText; anchors.centerIn: parent; text: parent.real ? "HDR" : "HDR → SDR"; color: parent.real ? "#08150d" : "white"; font.pixelSize: 11; font.weight: Font.Bold }
+                }
             }
             Item { width: 1; height: 2 }
 
             // seek
             Item {
                 width: parent.width; height: 24
+                PinHover { id: seekPin }
                 Text {
                     id: tcur
                     anchors.verticalCenter: parent.verticalCenter
@@ -537,12 +647,14 @@ Item {
                 Row {
                     spacing: 8
                     anchors.verticalCenter: parent.verticalCenter
+                    PinHover { id: leftPin }
                     IconButton { objectName: "pvPrev"; icon: "prev"; onMedia: true; size: 44; iconSize: 15; tip: qsTr("Anterior (P)"); onClicked: player.previous() }
                     IconButton { objectName: "pvNext"; icon: "next"; onMedia: true; size: 44; iconSize: 15; tip: qsTr("Próximo (N)"); onClicked: player.next() }
                     Item { width: 8; height: 1 }
                     PillButton { objectName: "pvTracks"; variant: "glass"; icon: "cc"; text: bottom.compact ? "" : qsTr("Faixas"); h: 44; checked: pv.panel === "tracks"; onClicked: pv.togglePanel("tracks") }
                     PillButton { objectName: "pvSpeed"; variant: "glass"; icon: "speed"; text: player.rate.toFixed(2).replace(/\.?0+$/, "") + "×"; h: 44; checked: pv.panel === "speed"; onClicked: pv.togglePanel("speed") }
                     PillButton { objectName: "pvEq"; variant: "glass"; icon: "eq"; text: bottom.compact ? "" : qsTr("Equalizador"); h: 44; checked: pv.panel === "eq"; onClicked: pv.togglePanel("eq") }
+                    PillButton { objectName: "pvPicture"; variant: "glass"; icon: "picture"; text: pv.pictureLabel; h: 44; visible: !player.isAudio; checked: pv.panel === "picture"; onClicked: pv.togglePanel("picture") }
                     PillButton { objectName: "pvAdjust"; variant: "glass"; icon: "brightness"; text: bottom.compact ? "" : qsTr("Imagem"); h: 44; visible: !player.isAudio; checked: pv.panel === "adjust"; onClicked: pv.togglePanel("adjust") }
                     PillButton { objectName: "pvChapters"; variant: "glass"; icon: "chapters"; visible: player.chapters.length > 0; text: bottom.compact ? "" : qsTr("Capítulos"); h: 44; checked: pv.panel === "chapters"; onClicked: pv.togglePanel("chapters") }
                     PillButton { objectName: "pvTools"; variant: "glass"; icon: "star"; visible: !player.isAudio && player.currentPath !== "" && !/^\w+:\/\//.test(player.currentPath); text: bottom.compact ? "" : qsTr("Ferramentas"); h: 44; checked: pv.panel === "tools"; onClicked: pv.togglePanel("tools") }
@@ -552,6 +664,7 @@ Item {
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 6
+                    PinHover { id: rightPin }
                     IconButton { objectName: "pvShuffle"; icon: "shuffle"; onMedia: true; size: 44; iconSize: 15; checked: player.shuffle; tip: qsTr("Aleatório"); onClicked: player.toggleShuffle() }
                     IconButton { objectName: "pvLoop"; label: "A-B"; motion: "pop"; onMedia: true; size: 44; iconSize: 15; checked: player.loopA >= 0
                                  tip: player.loopB >= 0 ? qsTr("Repetindo o trecho: L desliga") : player.loopA >= 0 ? qsTr("Marque o fim do trecho (L)") : qsTr("Repetir um trecho, A-B (L)"); onClicked: player.cycleLoop() }
@@ -567,6 +680,21 @@ Item {
     // One look for every panel: a title, then groups separated by thin dividers, each group with a
     // heading in plain case, an optional line of help and its controls. What is on is in the accent
     // colour; buttons shrink a little while pressed.
+    // "mouse over the controls", but only once the mouse moves over them: the controls sliding in
+    // (or fading in) under a parked cursor is not the user reaching for them. Movement is measured on
+    // the screen: the window going full screen moves the scene under a parked cursor.
+    component PinHover: HoverHandler {
+        property point last
+        property bool armed: false
+        property bool engaged: false
+        onHoveredChanged: { armed = false; if (!hovered) engaged = false }
+        onPointChanged: {
+            if (!hovered || engaged) return
+            var p = parent.mapToGlobal(point.position)
+            if (!armed) { last = Qt.point(p.x, p.y); armed = true; return }
+            if (Math.abs(p.x - last.x) + Math.abs(p.y - last.y) >= 2) engaged = true
+        }
+    }
     component PanelTitle: Text { color: "white"; font.family: theme.displayFont; font.pixelSize: 22; font.weight: Font.DemiBold; elide: Text.ElideRight }
     component Caption: Text {
         width: parent ? parent.width : implicitWidth
@@ -686,7 +814,7 @@ Item {
         // above the time bar (margin 36 + buttons 48 + spacing 18 + bar 24): it used to cover the bar
         anchors.bottomMargin: player.isAudio ? musicStage.dockBottom + musicStage.dockH + 16 : 36 + 48 + 18 + 24 + 14
         width: Math.min(player.isAudio ? pv.width - 64 : pv.width - 168 - 24, pv.panel === "eq" ? 620 : pv.panel === "tracks" ? 1040 : pv.panel === "adjust" ? 820
-               : pv.panel === "tools" ? 780
+               : pv.panel === "tools" ? 780 : pv.panel === "picture" ? 520
                : pv.panel === "info" ? 560 : pv.panel === "chapters" ? 460 : pv.panel === "subs" ? 640 : 420)
         // never taller than the room above the controls: the content scrolls instead
         height: Math.min(panelLoader.item ? panelLoader.item.implicitHeight + 56 : 100, Math.max(160, pv.height - anchors.bottomMargin - 16))
@@ -712,7 +840,8 @@ Item {
                              : pv.panel === "eq" ? eqPanel : pv.panel === "adjust" ? adjustPanel
                              : pv.panel === "sleep" ? sleepPanel : pv.panel === "chapters" ? chaptersPanel
                              : pv.panel === "info" ? infoPanel : pv.panel === "cast" ? castPanel
-                             : pv.panel === "subs" ? subsPanel : pv.panel === "tools" ? toolsPanel : null
+                             : pv.panel === "subs" ? subsPanel : pv.panel === "tools" ? toolsPanel
+                             : pv.panel === "picture" ? picturePanel : null
         }
         }
     }
@@ -994,6 +1123,110 @@ Item {
         }
     }
 
+    component PicToggle: Rectangle {
+        id: tg
+        property bool on: false
+        signal toggled(bool on)
+        width: 24; height: 24; radius: 6
+        color: on ? theme.accent : "transparent"
+        border.width: on ? 0 : 2; border.color: Qt.rgba(1, 1, 1, 0.35)
+        Behavior on color { ColorAnimation { duration: 120 } }
+        Icon { anchors.centerIn: parent; name: "check"; size: 13; color: "white"; visible: tg.on }
+        MouseArea { anchors.fill: parent; anchors.margins: -6; cursorShape: Qt.PointingHandCursor; onClicked: tg.toggled(!tg.on) }
+    }
+    // one effect: switch, name, strength slider, value (Splash's Picture² rows)
+    component BoostRow: Item {
+        id: br
+        property string label: ""
+        property int value: 0
+        property string objName: ""
+        signal toggled(bool on)
+        signal moved(int v)
+        width: parent ? parent.width : 400; height: 40
+        PicToggle { anchors.verticalCenter: parent.verticalCenter; on: br.value > 0; onToggled: (on) => br.toggled(on) }
+        Text { x: 38; width: 150; anchors.verticalCenter: parent.verticalCenter; text: br.label; color: br.value > 0 ? "white" : Qt.rgba(1, 1, 1, 0.7); font.pixelSize: 15; font.weight: br.value > 0 ? Font.DemiBold : Font.Normal; elide: Text.ElideRight }
+        MiniSlider {
+            objectName: br.objName
+            x: 196; width: parent.width - 196 - 52; anchors.verticalCenter: parent.verticalCenter
+            from: 0; to: 100; stepSize: 1; value: br.value; onMedia: true
+            onMoved: (v) => br.moved(Math.round(v))
+        }
+        Text {
+            anchors.right: parent.right; width: 44; anchors.verticalCenter: parent.verticalCenter
+            horizontalAlignment: Text.AlignRight; text: br.value
+            color: br.value > 0 ? theme.accent : Qt.rgba(1, 1, 1, 0.45)
+            font.pixelSize: 14; font.weight: Font.DemiBold; font.features: { "tnum": 1 }
+        }
+    }
+
+    Component {
+        id: picturePanel
+        Column {
+            spacing: 8
+            Item {
+                width: parent.width; height: 34
+                PanelTitle { anchors.verticalCenter: parent.verticalCenter; text: qsTr("Movimento e realces"); width: parent.width - prow.width - 12 }
+                Row {
+                    id: prow
+                    anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
+                    spacing: 6
+                    Chip { objectName: "presetSave"; height: 32; icon: "add"; text: qsTr("Salvar"); onClicked: pv.saveUserPreset() }
+                    Chip {
+                        objectName: "presetRemove"; height: 32; icon: "delete"
+                        enabled: pv.presetIndex >= pv.builtinPresets.length
+                        onClicked: pv.removeUserPreset(pv.presetIndex)
+                    }
+                }
+            }
+            Caption { text: qsTr("Predefinição") }
+            Flow {
+                width: parent.width; spacing: 6
+                Repeater {
+                    model: pv.allPresets
+                    Chip { objectName: "preset_" + index; height: 32; text: modelData.name; selected: pv.presetIndex === index; onClicked: pv.applyPreset(index) }
+                }
+            }
+            Divider {}
+            // smooth motion: switch + how many pictures a second
+            Item {
+                width: parent.width; height: 40
+                PicToggle { anchors.verticalCenter: parent.verticalCenter; on: settings.smoothMotion !== "off"; onToggled: (on) => pv.setMotionOn(on) }
+                Text { x: 38; anchors.verticalCenter: parent.verticalCenter; text: qsTr("Movimento suave"); color: settings.smoothMotion !== "off" ? "white" : Qt.rgba(1, 1, 1, 0.7); font.pixelSize: 15; font.weight: settings.smoothMotion !== "off" ? Font.DemiBold : Font.Normal }
+                Segmented {
+                    objectName: "pictureMotionSeg"
+                    anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
+                    onMedia: true
+                    opacity: settings.smoothMotion !== "off" ? 1 : 0.5
+                    options: [{ text: "2x", value: "2x" }, { text: "60", value: "60" }, { text: "120", value: "120" }, { text: qsTr("Tela"), value: "max" }]
+                    value: settings.smoothMotion
+                    onPicked: (v) => { settings.smoothMotion = v; settings.setValue("smoothMotionLast", v) }
+                }
+            }
+            StatusLine {
+                visible: settings.smoothMotion !== "off"
+                text: pv.pictureStatus.motion === "on" ? qsTr("%1 → %2 quadros por segundo.").arg(Math.round(pv.pictureStatus.motionFrom)).arg(Math.round(pv.pictureStatus.motionTo))
+                      : pv.pictureStatus.motion === "ready" ? qsTr("Começa quando o vídeo tocar.")
+                      : qsTr("Sem efeito neste vídeo: ele já é rápido o bastante para a tela.")
+                kind: pv.pictureStatus.motion === "on" ? "on" : "idle"
+            }
+            BoostRow {
+                objName: "pictureDetail"; label: qsTr("Realce de detalhes"); value: settings.detailBoost
+                onToggled: (on) => pv.setDetailOn(on)
+                onMoved: (v) => { settings.detailBoost = v; if (v > 0) settings.setValue("detailBoostLast", v) }
+            }
+            BoostRow {
+                objName: "pictureLight"; label: qsTr("Realce de luz"); value: settings.lightBoost
+                onToggled: (on) => pv.setLightOn(on)
+                onMoved: (v) => { settings.lightBoost = v; if (v > 0) settings.setValue("lightBoostLast", v) }
+            }
+            Divider {}
+            Hint {
+                text: qsTr("G abre este painel · V liga/desliga o movimento suave · Shift+V troca a predefinição.")
+                color: Qt.rgba(1, 1, 1, 0.5); font.pixelSize: 12
+            }
+        }
+    }
+
     Component {
         id: adjustPanel
         // colour and light | the frame (fit, rotation, aspect, zoom) | what is processing the picture
@@ -1043,6 +1276,13 @@ Item {
                 }
                 Divider {}
                 Caption { text: qsTr("Processamento neste vídeo") }
+                // real HDR, where the screen is in HDR now (the same switch as Settings › Imagem)
+                Item {
+                    width: parent.width; height: 36
+                    visible: typeof hdrout !== "undefined" && hdrout.screenInfo.hdr === true
+                    Text { anchors.verticalCenter: parent.verticalCenter; width: parent.width - 64; elide: Text.ElideRight; text: qsTr("HDR real em telas HDR"); color: "white"; font.pixelSize: 14 }
+                    Toggle { objectName: "adjHdrToggle"; anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; checked: settings.hdrOutput !== "off"; onToggled: (on) => settings.hdrOutput = on ? "auto" : "off" }
+                }
                 // the same words as Settings › Imagem: what is on, what is paused and why
                 StatusLine {
                     text: pv.pictureStatus.hdr > 0 ? (pv.pictureStatus.hdrOut
@@ -1068,7 +1308,7 @@ Item {
                     text: qsTr("Realce de luz %1% · de detalhes %2%").arg(settings.lightBoost).arg(settings.detailBoost)
                     kind: "on"
                 }
-                Hint { text: qsTr("Estas opções ficam em Ajustes › Reprodução › Imagem."); color: Qt.rgba(1, 1, 1, 0.5); font.pixelSize: 12 }
+                Chip { objectName: "adjOpenPicture"; height: 32; icon: "picture"; text: qsTr("Ajustar movimento e realces (G)"); onClicked: pv.panel = "picture" }
             }
             PanelColumn {
                 id: aj2

@@ -88,6 +88,7 @@ def vendor_vlc(zip_path: str | None, system: bool = False):
         else:
             shutil.copytree(src / d, VENDOR / d)
     gen = src / "vlc-cache-gen.exe"
+    stamp_plugins(VENDOR / "plugins")
     if gen.exists():
         # plugins.dat must describe exactly the plugins we ship
         subprocess.run([str(gen), str(VENDOR / "plugins")], check=True, cwd=str(src))
@@ -95,6 +96,28 @@ def vendor_vlc(zip_path: str | None, system: bool = False):
     BUILD.mkdir(exist_ok=True)
     stamp_file.write_text(stamp, encoding="utf8")
     log(f"libVLC vendored from {src} ({size:.0f} MB)")
+
+
+def stamp_plugins(folder: Path):
+    """One fixed time for every plugin, so the cache made here holds wherever they are unpacked
+    (refrata/vlcpath.py, restore_plugin_times)."""
+    from refrata.vlcpath import PLUGIN_MTIME
+    for p in folder.rglob("*_plugin.dll"):
+        os.utime(p, (PLUGIN_MTIME, PLUGIN_MTIME))
+
+
+def check_plugin_cache(folder: Path):
+    """Stamp the packaged plugins (PyInstaller's copies carry the build's time) and make sure the
+    cache we ship describes each of them with that time and its size."""
+    import struct
+    from refrata.vlcpath import PLUGIN_MTIME
+    stamp_plugins(folder)
+    data = (folder / "plugins.dat").read_bytes()
+    plugins = list(folder.rglob("*_plugin.dll"))
+    bad = [p.name for p in plugins if struct.pack("<qq", PLUGIN_MTIME, p.stat().st_size) not in data]
+    if bad or not plugins:
+        raise SystemExit(f"plugins.dat does not match {len(bad)} of {len(plugins)} plugins: {bad[:5]}")
+    log(f"VLC plugin cache matches {len(plugins)} plugins")
 
 
 VERSION_INFO = """VSVersionInfo(
@@ -313,6 +336,7 @@ def pyinstaller():
         raise SystemExit("refrata_native is missing from the app folder")
     prune_qml(app)
     prune_qt(app)
+    check_plugin_cache(app / "_internal" / "vlc" / "plugins")
     lic = app / "LICENSES"
     lic.mkdir(exist_ok=True)
     shutil.copy2(VENDOR / "COPYING.txt", lic / "VLC-COPYING.txt")
@@ -386,6 +410,7 @@ def main():
     ap.add_argument("--system-vlc", action="store_true", help="take libVLC from the installed VLC")
     ap.add_argument("--no-installer", action="store_true")
     ap.add_argument("--no-msix", action="store_true")
+    ap.add_argument("--no-portable", action="store_true", help="skip the portable zip")
     ap.add_argument("--skip-vendor", action="store_true")
     ap.add_argument("--skip-build", action="store_true", help="reuse dist/Refrata (sign + zip + installer only)")
     a = ap.parse_args()
@@ -400,14 +425,14 @@ def main():
     # lets go of the GIL while it compresses, Inno Setup is its own process): ~30 s less per build
     import threading
     zipped: list = []
-    zt = threading.Thread(target=lambda: zipped.append(portable_zip(app)), name="portable-zip")
+    zt = threading.Thread(target=lambda: None if a.no_portable else zipped.append(portable_zip(app)), name="portable-zip")
     zt.start()
     try:
         if not a.no_installer:
             installer()
     finally:
         zt.join()
-    if not zipped:
+    if not zipped and not a.no_portable:
         raise SystemExit("portable zip failed (see above)")
     if not a.no_msix:
         import msix

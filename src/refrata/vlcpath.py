@@ -50,6 +50,31 @@ def candidates() -> list[Path]:
     return out
 
 
+# the modification time every bundled VLC plugin has (tools/build.py stamps it before vlc-cache-gen)
+PLUGIN_MTIME = 1_700_000_000
+
+
+def restore_plugin_times() -> int:
+    """Give the bundled VLC plugins back the time their cache expects; how many needed it.
+
+    plugins.dat lists each plugin's size and modification time; when one differs, libVLC loads that
+    DLL to describe it again. Installers and zips store local times, so on a computer in another time
+    zone every plugin differed and the first start loaded all 358 (34 s here, while the antivirus
+    checked each one; 2 s with the cache valid). Only our own copy, never a VLC installed by the user.
+    """
+    if not getattr(sys, "frozen", False) or sys.platform != "win32":
+        return 0
+    changed = 0
+    for p in (app_root() / "vlc" / "plugins").rglob("*_plugin.dll"):
+        try:
+            if int(p.stat().st_mtime) != PLUGIN_MTIME:
+                os.utime(p, (PLUGIN_MTIME, PLUGIN_MTIME))
+                changed += 1
+        except OSError:     # read-only (an MSIX package): libVLC falls back to loading that plugin
+            pass
+    return changed
+
+
 def preload_qt() -> int:
     """Load the bundled Qt and FFmpeg DLLs by full path (frozen build only); returns how many loaded.
 

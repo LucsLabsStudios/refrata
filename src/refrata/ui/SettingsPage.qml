@@ -124,6 +124,15 @@ Flickable {
                 }
             }
             SettingRow {
+                title: qsTr("Tamanho da interface"); desc: qsTr("Textos e botões menores cabem melhor em telas com escala alta. Vale ao abrir o Refrata de novo.")
+                Segmented {
+                    objectName: "uiScaleSeg"
+                    options: [{ text: "70%", value: 70 }, { text: "80%", value: 80 }, { text: "90%", value: 90 }, { text: "100%", value: 100 }]
+                    value: settings.uiScale
+                    onPicked: (v) => settings.uiScale = v
+                }
+            }
+            SettingRow {
                 title: qsTr("Cor de destaque"); desc: qsTr("Usada em botões, progresso e seleção.")
                 Row {
                     spacing: 10
@@ -200,7 +209,7 @@ Flickable {
                 desc: qsTr("Cria quadros intermediários na GPU: filmes de 24 e 30 fps passam a rodar a 60, 120 ou na taxa do seu monitor (%1 Hz).").arg(Math.round(appctl.refreshRate(Screen.name) || 60))
                 Segmented {
                     objectName: "smoothMotionSeg"
-                    options: [{ text: qsTr("Desligado"), value: "off" }, { text: "60 fps", value: "60" },
+                    options: [{ text: qsTr("Desligado"), value: "off" }, { text: "2x", value: "2x" }, { text: "60 fps", value: "60" },
                               { text: "120 fps", value: "120" }, { text: qsTr("Máximo"), value: "max" }]
                     value: settings.smoothMotion
                     onPicked: (v) => settings.smoothMotion = v

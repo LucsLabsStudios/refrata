@@ -282,7 +282,7 @@ Item {
         border: Qt.rgba(1, 1, 1, 0.26)
         blurMax: 64
         readonly property bool compact: width < 900
-        HoverHandler { onHoveredChanged: if (stage.pv) stage.pv.pinned = hovered }
+        HoverHandler { onHoveredChanged: if (stage.pv) stage.pv.musicPinned = hovered }
 
         Row {
             id: transport

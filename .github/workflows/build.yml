@@ -12,14 +12,34 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
       - name: Python dependencies
-        run: pip install -r requirements.txt -r requirements-dev.txt
+        run: pip install -r requirements.txt -r requirements-dev.txt maturin libclang aqtinstall
+
+      # the native module (native/: Rust + C++ against Qt) needs the Qt SDK of the version PySide6
+      # ships, and whisper.cpp's Vulkan backend needs the Vulkan SDK (tools/build.py, native_module)
+      - name: Cache Qt SDK
+        id: qtcache
+        uses: actions/cache@v5
+        with:
+          path: C:\Tools\Qt
+          key: qt-6.8.1-msvc2022_64-multimedia
+
+      - name: Qt SDK 6.8.1
+        if: steps.qtcache.outputs.cache-hit != 'true'
+        run: python -m aqt install-qt windows desktop 6.8.1 win64_msvc2022_64 -m qtmultimedia --outputdir C:\Tools\Qt
+
+      - name: Vulkan SDK
+        run: |
+          Invoke-WebRequest -Uri https://sdk.lunarg.com/sdk/download/latest/windows/vulkan-sdk.exe -OutFile $env:RUNNER_TEMP\vulkan-sdk.exe
+          Start-Process -Wait -FilePath $env:RUNNER_TEMP\vulkan-sdk.exe -ArgumentList '--root','C:\VulkanSDK\latest','--accept-licenses','--default-answer','--confirm-command','install'
+          if (-not (Test-Path C:\VulkanSDK\latest\Bin\glslc.exe)) { throw "Vulkan SDK did not install" }
+          "VULKAN_SDK=C:\VulkanSDK\latest" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       # libVLC itself is downloaded by the build: the official VideoLAN zip of tools/vlc-version.txt
       - name: Inno Setup
@@ -41,7 +61,7 @@ jobs:
 
       - name: Upload artifacts
         id: upload
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: refrata-windows
           path: |

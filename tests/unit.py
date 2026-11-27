@@ -1372,6 +1372,49 @@ def clips_and_tools_helpers():
     check(tools._fmt(65_000) == "1:05" and tools._fmt(3_725_000) == "1:02:05", "times")
 
 
+@test
+def vlc_plugin_cache_survives_another_time_zone():
+    """Installers keep local times: every plugin's time must go back to the one plugins.dat holds,
+    or libVLC loads all 358 DLLs on the first start (34 s instead of 2 s)."""
+    import os
+    import tempfile
+    from refrata import vlcpath
+    with tempfile.TemporaryDirectory() as d:
+        plugins = Path(d) / "vlc" / "plugins" / "codec"
+        plugins.mkdir(parents=True)
+        for n in ("libavcodec_plugin.dll", "libx_plugin.dll"):
+            (plugins / n).write_bytes(b"x")
+        os.utime(plugins / "libx_plugin.dll", (vlcpath.PLUGIN_MTIME, vlcpath.PLUGIN_MTIME))
+        (plugins / "other.dll").write_bytes(b"x")
+        real_root, real_frozen = vlcpath.app_root, getattr(sys, "frozen", None)
+        vlcpath.app_root = lambda: Path(d)
+        try:
+            check(vlcpath.restore_plugin_times() == 0, "from source: never touches plugins")
+            sys.frozen = True
+            if sys.platform == "win32":
+                check(vlcpath.restore_plugin_times() == 1, "only the plugin with another time is stamped")
+                check(int((plugins / "libavcodec_plugin.dll").stat().st_mtime) == vlcpath.PLUGIN_MTIME, "stamped")
+                check(int((plugins / "other.dll").stat().st_mtime) != vlcpath.PLUGIN_MTIME, "not a plugin: left alone")
+                check(vlcpath.restore_plugin_times() == 0, "a second start has nothing to do")
+        finally:
+            vlcpath.app_root = real_root
+            if real_frozen is None:
+                del sys.frozen
+            else:
+                sys.frozen = real_frozen
+
+
+@test
+def picture_settings_are_validated():
+    from refrata.settings import _valid
+    check(_valid("smoothMotion", "2x") and not _valid("smoothMotion", "3x"), "smooth motion 2x")
+    check(_valid("uiScale", 80) and not _valid("uiScale", 75) and not _valid("uiScale", "80"), "interface size")
+    check(_valid("motionFallback", "blend") and not _valid("motionFallback", "x"), "motion fallback")
+    check(_valid("picturePresets", [{"name": "A", "motion": "60"}]) and not _valid("picturePresets", [{"motion": "60"}]),
+          "presets need a name")
+    check(_valid("smoothMotionLast", "max") and not _valid("smoothMotionLast", "off"), "last strength is never off")
+
+
 def main():
     only = sys.argv[sys.argv.index("-k") + 1] if "-k" in sys.argv else ""
     t0 = time.time()

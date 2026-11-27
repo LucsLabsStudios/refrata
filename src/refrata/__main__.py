@@ -67,6 +67,25 @@ VLC_DIR = configure_vlc()
 QT_PRELOADED = preload_qt()
 os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
 
+
+def _ui_scale():
+    """Settings › Aparência › Tamanho da interface: Qt reads the scale only before the application
+    exists, so it comes straight from settings.json here (a change applies at the next start)."""
+    if os.environ.get("QT_SCALE_FACTOR"):
+        return
+    try:
+        import json
+        base = os.environ.get("REFRATA_DATA") or os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "Refrata")
+        with open(os.path.join(base, "settings.json"), encoding="utf-8-sig") as f:
+            v = json.load(f).get("settings", {}).get("uiScale", 100)
+        if v in (70, 80, 90):
+            os.environ["QT_SCALE_FACTOR"] = str(v / 100)
+    except Exception:
+        pass
+
+
+_ui_scale()
+
 import shiboken6  # noqa: E402
 from PySide6.QtCore import QLoggingCategory, QObject, QTimer, QUrl, Slot, qInstallMessageHandler  # noqa: E402
 from PySide6.QtGui import QFont, QGuiApplication, QIcon  # noqa: E402

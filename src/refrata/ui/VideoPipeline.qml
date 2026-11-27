@@ -27,6 +27,8 @@ Item {
     property int orientation: 0
     property bool smoothMotion: false  // smooth motion wanted
     property real maxFps: 0            // 0 = every display refresh
+    property bool doubleRate: false    // "2x": only the real frames and the midpoints between them
+    property bool softFallback: false  // motion not found (no cut): blend the frames, not the real one
     property int hdr: 0                // 0 SDR, 1 PQ, 2 HLG
     property real srcPeak: 1000
     property real light: 0             // 0..1
@@ -36,6 +38,7 @@ Item {
     property string outputName: "videoOutput"   // objectName of the plain output (tests find it)
     // HDR screen (hdroutput.py): the picture is written for the window's scRGB layer
     property bool hdrOut: false
+    property bool linearOut: false     // in a scRGB window (hdroutput.py): Qt draws video in linear light
     property real outWhite: 80         // nits of the desktop's SDR white
     property real outPeak: 0           // the screen's peak, nits
     // HDR10+ (hdr10plus.py): the current scene's metadata, {} when the file has none
@@ -72,7 +75,7 @@ Item {
     }
     // smooth motion: off | on (in-betweens drawn) | idle (the video is already as fast as the screen)
     readonly property string motionState: !smoothMotion ? "off" : interpolating ? "on" : playing ? "idle" : "ready"
-    readonly property real motionTo: Math.min(displayHz, maxFps > 0 ? maxFps : 1e9)
+    readonly property real motionTo: doubleRate && interval > 0 ? Math.min(displayHz, 2000 / interval) : Math.min(displayHz, maxFps > 0 ? maxFps : 1e9)
     Loader {
         id: rtxLoader
         anchors.fill: parent
@@ -92,7 +95,7 @@ Item {
     readonly property alias output: voA
     readonly property alias videoSink: voA.videoSink
     // shows the processed picture (vs. the plain VideoOutput)
-    readonly property bool active: smoothMotion || hdrIn > 0 || light > 0.001 || detail > 0.001
+    readonly property bool active: smoothMotion || hdrIn > 0 || light > 0.001 || detail > 0.001 || linearOut
     readonly property bool pairing: smoothMotion
     // in-betweens are worth drawing only when the display is clearly faster than the source
     // the refresh rate of the screen the window is on, from Python (QML's Screen has no refresh
@@ -103,8 +106,18 @@ Item {
     }
     readonly property bool interpolating: smoothMotion && playing && interval > 0
                                           && 1000 / interval < Math.min(displayHz, maxFps > 0 ? maxFps : 1e9) * 0.92
+                                          && (!doubleRate || 2000 / interval <= displayHz * 1.05)
     readonly property real dpr: Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1
-    readonly property size srcPx: Qt.size(Math.max(2, Math.round(width * dpr)), Math.max(2, Math.round(height * dpr)))
+    // the passes work at the video's own resolution when the screen shows it larger: a 1080p film
+    // full screen on a 4K monitor did all of them on 4x the pixels, and in-betweens were late
+    // (36 new pictures a second instead of ~60). Not under RTX Video, whose upscale is the point.
+    readonly property real capScale: {
+        if (rtxOn) return 1
+        var cw = Math.max(voA.contentRect.width, voA.contentRect.height) * dpr
+        var sw = Math.max(voA.sourceRect.width, voA.sourceRect.height)
+        return sw > 0 && cw > sw ? Math.max(0.25, sw / cw) : 1
+    }
+    readonly property size srcPx: Qt.size(Math.max(2, Math.round(width * dpr * capScale)), Math.max(2, Math.round(height * dpr * capScale)))
 
     // ---------------------------------------------------------------- timing
     property bool bNewer: false        // the newest frame is in voB
@@ -113,6 +126,7 @@ Item {
     property real _measured: 0
     property real _arrival: 0          // smoothed arrival time of the newest frame (ms)
     property real _lastRaw: 0
+    property real _span: 0             // time from the older to the newer frame of the pair (ms; 0 = interval)
     property int _frames: 0            // frames since the pair was (re)started
 
     signal pipelineDelay(real ms)
@@ -121,24 +135,44 @@ Item {
 
     function now() { return Date.now() }
 
+    // when libVLC displayed the frame being handed over (ms, Date.now()'s clock): set by the native
+    // path just before frameArrived. The UI thread only gets to a frame when it is free (once per
+    // refresh, often later); timing in-betweens by that moment made them jitter and run out (the
+    // same picture twice) while the next frame was already decoded. 0: the Python path, no stamp.
+    property real frameStamp: 0
     // the engine put a new frame in voB (slot 1) or voA (slot 0)
     function frameArrived(slot) {
-        var t = now()
+        var stamp = frameStamp
+        frameStamp = 0
+        var t = stamp > 0 ? Math.min(stamp, now()) : now()
         var gap = t - _lastRaw
         _lastRaw = t
         bNewer = slot === 1
-        if (_frames > 0 && gap > 0 && gap < 1000)
-            _measured = _measured > 0 ? _measured * 0.9 + gap * 0.1 : gap
         var iv = interval
+        if (_frames > 0 && gap > 0 && gap < 1000 && (iv <= 0 || gap < iv * 1.5))
+            _measured = _measured > 0 ? _measured * 0.9 + gap * 0.1 : gap
         // a stall, a seek or the first frame: show it as is and start the clock again
-        if (_frames === 0 || iv <= 0 || gap > iv * 2.5) {
+        if (_frames === 0 || iv <= 0 || gap > iv * 3.5) {
             _arrival = t
+            _span = iv
             phase = 1
         } else {
-            // arrivals jitter with the UI thread; follow the steady beat instead (a slow PLL)
-            var predicted = _arrival + iv
-            var err = t - predicted
-            _arrival = Math.abs(err) < iv * 0.5 ? predicted + err * 0.12 : t
+            var k = Math.max(1, Math.round(gap / iv))
+            if (k >= 2) {
+                // libVLC dropped k-1 late pictures: this pair is k intervals apart. Treated as
+                // neighbours, the in-betweens crossed k frames of motion in the time of one (the
+                // picture ran at 2x, users saw a sudden "run"); spanning the whole gap from where
+                // the lag puts us, it skips one picture and goes on at normal speed (simulation
+                // with 3% dropped: running fast 2.6% of the time -> 0.4%)
+                _span = k * iv
+                _arrival = t - (k - 1) * iv
+            } else {
+                // arrivals jitter with the UI thread; follow the steady beat instead (a slow PLL)
+                var predicted = _arrival + (_span > 0 ? _span : iv)
+                var err = t - predicted
+                _arrival = Math.abs(err) < iv * 0.5 ? predicted + err * 0.12 : t
+                _span = iv
+            }
             phase = 0
         }
         _frames++
@@ -149,10 +183,23 @@ Item {
     function tick() {
         if (phaseOverride >= 0) { phase = phaseOverride; return }
         if (!interpolating) { phase = 1; return }
-        var p = (now() - _arrival) / interval
-        if (maxFps > 0) {
+        var span = _span > 0 ? _span : interval
+        var p = (now() - _arrival) / span
+        // a cap at or above the screen's own rate caps nothing (the screen shows one picture per
+        // refresh anyway): quantizing then only made two refreshes land on the same step, the same
+        // picture twice (measured: 60 on a 60 Hz screen gave ~34 new pictures a second, "max" ~45)
+        if (doubleRate) {
+            // 2x (Splash's "Motion 2x"): the real frame, then the one halfway, each for half the
+            // frame's time. Half of what is shown is the film itself; the in-between is the
+            // easiest one to find, and motion stays closer to cinema than at 60
+            // Each picture is centred on its own moment: the real frame up to a quarter of the
+            // way, the midpoint to three quarters, then the next real frame. Floored instead, the
+            // midpoint often got a single refresh and any late render lost it (measured on a
+            // 24 fps clip at 60 Hz: 36.8 new pictures/s floored, 41.7 centred; 48 is the most)
+            p = Math.min(1, Math.round(p * 2) / 2)
+        } else if (maxFps > 0 && maxFps < displayHz * 0.95) {
             // cap: whole steps of the chosen rate within each source frame
-            var steps = Math.max(1, Math.round(interval * maxFps / 1000))
+            var steps = Math.max(1, Math.round(span * maxFps / 1000))
             p = Math.floor(p * steps) / steps
         }
         phase = Math.max(0, Math.min(1, p))
@@ -187,24 +234,42 @@ Item {
         active: vp.active && vp.visible
         sourceComponent: Item {
             id: g
+            readonly property bool linear: vp.linearOut && !vp.rtxOn
             readonly property int fmt: vp.hdrIn > 0 ? ShaderEffectSource.RGBA16F : ShaderEffectSource.RGBA8
 
             ShaderEffectSource {
                 id: capA
                 sourceItem: vp.rtxOn ? vp.rtxItem : voA
                 hideSource: true
-                mipmap: true
-                format: g.fmt
+                mipmap: !g.linear           // encoded first: the passes read that copy's levels
+                format: g.linear ? ShaderEffectSource.RGBA16F : g.fmt
                 textureSize: vp.srcPx
             }
             ShaderEffectSource {
                 id: capB
                 sourceItem: vp.pairing ? voB : null
                 hideSource: true
-                mipmap: true
-                format: g.fmt
+                mipmap: !g.linear           // encoded first: the passes read that copy's levels
+                format: g.linear ? ShaderEffectSource.RGBA16F : g.fmt
                 textureSize: vp.srcPx
             }
+
+            // a scRGB window: the video's encoded values back, once per decoded frame (srgbencode.frag).
+            // The VideoOutputs stay direct children of this item: the engine finds the pipeline as
+            // their parent (Engine.setPairSinks)
+            component Encode: ShaderEffect {
+                property variant source
+                width: vp.width; height: vp.height
+                visible: g.linear
+                blending: false
+                fragmentShader: "shaders/srgbencode.frag.qsb"
+            }
+            Encode { id: encA; source: capA }
+            Encode { id: encB; source: capB; visible: g.linear && vp.pairing }
+            ShaderEffectSource { id: encAs; sourceItem: g.linear ? encA : null; hideSource: true; mipmap: true; format: g.fmt; textureSize: vp.srcPx }
+            ShaderEffectSource { id: encBs; sourceItem: g.linear && vp.pairing ? encB : null; hideSource: true; mipmap: true; format: g.fmt; textureSize: vp.srcPx }
+            readonly property var baseA: linear ? encAs : capA
+            readonly property var baseB: linear ? encBs : capB
 
             // detail boost, once per decoded frame
             component Detail: ShaderEffect {
@@ -212,18 +277,18 @@ Item {
                 property size srcPx: vp.srcPx
                 property real amount: vp.detail
                 // screen pixels per video pixel: the sharpening works on the video's own detail
-                property real radius: Math.max(1.0, Math.min(4.0, voA.contentRect.width * vp.dpr
+                property real radius: Math.max(1.0, Math.min(4.0, voA.contentRect.width * vp.dpr * vp.capScale
                                                                     / Math.max(1, voA.sourceRect.width)))
                 width: vp.width; height: vp.height
                 visible: vp.detail > 0.001
                 fragmentShader: "shaders/detail.frag.qsb"
             }
-            Detail { id: detA; objectName: "detailA"; source: capA }
-            Detail { id: detB; source: capB; visible: vp.detail > 0.001 && vp.pairing }
+            Detail { id: detA; objectName: "detailA"; source: g.baseA }
+            Detail { id: detB; source: g.baseB; visible: vp.detail > 0.001 && vp.pairing }
             ShaderEffectSource { id: sharpA; sourceItem: vp.detail > 0.001 ? detA : null; hideSource: true; mipmap: true; format: g.fmt; textureSize: vp.srcPx }
             ShaderEffectSource { id: sharpB; sourceItem: vp.detail > 0.001 && vp.pairing ? detB : null; hideSource: true; mipmap: true; format: g.fmt; textureSize: vp.srcPx }
-            readonly property var srcA: vp.detail > 0.001 ? sharpA : capA
-            readonly property var srcB: vp.detail > 0.001 ? sharpB : capB
+            readonly property var srcA: vp.detail > 0.001 ? sharpA : baseA
+            readonly property var srcB: vp.detail > 0.001 ? sharpB : baseB
             readonly property var newer: vp.pairing && vp.bNewer ? srcB : srcA
             readonly property var older: vp.pairing ? (vp.bNewer ? srcA : srcB) : srcA
 
@@ -270,7 +335,10 @@ Item {
                 id: med
                 property variant field: fq
                 property size fieldPx: fq.textureSize
-                property real badErr: 0.06
+                property real cutAt: 0.7
+                property size srcPx: vp.srcPx
+                property variant older: g.older
+                property variant newer: g.newer
                 width: vp.width; height: vp.height
                 visible: vp.interpolating
                 fragmentShader: "shaders/vecmedian.frag.qsb"
@@ -315,6 +383,7 @@ Item {
                 property size srcPx: vp.srcPx
                 property real phase: vp.phase
                 property real interp: vp.interpolating ? 1 : 0
+                property real soft: vp.softFallback ? 1 : 0
                 property real hdr: vp.hdrIn
                 property real srcPeak: vp.srcPeak
                 property real light: vp.light
