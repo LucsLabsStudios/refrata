@@ -1244,6 +1244,19 @@ def t33_player_controls_by_mouse():
     ui_click(pop, "seg_2"); poke()
     check(pv.property("fillMode") == 2, "fill mode segmented")
     ui_click(pop, "seg_1"); poke()
+    hdrout = C.parts.qml.rootContext().contextProperty("hdrout")
+    hdr_screen = bool(hdrout.property("screenInfo").get("hdr"))
+    tog = find_under(pop, "adjHdrToggle")
+    check(tog is not None and tog.isVisible() == hdr_screen, "real-HDR switch in the Imagem panel only on an HDR screen",
+          f"visible={tog is not None and tog.isVisible()} hdr screen={hdr_screen}")
+    if hdr_screen:
+        was = C.parts.settings.hdrOutput
+        ui_click(pop, "adjHdrToggle"); poke()
+        check(C.parts.settings.hdrOutput != was, "the panel's real-HDR switch changes the setting", C.parts.settings.hdrOutput)
+        C.parts.settings.hdrOutput = was
+        pump(1.5); poke()
+    badge = C.parts.find("pvHdrBadge")
+    check(badge is not None and not badge.isVisible(), "no HDR badge on an SDR video")
     # picture panel (Realces): presets, switches that remember their strength, G / V / Shift+V
     s = C.parts.settings
     keep = (s.smoothMotion, s.lightBoost, s.detailBoost)
@@ -1282,6 +1295,12 @@ def t33_player_controls_by_mouse():
     key(C.parts, Qt.Key.Key_G)
     wait(lambda: pop.property("opacity") > 0.95, 2, "G opens the picture panel")
     key(C.parts, Qt.Key.Key_G)
+    wait(lambda: pop.property("opacity") < 0.05, 2, "G closes it again")
+    poke()
+    ui_click("pvPicture"); poke()
+    wait(lambda: pop.property("opacity") > 0.95 and find_under(pop, "pictureMotionSeg") is not None, 2,
+         "the Realces button opens the picture panel")
+    ui_click("pvPicture"); poke()
     s.smoothMotion, s.lightBoost, s.detailBoost = keep
     s.setValue("picturePresets", [])
     poke()

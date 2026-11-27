@@ -1115,6 +1115,11 @@ def feature_hdr10_tone_mapping():
     _paused_at(2000)
     pipe = H.parts.find("videoPipeline")
     check(pipe.property("active") and pipe.property("hdr") == 1, "the HDR pipeline is on")
+    badge = H.parts.find("pvHdrBadge")
+    real = bool(H.parts.qml.rootContext().contextProperty("hdrout").property("active"))
+    check(badge is not None and badge.isVisible(), "the HDR badge shows next to the resolution")
+    check(badge.property("real") == real, "the badge says real HDR only when the screen shows it",
+          f"badge real={badge.property('real')} hdr output={real}")
     check(H.parts.find("videoPresent") is not None, "the tone-mapping pass is in the scene")
     ref = QImage(H.fx["pipe_hdr_ref"])
     med, mean = _diff_to(ref, _screen_video())
